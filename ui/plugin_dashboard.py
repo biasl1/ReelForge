@@ -5,6 +5,7 @@ Displays plugin information for the current project (one plugin per project)
 
 from pathlib import Path
 from typing import Optional
+from datetime import datetime
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, 
     QPushButton, QGroupBox, QFormLayout, QScrollArea,
@@ -364,8 +365,8 @@ class PluginDashboard(QWidget):
         layout.addWidget(moodboard_group)
         
         # Generate button (placeholder for future AI integration)
-        self.generate_btn = QPushButton("🚀 Generate All Content (Coming Soon)")
-        self.generate_btn.setEnabled(False)
+        self.generate_btn = QPushButton("🚀 Generate AI Data JSON")
+        self.generate_btn.clicked.connect(self._generate_ai_data_json)
         self.generate_btn.setStyleSheet("""
             QPushButton {
                 background-color: #007acc;
@@ -375,6 +376,9 @@ class PluginDashboard(QWidget):
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: #1177bb;
             }
             QPushButton:disabled {
                 background-color: #464647;
@@ -561,3 +565,139 @@ class PluginDashboard(QWidget):
                     "Import Failed",
                     "Failed to import plugin information. Please check the file format."
                 )
+                
+    def _generate_ai_data_json(self):
+        """Generate AI data JSON file for content generation"""
+        if not self.current_project:
+            QMessageBox.warning(self, "No Project", "Please create or open a project first.")
+            return
+            
+        # Check if we have minimum requirements
+        if not self.current_project.current_plugin:
+            QMessageBox.warning(
+                self, 
+                "No Plugin", 
+                "Please import a plugin (.adsp file) first.\n\nThe AI needs plugin information to generate relevant content."
+            )
+            return
+            
+        if not self.current_project.release_events:
+            reply = QMessageBox.question(
+                self,
+                "No Scheduled Content",
+                "No content events are scheduled on the timeline.\n\nDo you want to generate AI data anyway?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+        
+        try:
+            # Get complete AI generation data
+            ai_data = self.current_project.get_ai_generation_data()
+            
+            # Add metadata for AI processing
+            ai_data["generation_info"] = {
+                "export_date": datetime.now().isoformat(),
+                "project_name": self.current_project.project_name,
+                "version": "1.3.0",
+                "format": self.current_project.metadata.format,
+                "total_assets": len(ai_data.get("assets", [])),
+                "total_events": len(ai_data.get("scheduled_content", [])),
+                "has_global_prompt": bool(ai_data.get("global_prompt")),
+                "has_moodboard": bool(ai_data.get("moodboard_path"))
+            }
+            
+            # Add AI processing instructions
+            ai_data["ai_instructions"] = {
+                "content_generation_workflow": [
+                    "1. Use plugin info to understand the product and its unique features",
+                    "2. Apply global_prompt for consistent brand voice and style",
+                    "3. Use moodboard for visual style guidance (if provided)",
+                    "4. Select appropriate assets from the assets list for each content piece",
+                    "5. Generate content based on each scheduled_content item's prompt",
+                    "6. Ensure platform-specific optimization for each target platform"
+                ],
+                "content_requirements": {
+                    "reel": "15-60 seconds, vertical 9:16, engaging hook in first 3 seconds",
+                    "story": "15 seconds max, vertical 9:16, quick and engaging",
+                    "post": "Static or short video, square 1:1, informative and branded",
+                    "teaser": "10-15 seconds, any format, mysterious/exciting",
+                    "tutorial": "60-300 seconds, landscape 16:9, educational and clear"
+                },
+                "asset_selection_guidance": [
+                    "Choose assets that best demonstrate the prompt requirements",
+                    "Prefer audio assets for showcasing plugin sound",
+                    "Use video assets for UI demonstrations",
+                    "Combine multiple assets when needed for comprehensive content"
+                ]
+            }
+            
+            # Choose export location
+            current_time = datetime.now()
+            default_name = f"{self.current_project.project_name}_ai_data_{current_time.strftime('%Y%m%d_%H%M%S')}.json"
+            
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Export AI Generation Data",
+                str(Path.home() / default_name),
+                "JSON Files (*.json);;All Files (*)"
+            )
+            
+            if file_path:
+                # Export the JSON
+                import json
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump(ai_data, f, indent=2, ensure_ascii=False)
+                
+                # Show success message with details
+                plugin_name = ai_data.get("plugin", {}).get("name", "Unknown") if ai_data.get("plugin") else "None"
+                events_count = len(ai_data.get("scheduled_content", []))
+                assets_count = len(ai_data.get("assets", []))
+                
+                QMessageBox.information(
+                    self,
+                    "AI Data Exported Successfully!",
+                    f"AI generation data exported to:\n{file_path}\n\n"
+                    f"📊 Data Summary:\n"
+                    f"Plugin: {plugin_name}\n"
+                    f"Scheduled Content: {events_count} events\n"
+                    f"Available Assets: {assets_count} files\n"
+                    f"Global Prompt: {'✓' if ai_data.get('global_prompt') else '✗'}\n"
+                    f"Moodboard: {'✓' if ai_data.get('moodboard_path') else '✗'}\n\n"
+                    f"This JSON contains all the information needed for AI content generation!"
+                )
+                
+                # Offer to open the file
+                reply = QMessageBox.question(
+                    self,
+                    "Open File?",
+                    "Would you like to open the exported JSON file to review the data?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    import subprocess
+                    import sys
+                    
+                    try:
+                        if sys.platform == "darwin":  # macOS
+                            subprocess.call(["open", file_path])
+                        elif sys.platform == "win32":  # Windows
+                            subprocess.call(["start", file_path], shell=True)
+                        else:  # Linux
+                            subprocess.call(["xdg-open", file_path])
+                    except Exception as e:
+                        QMessageBox.information(
+                            self, 
+                            "File Location", 
+                            f"File saved at:\n{file_path}\n\n(Could not auto-open: {e})"
+                        )
+                
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Export Failed",
+                f"Failed to export AI generation data:\n\n{str(e)}\n\nPlease check your project data and try again."
+            )

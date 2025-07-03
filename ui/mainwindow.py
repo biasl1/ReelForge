@@ -508,7 +508,7 @@ class MainWindow(QMainWindow):
                     "Delete Failed",
                     "Failed to delete the event. Please try again."
                 )
-            
+
     def _on_timeline_duration_changed(self, weeks):
         """Handle timeline duration change"""
         if self.current_project and self.current_project.timeline_plan:
@@ -574,9 +574,8 @@ class MainWindow(QMainWindow):
     def _on_event_updated(self, event):
         """Handle event update"""
         if self.current_project:
-            # Remove old event and add updated one
-            self.current_project.remove_release_event(event.id)
-            if self.current_project.add_release_event(event):
+            # Use the proper update method that handles date changes correctly
+            if self.current_project.update_release_event(event):
                 self._update_timeline_display()
                 self.status_bar.showMessage(f"Event '{event.title}' updated", 2000)
             else:
@@ -591,7 +590,14 @@ class MainWindow(QMainWindow):
         if not self.current_project or not self.current_project.timeline_plan:
             return
             
-        # Group events by date
+        # Update timeline controls FIRST (this rebuilds the timeline canvas)
+        timeline_plan = self.current_project.timeline_plan
+        from datetime import datetime
+        start_date = datetime.fromisoformat(timeline_plan.start_date)
+        self.timeline_controls.set_duration(timeline_plan.duration_weeks)
+        self.timeline_controls.set_start_date(start_date)
+        
+        # THEN group events by date and update canvas
         events_by_date = {}
         for date_str, event_ids in self.current_project.timeline_plan.events.items():
             events = [
@@ -602,12 +608,5 @@ class MainWindow(QMainWindow):
             if events:
                 events_by_date[date_str] = events
                 
-        # Update timeline canvas
+        # Update timeline canvas with events (after it's been rebuilt)
         self.timeline_canvas.update_events(events_by_date)
-        
-        # Update timeline controls if needed
-        timeline_plan = self.current_project.timeline_plan
-        from datetime import datetime
-        start_date = datetime.fromisoformat(timeline_plan.start_date)
-        self.timeline_controls.set_duration(timeline_plan.duration_weeks)
-        self.timeline_controls.set_start_date(start_date)

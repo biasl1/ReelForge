@@ -176,60 +176,78 @@ class ReelForgeProject:
         """Remove a release event"""
         try:
             if event_id not in self.release_events:
+                print(f"Event {event_id} not found in release_events")
                 return False
                 
             event = self.release_events[event_id]
+            print(f"Removing event: {event.title} (ID: {event_id}) from date: {event.date}")
             
             # Remove from timeline plan
             if self.timeline_plan and event.date in self.timeline_plan.events:
                 if event_id in self.timeline_plan.events[event.date]:
                     self.timeline_plan.events[event.date].remove(event_id)
+                    print(f"Removed event from timeline_plan.events[{event.date}]")
                     
                 # Clean up empty date entries
                 if not self.timeline_plan.events[event.date]:
                     del self.timeline_plan.events[event.date]
+                    print(f"Cleaned up empty date entry: {event.date}")
+            else:
+                print(f"Event date {event.date} not found in timeline_plan.events")
                     
             # Remove from events dict
             del self.release_events[event_id]
+            print(f"Event {event_id} removed from release_events")
             
             self.mark_modified()
             return True
             
         except Exception as e:
             print(f"Error removing release event: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
-    def get_events_for_date(self, date: datetime) -> List[ReleaseEvent]:
-        """Get all events for a specific date"""
-        if not self.timeline_plan:
-            return []
+    def update_release_event(self, event: ReleaseEvent) -> bool:
+        """Update an existing release event"""
+        try:
+            if event.id not in self.release_events:
+                print(f"Event {event.id} not found for updating")
+                return False
+                
+            old_event = self.release_events[event.id]
+            old_date = old_event.date
+            new_date = event.date
             
-        date_str = date.date().isoformat()
-        event_ids = self.timeline_plan.events.get(date_str, [])
-        
-        return [self.release_events[event_id] for event_id in event_ids 
-                if event_id in self.release_events]
-    
-    def get_events_in_range(self, start_date: datetime, end_date: datetime) -> List[ReleaseEvent]:
-        """Get all events in date range"""
-        events = []
-        current_date = start_date
-        
-        while current_date <= end_date:
-            events.extend(self.get_events_for_date(current_date))
-            current_date += timedelta(days=1)
+            print(f"Updating event: {event.title} (ID: {event.id})")
+            print(f"Date change: {old_date} -> {new_date}")
             
-        return events
-    
-    def update_timeline_duration(self, weeks: int):
-        """Update timeline duration"""
-        if not self.timeline_plan:
-            self.initialize_timeline()
+            # If date changed, update timeline plan
+            if old_date != new_date and self.timeline_plan:
+                # Remove from old date
+                if old_date in self.timeline_plan.events and event.id in self.timeline_plan.events[old_date]:
+                    self.timeline_plan.events[old_date].remove(event.id)
+                    if not self.timeline_plan.events[old_date]:
+                        del self.timeline_plan.events[old_date]
+                        
+                # Add to new date
+                if new_date not in self.timeline_plan.events:
+                    self.timeline_plan.events[new_date] = []
+                if event.id not in self.timeline_plan.events[new_date]:
+                    self.timeline_plan.events[new_date].append(event.id)
             
-        # Clamp weeks to valid range
-        weeks = max(1, min(4, weeks))
-        self.timeline_plan.duration_weeks = weeks
-        self.mark_modified()
+            # Update the event data
+            self.release_events[event.id] = event
+            
+            self.mark_modified()
+            print(f"Event {event.id} updated successfully")
+            return True
+            
+        except Exception as e:
+            print(f"Error updating release event: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
 
     # Plugin Management Methods
     def import_plugin_info(self, adsp_file_path: Path) -> bool:

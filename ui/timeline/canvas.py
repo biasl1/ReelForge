@@ -118,12 +118,15 @@ class DayCell(QFrame):
         
     def update_events_display(self):
         """Update the visual display of events"""
-        # Clear existing event widgets
-        while self.events_layout.count():
-            child = self.events_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
-                
+        # Clear existing event widgets safely
+        for i in reversed(range(self.events_layout.count())):
+            child = self.events_layout.itemAt(i)
+            if child:
+                widget = child.widget()
+                if widget:
+                    self.events_layout.removeWidget(widget)
+                    widget.deleteLater()
+                    
         # Add event indicators
         for event in self.events[:3]:  # Show max 3 events
             event_widget = self.create_event_indicator(event)
@@ -347,17 +350,23 @@ class TimelineCanvas(QScrollArea):
         
     def set_duration(self, weeks: int):
         """Set timeline duration"""
-        if 1 <= weeks <= 4:
+        if 1 <= weeks <= 4 and weeks != self.duration_weeks:
             self.duration_weeks = weeks
             self.rebuild_timeline()
             
     def set_start_date(self, date: datetime):
         """Set timeline start date"""
-        self.current_start_date = date
-        self.rebuild_timeline()
+        if date != self.current_start_date:
+            self.current_start_date = date
+            self.rebuild_timeline()
         
     def update_events(self, events_by_date: Dict[str, List[ReleaseEvent]]):
         """Update events display on timeline"""
+        # First, clear all existing events from all day cells
+        for day_cell in self.day_cells.values():
+            day_cell.set_events([])
+            
+        # Then set events for dates that have them
         for date_str, events in events_by_date.items():
             if date_str in self.day_cells:
                 self.day_cells[date_str].set_events(events)
