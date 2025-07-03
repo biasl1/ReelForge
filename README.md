@@ -1,52 +1,50 @@
-# ReelForge
+# ReelTune
 
-**Professional Content Creation Tool**
+**Professional AI-Ready Social Media Content Planning Tool**
 
-ReelForge is a modern PyQt6-based desktop application designed for creating and managing social media content projects. Built with a clean, extensible architecture and featuring a VS Code-inspired dark theme.
+ReelTune is a modern PyQt6-based desktop application designed for professional content creators and audio plugin developers. Originally ReelForge, it has been transformed into a comprehensive content planning and management system with AI integration capabilities, timeline scheduling, and enhanced asset management.
 
 ## 🚀 Features
 
-### Core Foundation (MVP)
+### Core Foundation
 - **Project Management**: Create, save, and load projects with JSON-based `.rforge` files
-- **Asset Management**: Import and organize media files (video, audio, images)
-- **Professional UI**: VS Code-inspired dark theme with intuitive layout
+- **Enhanced Asset Panel**: Professional asset management with thumbnails, categorization, and import
+- **Professional UI**: Dark theme with responsive design and intuitive workflow
 - **Recent Projects**: Quick access to recently opened projects
-- **Drag & Drop**: Easy asset import via drag and drop
-- **File Browser**: Organized asset tree with type categorization
+- **AI-Ready Structure**: Comprehensive project data for AI content generation
 
-### 🎯 NEW: Timeline Canvas (v1.1.0)
-- **Interactive Calendar**: Week-based content planning grid
-- **Event Scheduling**: Double-click days to schedule content releases
-- **Visual Indicators**: Color-coded content type display (Reels, Stories, Posts, etc.)
-- **Timeline Navigation**: 1-4 week views with previous/next navigation
-- **Content Planning**: Complete event management with asset linking
-- **Platform Targeting**: Multi-platform content scheduling
-- **Status Tracking**: Planned → Ready → Published workflow
+### 🎯 Timeline & Event Management
+- **Interactive Timeline Canvas**: Professional calendar-based content planning
+- **Event Scheduling**: Create, edit, and delete content events with visual feedback
+- **Duration Control**: Flexible 1-4 week timeline views with seamless transitions
+- **Visual Event Display**: Color-coded content types with comprehensive event details
+- **Timeline Navigation**: Smooth previous/next navigation with date controls
+- **Event Persistence**: Reliable save/load with proper event-timeline synchronization
 
-### 🔌 NEW: Plugin Integration (v1.2.0)
+### 🖼️ Enhanced Asset Management
+- **Visual Asset Panel**: Thumbnail previews for images, video previews, and professional icons
+- **Smart Categorization**: Automatic grouping by Images, Videos, Audio, and Other files
+- **Asset Import**: Drag-and-drop and button-based import with file type detection
+- **Professional Design**: Responsive grid layout with category headers and modern styling
+- **Asset Integration**: Link assets to timeline events for complete content planning
+
+### 🔌 Plugin Integration
 - **Artista .adsp Import**: Import plugin metadata from Artista plugin files
 - **Plugin Information Dashboard**: Complete plugin details and management
-- **AI Content Preparation**: Structured data for future AI content generation
+- **AI Content Preparation**: Structured data for AI content generation
 - **Marketing Content**: Extract descriptions, features, and selling points
 - **Technical Specifications**: Plugin parameters, categories, and capabilities
-- **Content Generation Prompts**: AI-ready prompts for different content types
-- **Branding Integration**: Plugin colors, sizing, and visual elements
-
-### Project Templates
-- **Social Media - Square** (1080x1080) - Instagram posts
-- **Social Media - Vertical** (1080x1920) - TikTok, Reels, Shorts
-- **YouTube - Landscape** (1920x1080) - Standard YouTube
-- **Custom** - User-defined dimensions
 
 ## 🛠️ Technical Architecture
 
 ### Core Modules
-- **`core/project.py`** - Project data models and management
+- **`core/project.py`** - Enhanced project management with asset import and timeline integration
 - **`core/assets.py`** - Asset management and file operations
 - **`core/utils.py`** - Utility functions and helpers
 
 ### UI Components
-- **`ui/mainwindow.py`** - Main application window
+- **`ui/mainwindow.py`** - Main application with timeline integration and delayed event updates
+- **`ui/enhanced_asset_panel.py`** - Professional asset panel with thumbnails and categorization
 - **`ui/startup_dialog.py`** - Project creation/opening dialog
 - **`ui/menu.py`** - Menu bar management
 - **`ui/style_utils.py`** - Dark theme styling

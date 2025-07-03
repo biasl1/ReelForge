@@ -202,16 +202,26 @@ class TimelineControls(QWidget):
         
     def set_start_date(self, date: datetime):
         """Set the current start date"""
+        old_date = self.current_start_date
         self.current_start_date = date
         self.date_edit.setDate(QDate(date.year, date.month, date.day))
+        
+        # Emit signal if date actually changed
+        if old_date != date:
+            self.start_date_changed.emit(date)
         
     def set_duration(self, weeks: int):
         """Set the current duration"""
         if 1 <= weeks <= 4:
+            old_duration = self.current_duration
             self.current_duration = weeks
             button = self.duration_group.button(weeks)
             if button:
                 button.setChecked(True)
+            
+            # Emit signal if duration actually changed
+            if old_duration != weeks:
+                self.duration_changed.emit(weeks)
                 
     def get_current_settings(self):
         """Get current timeline settings"""

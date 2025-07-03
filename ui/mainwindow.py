@@ -25,177 +25,7 @@ from ui.timeline.canvas import TimelineCanvas
 from ui.timeline.controls import TimelineControls
 from ui.timeline.event_dialog import EventDialog
 from ui.plugin_dashboard import PluginDashboard
-
-
-class AssetPanel(QWidget):
-    """Asset management panel"""
-    
-    asset_selected = pyqtSignal(str)  # asset_id
-    asset_imported = pyqtSignal(str)  # asset_id
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.current_project = None
-        self.asset_manager = AssetManager()
-        
-        self._setup_ui()
-        
-    def _setup_ui(self):
-        """Setup asset panel UI"""
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
-        
-        # Title
-        title = QLabel("Project Assets")
-        title.setStyleSheet("font-weight: bold; font-size: 14px; padding: 5px;")
-        layout.addWidget(title)
-        
-        # Asset tree
-        self.asset_tree = QTreeWidget()
-        self.asset_tree.setHeaderLabels(["Name", "Type", "Size"])
-        self.asset_tree.setRootIsDecorated(True)
-        self.asset_tree.itemClicked.connect(self._on_asset_selected)
-        layout.addWidget(self.asset_tree)
-        
-        # Import button
-        import_button = QPushButton("Import Assets...")
-        import_button.clicked.connect(self._import_assets)
-        layout.addWidget(import_button)
-        
-        # Enable drag and drop
-        self.setAcceptDrops(True)
-        
-    def set_project(self, project: ReelForgeProject):
-        """Set current project"""
-        self.current_project = project
-        if project and project.project_directory:
-            self.asset_manager.set_project_directory(project.project_directory)
-        self._refresh_assets()
-        
-    def _refresh_assets(self):
-        """Refresh asset tree"""
-        self.asset_tree.clear()
-        
-        if not self.current_project:
-            return
-            
-        # Group assets by type
-        video_item = QTreeWidgetItem(["Video", "", ""])
-        audio_item = QTreeWidgetItem(["Audio", "", ""])
-        image_item = QTreeWidgetItem(["Images", "", ""])
-        other_item = QTreeWidgetItem(["Other", "", ""])
-        
-        self.asset_tree.addTopLevelItem(video_item)
-        self.asset_tree.addTopLevelItem(audio_item)
-        self.asset_tree.addTopLevelItem(image_item)
-        self.asset_tree.addTopLevelItem(other_item)
-        
-        # Add assets to appropriate categories
-        for asset in self.current_project.get_all_assets():
-            size_str = self.asset_manager.format_file_size(asset.file_size or 0)
-            item = QTreeWidgetItem([asset.name, asset.file_type, size_str])
-            item.setData(0, Qt.ItemDataRole.UserRole, asset.id)
-            
-            if asset.file_type == "video":
-                video_item.addChild(item)
-            elif asset.file_type == "audio":
-                audio_item.addChild(item)
-            elif asset.file_type == "image":
-                image_item.addChild(item)
-            else:
-                other_item.addChild(item)
-                
-        # Expand all categories
-        self.asset_tree.expandAll()
-        
-    def _on_asset_selected(self, item, column):
-        """Handle asset selection"""
-        asset_id = item.data(0, Qt.ItemDataRole.UserRole)
-        if asset_id:
-            self.asset_selected.emit(asset_id)
-            
-    def _import_assets(self):
-        """Import assets dialog"""
-        if not self.current_project:
-            return
-            
-        file_paths, _ = QFileDialog.getOpenFileNames(
-            self,
-            "Import Assets",
-            str(Path.home()),
-            "Media Files (*.mp4 *.mov *.avi *.mp3 *.wav *.jpg *.png);;All Files (*)"
-        )
-        
-        for file_path in file_paths:
-            self._import_single_asset(Path(file_path))
-            
-    def _import_single_asset(self, file_path: Path):
-        """Import a single asset"""
-        try:
-            # Validate file
-            file_info = self.asset_manager.validate_file(file_path)
-            if not file_info.is_supported:
-                QMessageBox.warning(
-                    self, 
-                    "Unsupported Format",
-                    f"The file format '{file_info.extension}' is not supported."
-                )
-                return
-                
-            # Copy to project directory
-            copied_path = self.asset_manager.copy_asset_to_project(file_path)
-            if not copied_path:
-                QMessageBox.critical(
-                    self,
-                    "Import Failed", 
-                    f"Failed to import asset: {file_path.name}"
-                )
-                return
-                
-            # Create asset reference
-            asset_id = self.asset_manager.generate_asset_id(copied_path)
-            relative_path = self.asset_manager.get_relative_path(copied_path)
-            
-            asset = AssetReference(
-                id=asset_id,
-                name=copied_path.name,
-                file_path=relative_path,
-                file_type=file_info.file_type,
-                file_size=file_info.size
-            )
-            
-            # Add to project
-            if self.current_project.add_asset(asset):
-                self._refresh_assets()
-                self.asset_imported.emit(asset_id)
-            else:
-                QMessageBox.warning(
-                    self,
-                    "Asset Exists",
-                    f"An asset with this name already exists in the project."
-                )
-                
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                "Import Error",
-                f"Error importing asset: {e}"
-            )
-            
-    def dragEnterEvent(self, event: QDragEnterEvent):
-        """Handle drag enter event"""
-        if event.mimeData().hasUrls():
-            event.acceptProposedAction()
-            
-    def dropEvent(self, event: QDropEvent):
-        """Handle drop event"""
-        if not self.current_project:
-            return
-            
-        for url in event.mimeData().urls():
-            file_path = Path(url.toLocalFile())
-            if file_path.is_file():
-                self._import_single_asset(file_path)
+from ui.enhanced_asset_panel import EnhancedAssetPanel
 
 
 class MainWindow(QMainWindow):
@@ -229,10 +59,10 @@ class MainWindow(QMainWindow):
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
         layout.addWidget(main_splitter)
         
-        # Left panel - Assets
-        self.asset_panel = AssetPanel()
-        self.asset_panel.setMinimumWidth(250)
-        self.asset_panel.setMaximumWidth(400)
+        # Left panel - Enhanced Assets with Thumbnails
+        self.asset_panel = EnhancedAssetPanel()
+        self.asset_panel.setMinimumWidth(300)
+        self.asset_panel.setMaximumWidth(450)
         main_splitter.addWidget(self.asset_panel)
         
         # Center panel - Timeline/Canvas (placeholder)
@@ -295,6 +125,7 @@ class MainWindow(QMainWindow):
         # Asset panel connections
         self.asset_panel.asset_selected.connect(self._on_asset_selected)
         self.asset_panel.asset_imported.connect(self._on_asset_imported)
+        self.asset_panel.asset_double_clicked.connect(self._on_asset_double_clicked)
         
         # Plugin dashboard connections
         self.plugin_dashboard.plugin_imported.connect(self._on_plugin_imported)
@@ -434,6 +265,29 @@ class MainWindow(QMainWindow):
     def _on_asset_imported(self, asset_id: str):
         """Handle asset import"""
         self._update_status_bar()
+        
+    def _on_asset_double_clicked(self, asset_id: str):
+        """Handle asset double-click to open/preview"""
+        if self.current_project:
+            asset = self.current_project.get_asset(asset_id)
+            if asset:
+                # Open asset with system default application
+                import subprocess
+                import platform
+                
+                try:
+                    if platform.system() == 'Darwin':  # macOS
+                        subprocess.run(['open', asset.file_path])
+                    elif platform.system() == 'Windows':
+                        subprocess.run(['start', asset.file_path], shell=True)
+                    else:  # Linux
+                        subprocess.run(['xdg-open', asset.file_path])
+                except Exception as e:
+                    QMessageBox.warning(
+                        self,
+                        "Cannot Open File",
+                        f"Could not open {asset.name}: {e}"
+                    )
         
     def _on_plugin_imported(self, plugin_name: str):
         """Handle plugin import"""
@@ -590,14 +444,37 @@ class MainWindow(QMainWindow):
         if not self.current_project or not self.current_project.timeline_plan:
             return
             
-        # Update timeline controls FIRST (this rebuilds the timeline canvas)
-        timeline_plan = self.current_project.timeline_plan
-        from datetime import datetime
-        start_date = datetime.fromisoformat(timeline_plan.start_date)
-        self.timeline_controls.set_duration(timeline_plan.duration_weeks)
-        self.timeline_controls.set_start_date(start_date)
+        # Temporarily disconnect signals to avoid loops
+        self.timeline_controls.duration_changed.disconnect()
+        self.timeline_controls.start_date_changed.disconnect()
         
-        # THEN group events by date and update canvas
+        try:
+            # Update timeline controls FIRST (this rebuilds the timeline canvas)
+            timeline_plan = self.current_project.timeline_plan
+            from datetime import datetime
+            start_date = datetime.fromisoformat(timeline_plan.start_date)
+            self.timeline_controls.set_duration(timeline_plan.duration_weeks)
+            self.timeline_controls.set_start_date(start_date)
+            
+            # Update canvas directly and ensure it's rebuilt
+            self.timeline_canvas.set_duration(timeline_plan.duration_weeks)
+            self.timeline_canvas.set_start_date(start_date)
+            
+        finally:
+            # Reconnect signals
+            self.timeline_controls.duration_changed.connect(self._on_timeline_duration_changed)
+            self.timeline_controls.start_date_changed.connect(self._on_timeline_start_date_changed)
+        
+        # Delay event update to ensure rebuild is complete
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(0, self._delayed_event_update)
+        
+    def _delayed_event_update(self):
+        """Update events after timeline rebuild is complete"""
+        if not self.current_project or not self.current_project.timeline_plan:
+            return
+            
+        # Group events by date and update canvas
         events_by_date = {}
         for date_str, event_ids in self.current_project.timeline_plan.events.items():
             events = [

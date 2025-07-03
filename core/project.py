@@ -248,6 +248,30 @@ class ReelForgeProject:
             import traceback
             traceback.print_exc()
             return False
+    
+    def get_events_for_date(self, date) -> List[ReleaseEvent]:
+        """Get all events scheduled for a specific date"""
+        try:
+            # Convert datetime to date string for comparison
+            if hasattr(date, 'date'):
+                date_str = date.date().isoformat()
+            elif hasattr(date, 'isoformat'):
+                date_str = date.isoformat()
+            else:
+                date_str = str(date)
+            
+            # Find events matching the date
+            matching_events = []
+            for event in self.release_events.values():
+                event_date_str = event.date
+                if event_date_str == date_str:
+                    matching_events.append(event)
+            
+            return matching_events
+            
+        except Exception as e:
+            print(f"Error getting events for date: {e}")
+            return []
 
     # Plugin Management Methods
     def import_plugin_info(self, adsp_file_path: Path) -> bool:
@@ -353,7 +377,43 @@ class ReelForgeProject:
             }
         }
 
-    # ...existing asset management methods...
+    def import_asset(self, file_path: str) -> Optional[str]:
+        """Import an asset from file path and return asset ID"""
+        try:
+            path = Path(file_path)
+            if not path.exists():
+                return None
+                
+            # Determine file type
+            extension = path.suffix.lower()
+            if extension in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']:
+                file_type = 'image'
+            elif extension in ['.mp4', '.mov', '.avi', '.mkv', '.webm']:
+                file_type = 'video'
+            elif extension in ['.mp3', '.wav', '.aac', '.m4a', '.flac']:
+                file_type = 'audio'
+            else:
+                file_type = 'other'
+                
+            # Create asset reference
+            asset_id = str(uuid.uuid4())[:8]
+            asset = AssetReference(
+                id=asset_id,
+                name=path.name,
+                file_path=str(path),
+                file_type=file_type,
+                file_size=path.stat().st_size if path.exists() else None
+            )
+            
+            # Add to project
+            if self.add_asset(asset):
+                return asset_id
+            return None
+            
+        except Exception as e:
+            print(f"Error importing asset: {e}")
+            return None
+
     def add_asset(self, asset: AssetReference) -> bool:
         """Add asset to project"""
         try:
