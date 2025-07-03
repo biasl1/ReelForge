@@ -25,7 +25,7 @@ class TimelineControls(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.current_start_date = datetime.now()
-        self.current_duration = 1
+        self.current_duration = 4  # Fixed to 4 weeks
         
         self.setup_ui()
         self.setup_connections()
@@ -35,16 +35,6 @@ class TimelineControls(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(10, 5, 10, 5)
         layout.setSpacing(15)
-        
-        # Duration selection
-        duration_frame = self.create_duration_controls()
-        layout.addWidget(duration_frame)
-        
-        # Separator
-        separator1 = QFrame()
-        separator1.setFrameShape(QFrame.Shape.VLine)
-        separator1.setFrameShadow(QFrame.Shadow.Sunken)
-        layout.addWidget(separator1)
         
         # Navigation controls
         nav_frame = self.create_navigation_controls()
@@ -66,36 +56,7 @@ class TimelineControls(QWidget):
         quick_frame = self.create_quick_actions()
         layout.addWidget(quick_frame)
         
-    def create_duration_controls(self):
-        """Create duration selection controls"""
-        frame = QFrame()
-        layout = QVBoxLayout(frame)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(2)
-        
-        # Label
-        label = QLabel("Timeline Duration")
-        label.setStyleSheet("font-weight: bold; color: #cccccc;")
-        layout.addWidget(label)
-        
-        # Radio buttons for duration
-        radio_layout = QHBoxLayout()
-        radio_layout.setSpacing(10)
-        
-        self.duration_group = QButtonGroup(self)
-        durations = [("1 Week", 1), ("2 Weeks", 2), ("3 Weeks", 3), ("4 Weeks", 4)]
-        
-        for text, weeks in durations:
-            radio = QRadioButton(text)
-            radio.setProperty("weeks", weeks)
-            self.duration_group.addButton(radio, weeks)
-            radio_layout.addWidget(radio)
-            
-            if weeks == 1:
-                radio.setChecked(True)
-                
-        layout.addLayout(radio_layout)
-        return frame
+        # Remove the entire create_duration_controls method as it's no longer needed
         
     def create_navigation_controls(self):
         """Create timeline navigation controls"""
@@ -170,16 +131,12 @@ class TimelineControls(QWidget):
         
     def setup_connections(self):
         """Setup signal connections"""
-        self.duration_group.idClicked.connect(self.on_duration_changed)
         self.prev_btn.clicked.connect(self.previous_period)
         self.next_btn.clicked.connect(self.next_period)
         self.today_btn.clicked.connect(self.on_today_clicked)
         self.date_edit.dateChanged.connect(self.on_date_changed)
         
-    def on_duration_changed(self, weeks):
-        """Handle duration change"""
-        self.current_duration = weeks
-        self.duration_changed.emit(weeks)
+        # Remove duration change method as duration is now fixed
         
     def on_date_changed(self, qdate):
         """Handle date change"""
@@ -211,17 +168,9 @@ class TimelineControls(QWidget):
             self.start_date_changed.emit(date)
         
     def set_duration(self, weeks: int):
-        """Set the current duration"""
-        if 1 <= weeks <= 4:
-            old_duration = self.current_duration
-            self.current_duration = weeks
-            button = self.duration_group.button(weeks)
-            if button:
-                button.setChecked(True)
-            
-            # Emit signal if duration actually changed
-            if old_duration != weeks:
-                self.duration_changed.emit(weeks)
+        """Set the current duration - now always 4 weeks"""
+        # Duration is fixed to 4 weeks, but keep method for compatibility
+        pass
                 
     def get_current_settings(self):
         """Get current timeline settings"""

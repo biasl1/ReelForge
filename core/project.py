@@ -39,7 +39,7 @@ class ReleaseEvent:
 class TimelinePlan:
     """Timeline configuration and events for content planning"""
     start_date: str  # ISO format date string
-    duration_weeks: int = 1  # 1-4 weeks
+    duration_weeks: int = 4  # Fixed to 4 weeks
     events: Dict[str, List[str]] = field(default_factory=dict)  # date_string -> [event_ids]
     current_week_offset: int = 0  # For navigation
     
@@ -135,7 +135,7 @@ class ReelForgeProject:
         self.metadata.modified_date = datetime.now().isoformat()
     
     # Timeline Management Methods
-    def initialize_timeline(self, start_date: Optional[datetime] = None, duration_weeks: int = 1):
+    def initialize_timeline(self, start_date: Optional[datetime] = None, duration_weeks: int = 4):
         """Initialize timeline plan"""
         if start_date is None:
             # Default to current Monday

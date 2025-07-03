@@ -135,7 +135,7 @@ class MainWindow(QMainWindow):
         self.timeline_canvas.day_double_clicked.connect(self._on_day_double_clicked)
         self.timeline_canvas.edit_event_requested.connect(self._on_edit_event_requested)
         self.timeline_canvas.delete_event_requested.connect(self._on_delete_event_requested)
-        self.timeline_controls.duration_changed.connect(self._on_timeline_duration_changed)
+        # Duration is now fixed to 4 weeks - no longer need duration_changed signal
         self.timeline_controls.start_date_changed.connect(self._on_timeline_start_date_changed)
         self.timeline_controls.previous_period.connect(self._on_timeline_previous)
         self.timeline_controls.next_period.connect(self._on_timeline_next)
@@ -363,12 +363,10 @@ class MainWindow(QMainWindow):
                     "Failed to delete the event. Please try again."
                 )
 
-    def _on_timeline_duration_changed(self, weeks):
-        """Handle timeline duration change"""
-        if self.current_project and self.current_project.timeline_plan:
-            self.current_project.timeline_plan.duration_weeks = weeks
-            self.timeline_canvas.set_duration(weeks)
-            self.current_project.mark_modified()
+    # Duration is now fixed to 4 weeks - method no longer needed
+    # def _on_timeline_duration_changed(self, weeks):
+    #     """Handle timeline duration change - REMOVED: Duration is now fixed to 4 weeks"""
+    #     pass
             
     def _on_timeline_start_date_changed(self, date):
         """Handle timeline start date change"""
@@ -376,6 +374,8 @@ class MainWindow(QMainWindow):
             self.current_project.timeline_plan.start_date = date.date().isoformat()
             self.timeline_canvas.set_start_date(date)
             self.current_project.mark_modified()
+            # Restore events after timeline rebuild
+            self._delayed_event_update()
             
     def _on_timeline_previous(self):
         """Handle previous period navigation"""
@@ -388,6 +388,8 @@ class MainWindow(QMainWindow):
             self.timeline_canvas.set_start_date(new_date)
             self.timeline_controls.set_start_date(new_date)
             self.current_project.mark_modified()
+            # Restore events after timeline rebuild
+            self._delayed_event_update()
             
     def _on_timeline_next(self):
         """Handle next period navigation"""
@@ -400,6 +402,8 @@ class MainWindow(QMainWindow):
             self.timeline_canvas.set_start_date(new_date)
             self.timeline_controls.set_start_date(new_date)
             self.current_project.mark_modified()
+            # Restore events after timeline rebuild
+            self._delayed_event_update()
             
     def _on_timeline_today(self):
         """Handle today navigation"""
@@ -411,6 +415,8 @@ class MainWindow(QMainWindow):
             self.timeline_canvas.set_start_date(monday)
             self.timeline_controls.set_start_date(monday)
             self.current_project.mark_modified()
+            # Restore events after timeline rebuild
+            self._delayed_event_update()
             
     def _on_event_created(self, event):
         """Handle new event creation"""
@@ -445,7 +451,6 @@ class MainWindow(QMainWindow):
             return
             
         # Temporarily disconnect signals to avoid loops
-        self.timeline_controls.duration_changed.disconnect()
         self.timeline_controls.start_date_changed.disconnect()
         
         try:
@@ -453,16 +458,15 @@ class MainWindow(QMainWindow):
             timeline_plan = self.current_project.timeline_plan
             from datetime import datetime
             start_date = datetime.fromisoformat(timeline_plan.start_date)
-            self.timeline_controls.set_duration(timeline_plan.duration_weeks)
+            # Duration is now fixed to 4 weeks - no need to set duration
             self.timeline_controls.set_start_date(start_date)
             
-            # Update canvas directly and ensure it's rebuilt
-            self.timeline_canvas.set_duration(timeline_plan.duration_weeks)
+            # Update canvas directly and ensure it's rebuilt - duration is always 4 weeks
+            self.timeline_canvas.set_duration(4)
             self.timeline_canvas.set_start_date(start_date)
             
         finally:
             # Reconnect signals
-            self.timeline_controls.duration_changed.connect(self._on_timeline_duration_changed)
             self.timeline_controls.start_date_changed.connect(self._on_timeline_start_date_changed)
         
         # Delay event update to ensure rebuild is complete
