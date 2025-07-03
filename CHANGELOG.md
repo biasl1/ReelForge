@@ -1,3 +1,49 @@
+# Version 1.1.0 - Timeline Canvas Release
+
+## 🎯 NEW MAJOR FEATURE: Timeline Canvas
+
+### Timeline Planning & Scheduling
+- **Interactive Calendar Grid**: Week-based view with clickable day cells
+- **Content Event Scheduling**: Double-click days to create release events
+- **Visual Event Indicators**: Color-coded content type display
+- **Duration Controls**: 1-4 week timeline viewing options
+- **Timeline Navigation**: Previous/next period and quick "Today" jump
+- **Event Management Dialog**: Comprehensive event creation/editing interface
+
+### Timeline Data Models
+- **ReleaseEvent**: Complete content release event structure
+- **TimelinePlan**: Timeline configuration and event organization
+- **Project Integration**: Timeline data in .rforge project files
+- **Serialization**: Full timeline state persistence
+
+### Visual Design
+- **Professional Dark Theme**: Consistent VS Code-inspired styling
+- **Responsive Layout**: Adapts to window size changes
+- **Weekend Styling**: Visual distinction for weekend days
+- **Today Highlighting**: Current day accent with blue theme
+- **Event Type Colors**: Red (Reels), Purple (Stories), Blue (Posts), Orange (Teasers), Green (Tutorials)
+
+### User Experience
+- **Intuitive Workflow**: Natural content planning interface
+- **Asset Integration**: Link scheduled content to project assets
+- **Platform Targeting**: Multi-platform content planning (Instagram, TikTok, YouTube, etc.)
+- **Status Tracking**: Planned, Ready, Published status management
+- **Hashtag Management**: Organized hashtag planning per event
+
+## 🔧 Technical Improvements
+- **Modular Timeline Architecture**: Clean separation in `ui/timeline/` module
+- **Signal/Slot Integration**: Proper PyQt6 event handling
+- **Data Validation**: Robust event and timeline validation
+- **Error Handling**: Graceful failure recovery for timeline operations
+
+## 🧪 Testing
+- **Comprehensive Test Suite**: `test_timeline.py` covers all timeline functionality
+- **Data Persistence Testing**: Save/load verification for timeline data
+- **Date Range Queries**: Efficient event retrieval by date ranges
+- **Navigation Testing**: Timeline duration and navigation validation
+
+---
+
 # Version 1.0.0 - Foundation Release
 
 ## ✅ Implemented Features

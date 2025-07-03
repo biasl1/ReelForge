@@ -5,6 +5,7 @@ Professional content creation interface
 
 from pathlib import Path
 from typing import Optional, Dict, Any
+from datetime import datetime, timedelta
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
@@ -20,6 +21,9 @@ from core.project import ReelForgeProject, ProjectManager, AssetReference
 from core.assets import AssetManager, FileInfo
 from ui.menu import MenuManager
 from ui.startup_dialog import StartupDialog
+from ui.timeline.canvas import TimelineCanvas
+from ui.timeline.controls import TimelineControls
+from ui.timeline.event_dialog import EventDialog
 
 
 class AssetPanel(QWidget):
@@ -307,33 +311,21 @@ class MainWindow(QMainWindow):
         self.menu_manager = MenuManager(self.menuBar(), self)
         
     def _create_center_panel(self) -> QWidget:
-        """Create center panel placeholder"""
+        """Create center panel with timeline canvas"""
         panel = QFrame()
         panel.setFrameStyle(QFrame.Shape.StyledPanel)
         
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         
-        # Welcome message
-        welcome_label = QLabel("Welcome to ReelForge")
-        welcome_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #cccccc;")
-        welcome_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(welcome_label)
+        # Timeline controls
+        self.timeline_controls = TimelineControls()
+        layout.addWidget(self.timeline_controls)
         
-        subtitle = QLabel("Create a new project or open an existing one to get started")
-        subtitle.setStyleSheet("font-size: 14px; color: #969696;")
-        subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(subtitle)
-        
-        layout.addStretch()
-        
-        # TODO: Replace with timeline/canvas when implemented
-        placeholder = QLabel("Timeline and Canvas will be implemented here")
-        placeholder.setStyleSheet("color: #656565; font-style: italic;")
-        placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(placeholder)
-        
-        layout.addStretch()
+        # Timeline canvas
+        self.timeline_canvas = TimelineCanvas()
+        layout.addWidget(self.timeline_canvas)
         
         return panel
         
@@ -362,6 +354,15 @@ class MainWindow(QMainWindow):
         # Asset panel connections
         self.asset_panel.asset_selected.connect(self._on_asset_selected)
         self.asset_panel.asset_imported.connect(self._on_asset_imported)
+        
+        # Timeline connections
+        self.timeline_canvas.day_selected.connect(self._on_day_selected)
+        self.timeline_canvas.day_double_clicked.connect(self._on_day_double_clicked)
+        self.timeline_controls.duration_changed.connect(self._on_timeline_duration_changed)
+        self.timeline_controls.start_date_changed.connect(self._on_timeline_start_date_changed)
+        self.timeline_controls.previous_period.connect(self._on_timeline_previous)
+        self.timeline_controls.next_period.connect(self._on_timeline_next)
+        self.timeline_controls.today_clicked.connect(self._on_timeline_today)
         
     def load_project_data(self, project_data: Dict[str, Any]):
         """Load project from startup dialog data"""
@@ -438,6 +439,13 @@ class MainWindow(QMainWindow):
             # Update panels
             self.asset_panel.set_project(self.current_project)
             
+            # Initialize timeline if needed
+            if not self.current_project.timeline_plan:
+                self.current_project.initialize_timeline()
+                
+            # Update timeline
+            self._update_timeline_display()
+            
             # Update menu
             self.menu_manager.set_current_project(self.current_project)
             self.menu_manager.update_recent_projects(
@@ -484,30 +492,139 @@ class MainWindow(QMainWindow):
         QMessageBox.about(
             self,
             "About ReelForge",
-            "ReelForge v1.0.0\\n\\n"
-            "Professional Content Creation Tool\\n"
-            "Built with PyQt6\\n\\n"
+            "ReelForge v1.0.0\n\n"
+            "Professional Content Creation Tool\n"
+            "Built with PyQt6\n\n"
             "© 2025 Artists in DSP"
         )
         
-    def closeEvent(self, event):
-        """Handle window close event"""
-        if self.current_project and self.current_project.is_modified:
-            reply = QMessageBox.question(
-                self,
-                "Unsaved Changes",
-                "The project has unsaved changes. Do you want to save before closing?",
-                QMessageBox.StandardButton.Save | 
-                QMessageBox.StandardButton.Discard | 
-                QMessageBox.StandardButton.Cancel
-            )
+    # Timeline interaction methods
+    def _on_day_selected(self, date):
+        """Handle day selection in timeline"""
+        # Could show events for this day in properties panel
+        pass
+        
+    def _on_day_double_clicked(self, date):
+        """Handle day double-click to create/edit event"""
+        if not self.current_project:
+            return
             
-            if reply == QMessageBox.StandardButton.Save:
-                if not self._save_project():
-                    event.ignore()
-                    return
-            elif reply == QMessageBox.StandardButton.Cancel:
-                event.ignore()
-                return
+        # Get available assets for the dialog
+        available_assets = [
+            (asset.id, asset.name) 
+            for asset in self.current_project.get_all_assets()
+        ]
+        
+        # Get existing events for this date
+        existing_events = self.current_project.get_events_for_date(date)
+        
+        # For now, create new event (later we could show a list if multiple events exist)
+        dialog = EventDialog(date, available_assets=available_assets, parent=self)
+        dialog.event_created.connect(self._on_event_created)
+        dialog.event_updated.connect(self._on_event_updated)
+        
+        if dialog.exec() == EventDialog.DialogCode.Accepted:
+            pass  # Handled by signals
+            
+    def _on_timeline_duration_changed(self, weeks):
+        """Handle timeline duration change"""
+        if self.current_project and self.current_project.timeline_plan:
+            self.current_project.timeline_plan.duration_weeks = weeks
+            self.timeline_canvas.set_duration(weeks)
+            self.current_project.mark_modified()
+            
+    def _on_timeline_start_date_changed(self, date):
+        """Handle timeline start date change"""
+        if self.current_project and self.current_project.timeline_plan:
+            self.current_project.timeline_plan.start_date = date.date().isoformat()
+            self.timeline_canvas.set_start_date(date)
+            self.current_project.mark_modified()
+            
+    def _on_timeline_previous(self):
+        """Handle previous period navigation"""
+        if self.current_project and self.current_project.timeline_plan:
+            current_date = datetime.fromisoformat(self.current_project.timeline_plan.start_date)
+            weeks = self.current_project.timeline_plan.duration_weeks
+            new_date = current_date - timedelta(weeks=weeks)
+            
+            self.current_project.timeline_plan.start_date = new_date.date().isoformat()
+            self.timeline_canvas.set_start_date(new_date)
+            self.timeline_controls.set_start_date(new_date)
+            self.current_project.mark_modified()
+            
+    def _on_timeline_next(self):
+        """Handle next period navigation"""
+        if self.current_project and self.current_project.timeline_plan:
+            current_date = datetime.fromisoformat(self.current_project.timeline_plan.start_date)
+            weeks = self.current_project.timeline_plan.duration_weeks
+            new_date = current_date + timedelta(weeks=weeks)
+            
+            self.current_project.timeline_plan.start_date = new_date.date().isoformat()
+            self.timeline_canvas.set_start_date(new_date)
+            self.timeline_controls.set_start_date(new_date)
+            self.current_project.mark_modified()
+            
+    def _on_timeline_today(self):
+        """Handle today navigation"""
+        if self.current_project and self.current_project.timeline_plan:
+            today = datetime.now()
+            monday = today - timedelta(days=today.weekday())
+            
+            self.current_project.timeline_plan.start_date = monday.date().isoformat()
+            self.timeline_canvas.set_start_date(monday)
+            self.timeline_controls.set_start_date(monday)
+            self.current_project.mark_modified()
+            
+    def _on_event_created(self, event):
+        """Handle new event creation"""
+        if self.current_project:
+            if self.current_project.add_release_event(event):
+                self._update_timeline_display()
+                self.status_bar.showMessage(f"Event '{event.title}' created", 2000)
+            else:
+                QMessageBox.warning(
+                    self, 
+                    "Event Creation Failed",
+                    "Failed to create the event. Please try again."
+                )
                 
-        event.accept()
+    def _on_event_updated(self, event):
+        """Handle event update"""
+        if self.current_project:
+            # Remove old event and add updated one
+            self.current_project.remove_release_event(event.id)
+            if self.current_project.add_release_event(event):
+                self._update_timeline_display()
+                self.status_bar.showMessage(f"Event '{event.title}' updated", 2000)
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Event Update Failed", 
+                    "Failed to update the event. Please try again."
+                )
+                
+    def _update_timeline_display(self):
+        """Update timeline canvas with current project events"""
+        if not self.current_project or not self.current_project.timeline_plan:
+            return
+            
+        # Group events by date
+        events_by_date = {}
+        for date_str, event_ids in self.current_project.timeline_plan.events.items():
+            events = [
+                self.current_project.release_events[event_id] 
+                for event_id in event_ids 
+                if event_id in self.current_project.release_events
+            ]
+            if events:
+                events_by_date[date_str] = events
+                
+        # Update timeline canvas
+        self.timeline_canvas.update_events(events_by_date)
+        
+        # Update timeline controls if needed
+        timeline_plan = self.current_project.timeline_plan
+        from datetime import datetime
+        start_date = datetime.fromisoformat(timeline_plan.start_date)
+        self.timeline_controls.set_duration(timeline_plan.duration_weeks)
+        self.timeline_controls.set_start_date(start_date)

@@ -5,10 +5,49 @@ Handles creation, loading, and saving of .rforge project files
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
+import uuid
+
+
+@dataclass
+class ReleaseEvent:
+    """A scheduled content release event"""
+    id: str
+    date: str  # ISO format date string
+    content_type: str  # "reel", "story", "post", "teaser", "tutorial"
+    title: str
+    description: str = ""
+    assets: List[str] = field(default_factory=list)  # Asset IDs
+    platforms: List[str] = field(default_factory=list)  # "instagram", "tiktok", "youtube"
+    status: str = "planned"  # "planned", "ready", "published"
+    duration_seconds: int = 30  # Target content duration
+    hashtags: List[str] = field(default_factory=list)
+    created_date: str = ""
+    
+    def __post_init__(self):
+        if not self.id:
+            self.id = str(uuid.uuid4())[:8]
+        if not self.created_date:
+            self.created_date = datetime.now().isoformat()
+
+
+@dataclass
+class TimelinePlan:
+    """Timeline configuration and events for content planning"""
+    start_date: str  # ISO format date string
+    duration_weeks: int = 1  # 1-4 weeks
+    events: Dict[str, List[str]] = field(default_factory=dict)  # date_string -> [event_ids]
+    current_week_offset: int = 0  # For navigation
+    
+    def __post_init__(self):
+        if not self.start_date:
+            # Default to current Monday
+            today = datetime.now()
+            monday = today - timedelta(days=today.weekday())
+            self.start_date = monday.date().isoformat()
 
 
 @dataclass
@@ -21,6 +60,12 @@ class ProjectMetadata:
     created_date: str = ""
     modified_date: str = ""
     version: str = "1.0"
+    
+    # Timeline-specific metadata
+    plugin_name: str = ""
+    plugin_version: str = ""
+    release_date: str = ""  # Plugin release date
+    target_platforms: List[str] = field(default_factory=list)
     
     def __post_init__(self):
         if not self.created_date:
@@ -54,6 +99,10 @@ class ReelForgeProject:
         self.project_file_path: Optional[Path] = None
         self._is_modified = False
         
+        # Timeline components
+        self.timeline_plan: Optional[TimelinePlan] = None
+        self.release_events: Dict[str, ReleaseEvent] = {}  # event_id -> event
+        
     @property
     def is_modified(self) -> bool:
         """Check if project has unsaved changes"""
@@ -70,12 +119,110 @@ class ReelForgeProject:
         if self.project_file_path:
             return self.project_file_path.parent
         return None
-        
+    
     def mark_modified(self):
         """Mark project as modified"""
         self._is_modified = True
         self.metadata.modified_date = datetime.now().isoformat()
+    
+    # Timeline Management Methods
+    def initialize_timeline(self, start_date: Optional[datetime] = None, duration_weeks: int = 1):
+        """Initialize timeline plan"""
+        if start_date is None:
+            # Default to current Monday
+            today = datetime.now()
+            start_date = today - timedelta(days=today.weekday())
+            
+        self.timeline_plan = TimelinePlan(
+            start_date=start_date.date().isoformat(),
+            duration_weeks=duration_weeks
+        )
+        self.mark_modified()
+    
+    def add_release_event(self, event: ReleaseEvent) -> bool:
+        """Add a release event to the project"""
+        try:
+            if not self.timeline_plan:
+                self.initialize_timeline()
+                
+            # Store the event
+            self.release_events[event.id] = event
+            
+            # Add to timeline plan events for the specific date
+            date_str = event.date
+            if date_str not in self.timeline_plan.events:
+                self.timeline_plan.events[date_str] = []
+                
+            if event.id not in self.timeline_plan.events[date_str]:
+                self.timeline_plan.events[date_str].append(event.id)
+                
+            self.mark_modified()
+            return True
+            
+        except Exception as e:
+            print(f"Error adding release event: {e}")
+            return False
+    
+    def remove_release_event(self, event_id: str) -> bool:
+        """Remove a release event"""
+        try:
+            if event_id not in self.release_events:
+                return False
+                
+            event = self.release_events[event_id]
+            
+            # Remove from timeline plan
+            if self.timeline_plan and event.date in self.timeline_plan.events:
+                if event_id in self.timeline_plan.events[event.date]:
+                    self.timeline_plan.events[event.date].remove(event_id)
+                    
+                # Clean up empty date entries
+                if not self.timeline_plan.events[event.date]:
+                    del self.timeline_plan.events[event.date]
+                    
+            # Remove from events dict
+            del self.release_events[event_id]
+            
+            self.mark_modified()
+            return True
+            
+        except Exception as e:
+            print(f"Error removing release event: {e}")
+            return False
+    
+    def get_events_for_date(self, date: datetime) -> List[ReleaseEvent]:
+        """Get all events for a specific date"""
+        if not self.timeline_plan:
+            return []
+            
+        date_str = date.date().isoformat()
+        event_ids = self.timeline_plan.events.get(date_str, [])
         
+        return [self.release_events[event_id] for event_id in event_ids 
+                if event_id in self.release_events]
+    
+    def get_events_in_range(self, start_date: datetime, end_date: datetime) -> List[ReleaseEvent]:
+        """Get all events in date range"""
+        events = []
+        current_date = start_date
+        
+        while current_date <= end_date:
+            events.extend(self.get_events_for_date(current_date))
+            current_date += timedelta(days=1)
+            
+        return events
+    
+    def update_timeline_duration(self, weeks: int):
+        """Update timeline duration"""
+        if not self.timeline_plan:
+            self.initialize_timeline()
+            
+        # Clamp weeks to valid range
+        weeks = max(1, min(4, weeks))
+        self.timeline_plan.duration_weeks = weeks
+        self.mark_modified()
+
+    # ...existing asset management methods...
     def add_asset(self, asset: AssetReference) -> bool:
         """Add asset to project"""
         try:
@@ -112,7 +259,9 @@ class ReelForgeProject:
         return {
             "metadata": asdict(self.metadata),
             "assets": {k: asdict(v) for k, v in self.assets.items()},
-            "version": "1.0"
+            "timeline_plan": asdict(self.timeline_plan) if self.timeline_plan else None,
+            "release_events": {k: asdict(v) for k, v in self.release_events.items()},
+            "version": "1.1"  # Updated version for timeline support
         }
         
     @classmethod
@@ -129,6 +278,16 @@ class ReelForgeProject:
             for asset_id, asset_data in data["assets"].items():
                 asset = AssetReference(**asset_data)
                 project.assets[asset_id] = asset
+        
+        # Load timeline plan
+        if "timeline_plan" in data and data["timeline_plan"]:
+            project.timeline_plan = TimelinePlan(**data["timeline_plan"])
+            
+        # Load release events
+        if "release_events" in data:
+            for event_id, event_data in data["release_events"].items():
+                event = ReleaseEvent(**event_data)
+                project.release_events[event_id] = event
                 
         project._is_modified = False
         return project

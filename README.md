@@ -14,6 +14,15 @@ ReelForge is a modern PyQt6-based desktop application designed for creating and 
 - **Drag & Drop**: Easy asset import via drag and drop
 - **File Browser**: Organized asset tree with type categorization
 
+### 🎯 NEW: Timeline Canvas (v1.1.0)
+- **Interactive Calendar**: Week-based content planning grid
+- **Event Scheduling**: Double-click days to schedule content releases
+- **Visual Indicators**: Color-coded content type display (Reels, Stories, Posts, etc.)
+- **Timeline Navigation**: 1-4 week views with previous/next navigation
+- **Content Planning**: Complete event management with asset linking
+- **Platform Targeting**: Multi-platform content scheduling
+- **Status Tracking**: Planned → Ready → Published workflow
+
 ### Project Templates
 - **Social Media - Square** (1080x1080) - Instagram posts
 - **Social Media - Vertical** (1080x1920) - TikTok, Reels, Shorts
@@ -71,6 +80,26 @@ ReelForge is a modern PyQt6-based desktop application designed for creating and 
 ```bash
 python main.py
 ```
+
+### Creating Your First Timeline
+
+1. **Launch ReelForge** - The startup dialog will appear
+2. **Create or open a project** - Timeline automatically initializes
+3. **Navigate the Timeline Canvas**:
+   - Use duration controls to view 1-4 weeks
+   - Click Previous/Next to navigate through time periods
+   - Click "Today" to jump to current week
+4. **Schedule Content**:
+   - Double-click any day to open event creation dialog
+   - Select content type (Reel, Story, Post, Teaser, Tutorial)
+   - Add title, description, and hashtags
+   - Link project assets to the event
+   - Choose target platforms
+   - Set status (Planned, Ready, Published)
+5. **Visual Feedback**:
+   - See color-coded indicators for scheduled content
+   - Today is highlighted with blue accent
+   - Weekends have darker styling
 
 ### Creating Your First Project
 
