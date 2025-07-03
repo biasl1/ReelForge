@@ -18,18 +18,16 @@ from core.project import ReleaseEvent
 
 
 class EventDialog(QDialog):
-    """Dialog for creating/editing release events"""
+    """Dialog for creating/editing release events - AI-focused workflow"""
     
     event_created = pyqtSignal(ReleaseEvent)
     event_updated = pyqtSignal(ReleaseEvent)
     
-    def __init__(self, date: datetime, event: Optional[ReleaseEvent] = None, 
-                 available_assets: List[tuple] = None, parent=None):
+    def __init__(self, date: datetime, event: Optional[ReleaseEvent] = None, parent=None):
         super().__init__(parent)
         
         self.target_date = date
         self.editing_event = event
-        self.available_assets = available_assets or []  # [(asset_id, asset_name), ...]
         
         self.setup_ui()
         self.setup_connections()
@@ -38,7 +36,7 @@ class EventDialog(QDialog):
             self.populate_from_event(event)
             
         self.setWindowTitle("Schedule Content" if not event else "Edit Content")
-        self.resize(500, 600)
+        self.resize(450, 400)
         
     def setup_ui(self):
         """Setup dialog UI"""
@@ -60,19 +58,15 @@ class EventDialog(QDialog):
         form_layout = QVBoxLayout(form_widget)
         form_layout.setSpacing(10)
         
-        # Basic info
+        # Basic info - simplified for AI workflow
         basic_group = self.create_basic_info_group()
         form_layout.addWidget(basic_group)
         
-        # Content details
-        content_group = self.create_content_group()
-        form_layout.addWidget(content_group)
+        # AI prompt - the key input for content generation
+        prompt_group = self.create_prompt_group()
+        form_layout.addWidget(prompt_group)
         
-        # Asset selection
-        assets_group = self.create_assets_group()
-        form_layout.addWidget(assets_group)
-        
-        # Platform selection
+        # Target platforms
         platforms_group = self.create_platforms_group()
         form_layout.addWidget(platforms_group)
         
@@ -101,8 +95,8 @@ class EventDialog(QDialog):
         return header
         
     def create_basic_info_group(self) -> QGroupBox:
-        """Create basic information group"""
-        group = QGroupBox("Basic Information")
+        """Create basic information group - simplified for AI"""
+        group = QGroupBox("Content Planning")
         layout = QFormLayout(group)
         
         # Content type
@@ -112,67 +106,30 @@ class EventDialog(QDialog):
         ])
         layout.addRow("Content Type:", self.content_type_combo)
         
-        # Title
+        # Title - simplified, can be AI-generated
         self.title_edit = QLineEdit()
-        self.title_edit.setPlaceholderText("Enter content title...")
-        layout.addRow("Title:", self.title_edit)
-        
-        # Description
-        self.description_edit = QTextEdit()
-        self.description_edit.setMaximumHeight(80)
-        self.description_edit.setPlaceholderText("Brief description of the content...")
-        layout.addRow("Description:", self.description_edit)
-        
-        # Duration
-        self.duration_spin = QSpinBox()
-        self.duration_spin.setRange(5, 300)  # 5 seconds to 5 minutes
-        self.duration_spin.setValue(30)
-        self.duration_spin.setSuffix(" seconds")
-        layout.addRow("Duration:", self.duration_spin)
+        self.title_edit.setPlaceholderText("Enter title or leave blank for AI generation...")
+        layout.addRow("Title (optional):", self.title_edit)
         
         return group
         
-    def create_content_group(self) -> QGroupBox:
-        """Create content details group"""
-        group = QGroupBox("Content Details")
-        layout = QFormLayout(group)
-        
-        # Status
-        self.status_combo = QComboBox()
-        self.status_combo.addItems(["planned", "ready", "published"])
-        layout.addRow("Status:", self.status_combo)
-        
-        # Hashtags
-        self.hashtags_edit = QLineEdit()
-        self.hashtags_edit.setPlaceholderText("#plugin #music #production (separate with spaces)")
-        layout.addRow("Hashtags:", self.hashtags_edit)
-        
-        return group
-        
-    def create_assets_group(self) -> QGroupBox:
-        """Create asset selection group"""
-        group = QGroupBox("Assets")
+    def create_prompt_group(self) -> QGroupBox:
+        """Create AI prompt group - the main input for content generation"""
+        group = QGroupBox("AI Content Prompt")
         layout = QVBoxLayout(group)
         
-        if not self.available_assets:
-            no_assets_label = QLabel("No assets available in project")
-            no_assets_label.setStyleSheet("color: #969696; font-style: italic;")
-            layout.addWidget(no_assets_label)
-        else:
-            # Asset list with checkboxes
-            self.assets_list = QListWidget()
-            self.assets_list.setMaximumHeight(120)
-            
-            for asset_id, asset_name in self.available_assets:
-                item = QListWidgetItem(asset_name)
-                item.setData(Qt.ItemDataRole.UserRole, asset_id)
-                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-                item.setCheckState(Qt.CheckState.Unchecked)
-                self.assets_list.addItem(item)
-                
-            layout.addWidget(QLabel("Select assets to include:"))
-            layout.addWidget(self.assets_list)
-            
+        # Main prompt explanation
+        explanation = QLabel("Describe what you want this content to showcase. The AI will use this prompt along with your plugin info and project assets to generate the content.")
+        explanation.setStyleSheet("color: #969696; font-style: italic; font-size: 10px;")
+        explanation.setWordWrap(True)
+        layout.addWidget(explanation)
+        
+        # Description/prompt text area
+        self.description_edit = QTextEdit()
+        self.description_edit.setMaximumHeight(100)
+        self.description_edit.setPlaceholderText("Example: 'Show the warm saturation effect on a guitar melody, highlighting the vintage tube sound...'")
+        layout.addWidget(self.description_edit)
+        
         return group
         
     def create_platforms_group(self) -> QGroupBox:
@@ -263,27 +220,22 @@ class EventDialog(QDialog):
             checkbox.setChecked(platform in event.platforms)
             
     def save_event(self):
-        """Save the event"""
+        """Save the event with simplified AI-focused data"""
         try:
             # Collect form data
             title = self.title_edit.text().strip()
             description = self.description_edit.toPlainText().strip()
             content_type = self.content_type_combo.currentText()
-            status = self.status_combo.currentText()
-            duration = self.duration_spin.value()
             
-            # Get hashtags
-            hashtags_text = self.hashtags_edit.text().strip()
-            hashtags = [tag.strip() for tag in hashtags_text.split() if tag.strip().startswith('#')]
-            
-            # Get selected assets
-            selected_assets = []
-            if hasattr(self, 'assets_list'):
-                for i in range(self.assets_list.count()):
-                    item = self.assets_list.item(i)
-                    if item.checkState() == Qt.CheckState.Checked:
-                        asset_id = item.data(Qt.ItemDataRole.UserRole)
-                        selected_assets.append(asset_id)
+            # Use title as description if title is empty (AI will generate title)
+            if not title and description:
+                title = f"{content_type.title()} - AI Generated"
+            elif not title and not description:
+                title = f"{content_type.title()} Content"
+                
+            # If no description, use a default AI prompt
+            if not description:
+                description = f"Generate {content_type} content showcasing the plugin features."
                         
             # Get selected platforms
             selected_platforms = []
@@ -298,26 +250,22 @@ class EventDialog(QDialog):
                 event.title = title
                 event.description = description
                 event.content_type = content_type
-                event.status = status
-                event.duration_seconds = duration
-                event.assets = selected_assets
                 event.platforms = selected_platforms
-                event.hashtags = hashtags
                 
                 self.event_updated.emit(event)
             else:
-                # Create new event
+                # Create new event with AI-focused defaults
                 event = ReleaseEvent(
                     id="",  # Will be auto-generated
                     date=self.target_date.date().isoformat(),
                     title=title,
                     description=description,
                     content_type=content_type,
-                    status=status,
-                    duration_seconds=duration,
-                    assets=selected_assets,
+                    status="planned",  # Default status
+                    duration_seconds=30,  # Default duration
+                    assets=[],  # AI will select assets
                     platforms=selected_platforms,
-                    hashtags=hashtags
+                    hashtags=[]  # AI will generate hashtags
                 )
                 
                 self.event_created.emit(event)
@@ -327,13 +275,12 @@ class EventDialog(QDialog):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save event:\n{str(e)}")
             
-    def get_selected_assets(self) -> List[str]:
-        """Get list of selected asset IDs"""
-        selected = []
-        if hasattr(self, 'assets_list'):
-            for i in range(self.assets_list.count()):
-                item = self.assets_list.item(i)
-                if item.checkState() == Qt.CheckState.Checked:
-                    asset_id = item.data(Qt.ItemDataRole.UserRole)
-                    selected.append(asset_id)
-        return selected
+    def populate_from_event(self, event: ReleaseEvent):
+        """Populate dialog with existing event data"""
+        self.content_type_combo.setCurrentText(event.content_type)
+        self.title_edit.setText(event.title)
+        self.description_edit.setPlainText(event.description)
+        
+        # Set platforms
+        for platform, checkbox in self.platform_checkboxes.items():
+            checkbox.setChecked(platform in event.platforms)

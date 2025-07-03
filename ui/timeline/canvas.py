@@ -20,6 +20,8 @@ class DayCell(QFrame):
     
     clicked = pyqtSignal(datetime)
     double_clicked = pyqtSignal(datetime)
+    edit_event_requested = pyqtSignal(object)  # ReleaseEvent
+    delete_event_requested = pyqtSignal(object)  # ReleaseEvent
     
     def __init__(self, date: datetime, parent=None):
         super().__init__(parent)
@@ -182,6 +184,48 @@ class DayCell(QFrame):
         if event.button() == Qt.MouseButton.LeftButton:
             self.double_clicked.emit(self.date)
         super().mouseDoubleClickEvent(event)
+        
+    def contextMenuEvent(self, event):
+        """Handle right-click context menu"""
+        from PyQt6.QtWidgets import QMenu
+        
+        menu = QMenu(self)
+        
+        if self.events:
+            # If there are events, show edit/delete options
+            if len(self.events) == 1:
+                edit_action = menu.addAction(f"Edit '{self.events[0].title}'")
+                edit_action.triggered.connect(lambda: self.edit_event(self.events[0]))
+                
+                delete_action = menu.addAction(f"Delete '{self.events[0].title}'")
+                delete_action.triggered.connect(lambda: self.delete_event(self.events[0]))
+            else:
+                # Multiple events - show submenu
+                edit_menu = menu.addMenu("Edit Event")
+                delete_menu = menu.addMenu("Delete Event")
+                
+                for event_item in self.events:
+                    edit_action = edit_menu.addAction(f"'{event_item.title}'")
+                    edit_action.triggered.connect(lambda checked, e=event_item: self.edit_event(e))
+                    
+                    delete_action = delete_menu.addAction(f"'{event_item.title}'")
+                    delete_action.triggered.connect(lambda checked, e=event_item: self.delete_event(e))
+            
+            menu.addSeparator()
+        
+        # Always show "Add Event" option
+        add_action = menu.addAction("Add Event")
+        add_action.triggered.connect(lambda: self.double_clicked.emit(self.date))
+        
+        menu.exec(event.globalPos())
+        
+    def edit_event(self, event):
+        """Signal to edit an event"""
+        self.edit_event_requested.emit(event)
+        
+    def delete_event(self, event):
+        """Signal to delete an event"""
+        self.delete_event_requested.emit(event)
 
 
 class TimelineCanvas(QScrollArea):
@@ -189,6 +233,8 @@ class TimelineCanvas(QScrollArea):
     
     day_selected = pyqtSignal(datetime)
     day_double_clicked = pyqtSignal(datetime)
+    edit_event_requested = pyqtSignal(object)  # ReleaseEvent
+    delete_event_requested = pyqtSignal(object)  # ReleaseEvent
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -271,6 +317,8 @@ class TimelineCanvas(QScrollArea):
             # Connect signals
             day_cell.clicked.connect(self.on_day_clicked)
             day_cell.double_clicked.connect(self.day_double_clicked)
+            day_cell.edit_event_requested.connect(self.edit_event_requested)
+            day_cell.delete_event_requested.connect(self.delete_event_requested)
             
             # Store reference
             date_key = current_date.date().isoformat()

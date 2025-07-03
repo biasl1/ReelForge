@@ -297,12 +297,13 @@ class MainWindow(QMainWindow):
         self.asset_panel.asset_imported.connect(self._on_asset_imported)
         
         # Plugin dashboard connections
-        self.plugin_dashboard.plugin_selected.connect(self._on_plugin_selected)
         self.plugin_dashboard.plugin_imported.connect(self._on_plugin_imported)
         
         # Timeline connections
         self.timeline_canvas.day_selected.connect(self._on_day_selected)
         self.timeline_canvas.day_double_clicked.connect(self._on_day_double_clicked)
+        self.timeline_canvas.edit_event_requested.connect(self._on_edit_event_requested)
+        self.timeline_canvas.delete_event_requested.connect(self._on_delete_event_requested)
         self.timeline_controls.duration_changed.connect(self._on_timeline_duration_changed)
         self.timeline_controls.start_date_changed.connect(self._on_timeline_start_date_changed)
         self.timeline_controls.previous_period.connect(self._on_timeline_previous)
@@ -434,14 +435,10 @@ class MainWindow(QMainWindow):
         """Handle asset import"""
         self._update_status_bar()
         
-    def _on_plugin_selected(self, plugin_name: str):
-        """Handle plugin selection"""
-        self.status_bar.showMessage(f"Selected plugin: {plugin_name}", 2000)
-        
     def _on_plugin_imported(self, plugin_name: str):
         """Handle plugin import"""
         self._update_status_bar()
-        self.status_bar.showMessage(f"Imported plugin: {plugin_name}", 3000)
+        self.status_bar.showMessage(f"Plugin '{plugin_name}' imported and ready for AI content generation", 3000)
         
     def _show_about(self):
         """Show about dialog"""
@@ -461,26 +458,56 @@ class MainWindow(QMainWindow):
         pass
         
     def _on_day_double_clicked(self, date):
-        """Handle day double-click to create/edit event"""
+        """Handle day double-click to create new event"""
         if not self.current_project:
             return
             
-        # Get available assets for the dialog
-        available_assets = [
-            (asset.id, asset.name) 
-            for asset in self.current_project.get_all_assets()
-        ]
-        
-        # Get existing events for this date
-        existing_events = self.current_project.get_events_for_date(date)
-        
-        # For now, create new event (later we could show a list if multiple events exist)
-        dialog = EventDialog(date, available_assets=available_assets, parent=self)
+        # Create new event dialog (simplified for AI workflow)
+        dialog = EventDialog(date, parent=self)
         dialog.event_created.connect(self._on_event_created)
+        
+        if dialog.exec() == EventDialog.DialogCode.Accepted:
+            pass  # Handled by signals
+            
+    def _on_edit_event_requested(self, event):
+        """Handle event edit request"""
+        if not self.current_project:
+            return
+            
+        # Parse date from event
+        from datetime import datetime
+        event_date = datetime.fromisoformat(event.date)
+        
+        # Open edit dialog
+        dialog = EventDialog(event_date, event=event, parent=self)
         dialog.event_updated.connect(self._on_event_updated)
         
         if dialog.exec() == EventDialog.DialogCode.Accepted:
             pass  # Handled by signals
+            
+    def _on_delete_event_requested(self, event):
+        """Handle event deletion request"""
+        if not self.current_project:
+            return
+            
+        reply = QMessageBox.question(
+            self,
+            "Delete Event",
+            f"Are you sure you want to delete the event '{event.title}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            if self.current_project.remove_release_event(event.id):
+                self._update_timeline_display()
+                self.status_bar.showMessage(f"Event '{event.title}' deleted", 2000)
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Delete Failed",
+                    "Failed to delete the event. Please try again."
+                )
             
     def _on_timeline_duration_changed(self, weeks):
         """Handle timeline duration change"""

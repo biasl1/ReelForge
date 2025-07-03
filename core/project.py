@@ -92,7 +92,7 @@ class AssetReference:
 
 
 class ReelForgeProject:
-    """Main project class for ReelForge"""
+    """Main project class for ReelForge - AI-focused content generation"""
     
     def __init__(self, metadata: Optional[ProjectMetadata] = None):
         self.metadata = metadata or ProjectMetadata(name="Untitled Project")
@@ -104,9 +104,13 @@ class ReelForgeProject:
         self.timeline_plan: Optional[TimelinePlan] = None
         self.release_events: Dict[str, ReleaseEvent] = {}  # event_id -> event
         
-        # Plugin management
+        # Plugin management - simplified for one plugin per project
         self.plugin_manager = PluginManager()
         self.current_plugin: Optional[str] = None  # Name of current plugin
+        
+        # AI-focused features
+        self.global_prompt: str = ""  # Global AI prompt for content generation
+        self.moodboard_path: Optional[str] = None  # Path to moodboard image (relative to project)
         
     @property
     def is_modified(self) -> bool:
@@ -282,6 +286,55 @@ class ReelForgeProject:
             }
         }
     
+    def get_ai_generation_data(self) -> Dict[str, Any]:
+        """Get complete data package for AI content generation"""
+        # Get plugin info
+        plugin_info = self.get_current_plugin_info()
+        plugin_data = None
+        if plugin_info:
+            plugin_data = {
+                "name": plugin_info.name,
+                "tagline": plugin_info.tagline,
+                "description": plugin_info.short_description,
+                "unique": plugin_info.unique,
+                "personality": plugin_info.personality,
+                "categories": plugin_info.category,
+                "use_cases": plugin_info.intended_use
+            }
+        
+        # Get all assets (AI will select appropriate ones)
+        assets_data = []
+        for asset in self.get_all_assets():
+            assets_data.append({
+                "id": asset.id,
+                "name": asset.name,
+                "type": asset.file_type,
+                "path": asset.file_path
+            })
+        
+        # Get all scheduled events with their prompts
+        events_data = []
+        for event in self.release_events.values():
+            events_data.append({
+                "date": event.date,
+                "content_type": event.content_type,
+                "title": event.title,
+                "prompt": event.description,  # The AI prompt/description
+                "platforms": event.platforms
+            })
+        
+        return {
+            "plugin": plugin_data,
+            "global_prompt": self.global_prompt,
+            "moodboard_path": self.moodboard_path,
+            "assets": assets_data,
+            "scheduled_content": events_data,
+            "project_info": {
+                "name": self.metadata.name,
+                "format": self.metadata.format
+            }
+        }
+
     # ...existing asset management methods...
     def add_asset(self, asset: AssetReference) -> bool:
         """Add asset to project"""
@@ -323,7 +376,9 @@ class ReelForgeProject:
             "release_events": {k: asdict(v) for k, v in self.release_events.items()},
             "plugin_data": self.plugin_manager.to_dict(),
             "current_plugin": self.current_plugin,
-            "version": "1.2"  # Updated version for plugin support
+            "global_prompt": self.global_prompt,
+            "moodboard_path": self.moodboard_path,
+            "version": "1.3"  # Updated version for AI features
         }
         
     @classmethod
@@ -358,6 +413,13 @@ class ReelForgeProject:
         # Load current plugin
         if "current_plugin" in data:
             project.current_plugin = data["current_plugin"]
+            
+        # Load AI features
+        if "global_prompt" in data:
+            project.global_prompt = data["global_prompt"]
+            
+        if "moodboard_path" in data:
+            project.moodboard_path = data["moodboard_path"]
                 
         project._is_modified = False
         return project

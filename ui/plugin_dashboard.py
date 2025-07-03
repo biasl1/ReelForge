@@ -1,6 +1,6 @@
 """
 Plugin Information Dashboard
-Displays and manages plugin information imported from .adsp files
+Displays plugin information for the current project (one plugin per project)
 """
 
 from pathlib import Path
@@ -8,11 +8,11 @@ from typing import Optional
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, 
     QPushButton, QGroupBox, QFormLayout, QScrollArea,
-    QFileDialog, QMessageBox, QComboBox, QFrame, QSplitter,
-    QListWidget, QListWidgetItem, QTabWidget
+    QFileDialog, QMessageBox, QFrame, QTabWidget,
+    QComboBox, QSplitter, QListWidget, QListWidgetItem
 )
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont, QPalette
+from PyQt6.QtGui import QFont
 
 from core.plugins import PluginInfo, get_supported_content_types, generate_ai_prompts_for_plugin
 
@@ -302,63 +302,79 @@ class PluginInfoWidget(QWidget):
 
 
 class PluginDashboard(QWidget):
-    """Complete plugin management dashboard"""
+    """Simplified plugin dashboard - one plugin per project workflow"""
     
-    plugin_selected = pyqtSignal(str)  # plugin_name
     plugin_imported = pyqtSignal(str)  # plugin_name
     
     def __init__(self, parent=None):
         super().__init__(parent)
         self.current_project = None
+        self.current_moodboard_path = None
         self._setup_ui()
         
     def _setup_ui(self):
-        """Setup the dashboard UI"""
+        """Setup the simplified dashboard UI"""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(15)
         
-        # Title and controls
+        # Header section
         header_layout = QHBoxLayout()
         
         title = QLabel("Plugin Information")
-        title.setStyleSheet("font-weight: bold; font-size: 14px; padding: 5px;")
+        font = QFont()
+        font.setPointSize(14)
+        font.setBold(True)
+        title.setFont(font)
+        title.setStyleSheet("color: #cccccc;")
         header_layout.addWidget(title)
         
         header_layout.addStretch()
         
         # Import button
-        self.import_btn = QPushButton("Import .adsp")
+        self.import_btn = QPushButton("Import .adsp File")
         self.import_btn.clicked.connect(self._import_adsp_file)
+        self.import_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0e639c;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #1177bb;
+            }
+        """)
         header_layout.addWidget(self.import_btn)
         
         layout.addLayout(header_layout)
         
-        # Splitter for plugin list and details
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        
-        # Plugin selection panel
-        selection_panel = self._create_selection_panel()
-        splitter.addWidget(selection_panel)
-        
-        # Plugin info display
+        # Plugin info display (main content)
         self.plugin_info_widget = PluginInfoWidget()
-        splitter.addWidget(self.plugin_info_widget)
+        layout.addWidget(self.plugin_info_widget)
         
-        splitter.setSizes([200, 400])
-        layout.addWidget(splitter)
+        # Global prompt section
+        global_prompt_group = self._create_global_prompt_section()
+        layout.addWidget(global_prompt_group)
+        
+        # Moodboard section
+        moodboard_group = self._create_moodboard_section()
+        layout.addWidget(moodboard_group)
         
         # Generate button (placeholder for future AI integration)
-        self.generate_btn = QPushButton("🚀 Generate Media (Coming Soon)")
+        self.generate_btn = QPushButton("🚀 Generate All Content (Coming Soon)")
         self.generate_btn.setEnabled(False)
         self.generate_btn.setStyleSheet("""
             QPushButton {
                 background-color: #007acc;
                 color: white;
                 border: none;
-                padding: 10px;
-                border-radius: 5px;
+                padding: 12px;
+                border-radius: 6px;
                 font-weight: bold;
-                font-size: 12px;
+                font-size: 13px;
             }
             QPushButton:disabled {
                 background-color: #464647;
@@ -367,73 +383,146 @@ class PluginDashboard(QWidget):
         """)
         layout.addWidget(self.generate_btn)
         
-    def _create_selection_panel(self) -> QWidget:
-        """Create plugin selection panel"""
-        panel = QFrame()
-        panel.setFrameStyle(QFrame.Shape.StyledPanel)
-        layout = QVBoxLayout(panel)
-        layout.setContentsMargins(5, 5, 5, 5)
+    def _create_global_prompt_section(self) -> QGroupBox:
+        """Create global AI prompt section"""
+        group = QGroupBox("Global AI Prompt")
+        layout = QVBoxLayout(group)
         
-        # Current plugin label
-        current_label = QLabel("Current Plugin:")
-        current_label.setStyleSheet("font-weight: bold; color: #cccccc;")
-        layout.addWidget(current_label)
+        # Explanation
+        explanation = QLabel("This prompt will be used for all content generation along with individual event prompts. Describe the overall style, brand voice, and key messaging for your plugin.")
+        explanation.setStyleSheet("color: #969696; font-style: italic; font-size: 10px;")
+        explanation.setWordWrap(True)
+        layout.addWidget(explanation)
         
-        self.current_plugin_label = QLabel("None selected")
-        self.current_plugin_label.setStyleSheet("color: #007acc; font-style: italic;")
-        layout.addWidget(self.current_plugin_label)
+        # Global prompt text area
+        self.global_prompt_edit = QTextEdit()
+        self.global_prompt_edit.setMaximumHeight(80)
+        self.global_prompt_edit.setPlaceholderText("Example: 'Professional, warm tone. Focus on the vintage analog character. Show real-world music production scenarios...'")
+        self.global_prompt_edit.textChanged.connect(self._on_global_prompt_changed)
+        layout.addWidget(self.global_prompt_edit)
         
-        # Available plugins
-        layout.addWidget(QLabel("Available Plugins:"))
+        return group
         
-        self.plugins_list = QListWidget()
-        self.plugins_list.itemClicked.connect(self._on_plugin_selected)
-        layout.addWidget(self.plugins_list)
+    def _create_moodboard_section(self) -> QGroupBox:
+        """Create moodboard upload section"""
+        group = QGroupBox("Moodboard (Optional)")
+        layout = QVBoxLayout(group)
         
-        return panel
+        # Explanation
+        explanation = QLabel("Upload a reference image to guide the visual style of generated content.")
+        explanation.setStyleSheet("color: #969696; font-style: italic; font-size: 10px;")
+        explanation.setWordWrap(True)
+        layout.addWidget(explanation)
+        
+        # Moodboard controls
+        moodboard_layout = QHBoxLayout()
+        
+        self.moodboard_label = QLabel("No moodboard uploaded")
+        self.moodboard_label.setStyleSheet("color: #969696; font-style: italic;")
+        moodboard_layout.addWidget(self.moodboard_label)
+        
+        moodboard_layout.addStretch()
+        
+        # Upload button
+        self.upload_moodboard_btn = QPushButton("Upload Image")
+        self.upload_moodboard_btn.clicked.connect(self._upload_moodboard)
+        moodboard_layout.addWidget(self.upload_moodboard_btn)
+        
+        # Clear button
+        self.clear_moodboard_btn = QPushButton("Clear")
+        self.clear_moodboard_btn.clicked.connect(self._clear_moodboard)
+        self.clear_moodboard_btn.setVisible(False)
+        moodboard_layout.addWidget(self.clear_moodboard_btn)
+        
+        layout.addLayout(moodboard_layout)
+        
+        return group
         
     def set_project(self, project):
         """Set current project"""
         self.current_project = project
-        self._refresh_plugins_list()
         
-        # Update current plugin display
+        # Update plugin display
         if project and project.current_plugin:
-            self.current_plugin_label.setText(project.current_plugin)
             plugin_info = project.get_current_plugin_info()
             self.plugin_info_widget.set_plugin(plugin_info)
             self.generate_btn.setEnabled(plugin_info is not None)
+            
+            # Load global prompt if available
+            if hasattr(project, 'global_prompt'):
+                self.global_prompt_edit.setPlainText(project.global_prompt)
+                
+            # Load moodboard if available
+            if hasattr(project, 'moodboard_path') and project.moodboard_path:
+                self.current_moodboard_path = project.moodboard_path
+                self._update_moodboard_display()
         else:
-            self.current_plugin_label.setText("None selected")
             self.plugin_info_widget.set_plugin(None)
             self.generate_btn.setEnabled(False)
+            self.global_prompt_edit.clear()
+            self._clear_moodboard()
             
-    def _refresh_plugins_list(self):
-        """Refresh the plugins list"""
-        self.plugins_list.clear()
-        
+    def _on_global_prompt_changed(self):
+        """Handle global prompt text change"""
+        if self.current_project:
+            self.current_project.global_prompt = self.global_prompt_edit.toPlainText()
+            self.current_project.mark_modified()
+            
+    def _upload_moodboard(self):
+        """Upload moodboard image"""
         if not self.current_project:
+            QMessageBox.warning(self, "No Project", "Please create or open a project first.")
             return
             
-        for plugin in self.current_project.plugin_manager.get_all_plugins():
-            item = QListWidgetItem(f"{plugin.name} (v{plugin.version})")
-            item.setData(Qt.ItemDataRole.UserRole, plugin.name)
-            self.plugins_list.addItem(item)
-            
-    def _on_plugin_selected(self, item):
-        """Handle plugin selection"""
-        plugin_name = item.data(Qt.ItemDataRole.UserRole)
-        if self.current_project and plugin_name:
-            # Set as current plugin
-            self.current_project.set_current_plugin(plugin_name)
-            self.current_plugin_label.setText(plugin_name)
-            
-            # Update display
-            plugin_info = self.current_project.get_current_plugin_info()
-            self.plugin_info_widget.set_plugin(plugin_info)
-            self.generate_btn.setEnabled(True)
-            
-            self.plugin_selected.emit(plugin_name)
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Upload Moodboard Image",
+            str(Path.home()),
+            "Image Files (*.jpg *.jpeg *.png *.gif *.bmp);;All Files (*)"
+        )
+        
+        if file_path:
+            try:
+                # Copy to project directory
+                project_dir = self.current_project.project_directory
+                if project_dir:
+                    moodboard_dir = project_dir / "moodboard"
+                    moodboard_dir.mkdir(exist_ok=True)
+                    
+                    file_ext = Path(file_path).suffix
+                    new_path = moodboard_dir / f"moodboard{file_ext}"
+                    
+                    import shutil
+                    shutil.copy2(file_path, new_path)
+                    
+                    self.current_moodboard_path = str(new_path.relative_to(project_dir))
+                    self.current_project.moodboard_path = self.current_moodboard_path
+                    self.current_project.mark_modified()
+                    
+                    self._update_moodboard_display()
+                    
+            except Exception as e:
+                QMessageBox.critical(self, "Upload Failed", f"Failed to upload moodboard: {e}")
+                
+    def _clear_moodboard(self):
+        """Clear current moodboard"""
+        self.current_moodboard_path = None
+        if self.current_project:
+            self.current_project.moodboard_path = None
+            self.current_project.mark_modified()
+        self._update_moodboard_display()
+        
+    def _update_moodboard_display(self):
+        """Update moodboard display"""
+        if self.current_moodboard_path:
+            filename = Path(self.current_moodboard_path).name
+            self.moodboard_label.setText(f"Uploaded: {filename}")
+            self.moodboard_label.setStyleSheet("color: #007acc;")
+            self.clear_moodboard_btn.setVisible(True)
+        else:
+            self.moodboard_label.setText("No moodboard uploaded")
+            self.moodboard_label.setStyleSheet("color: #969696; font-style: italic;")
+            self.clear_moodboard_btn.setVisible(False)
             
     def _import_adsp_file(self):
         """Import .adsp file"""
@@ -451,24 +540,20 @@ class PluginDashboard(QWidget):
         if file_path:
             success = self.current_project.import_plugin_info(Path(file_path))
             if success:
-                self._refresh_plugins_list()
-                
-                # Auto-select the imported plugin
-                plugin_name = self.current_project.current_plugin
-                if plugin_name:
-                    self.current_plugin_label.setText(plugin_name)
-                    plugin_info = self.current_project.get_current_plugin_info()
-                    self.plugin_info_widget.set_plugin(plugin_info)
-                    self.generate_btn.setEnabled(True)
+                # Update display
+                plugin_info = self.current_project.get_current_plugin_info()
+                self.plugin_info_widget.set_plugin(plugin_info)
+                self.generate_btn.setEnabled(True)
                     
-                self.plugin_imported.emit(plugin_name or "")
+                self.plugin_imported.emit(self.current_project.current_plugin or "")
                 
                 QMessageBox.information(
                     self,
                     "Import Successful",
                     f"Plugin information imported successfully!\n\n"
                     f"Plugin: {plugin_info.name if plugin_info else 'Unknown'}\n"
-                    f"Version: {plugin_info.version if plugin_info else 'Unknown'}"
+                    f"Version: {plugin_info.version if plugin_info else 'Unknown'}\n\n"
+                    f"This plugin is now ready for AI content generation."
                 )
             else:
                 QMessageBox.critical(

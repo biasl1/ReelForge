@@ -1,3 +1,49 @@
+# Version 1.3.0 - AI-Ready UX Release
+
+## 🤖 MAJOR FEATURE: AI-Focused Workflow Transformation
+
+### UX Improvements for AI Content Generation
+- **Event Editing & Removal**: Right-click context menus on timeline, event modification dialogs
+- **Simplified Event Creation**: Focus on content type + AI prompt, removed manual asset selection
+- **One Plugin Per Project**: Streamlined workflow, removed plugin selection complexity
+- **AI Asset Selection**: Assets automatically selected by AI based on content needs
+- **Timeline Interaction**: Intuitive right-click editing, multiple event support per day
+
+### AI Content Generation Preparation
+- **Global AI Prompt**: Brand voice and style consistency across all content
+- **Moodboard Support**: Upload reference images for visual style guidance
+- **Per-Event Prompts**: Detailed AI descriptions for each piece of content
+- **Complete Data Package**: Structured data ready for AI content generation systems
+- **Future Integration Ready**: "Generate All Content" placeholder for AI services
+
+### Streamlined Data Model
+- **Essential Event Data**: Release day, content type, AI prompt, platforms
+- **Simplified Project Structure**: Global prompt + moodboard + scheduled events
+- **AI Generation Interface**: `get_ai_generation_data()` method for external AI systems
+- **Reduced Complexity**: Removed manual hashtag/asset management
+
+### Enhanced Plugin Dashboard
+- **Direct Plugin Import**: Single .adsp file per project workflow
+- **Global Prompt Editor**: Brand consistency controls
+- **Moodboard Management**: Visual style reference upload/clear
+- **Generation Readiness**: Clear indicators when ready for AI processing
+- **Cleaner Interface**: Removed plugin selection lists and complexity
+
+## 🔧 Technical Improvements
+- **Enhanced Project Serialization**: Support for global_prompt and moodboard_path
+- **Signal-Based Event Management**: Proper Qt signals for event editing/deletion
+- **AI Data Structure**: Complete content generation data package
+- **Timeline Context Menus**: Native right-click event management
+- **Simplified Dialog Architecture**: Faster event creation workflow
+
+## 🧪 Testing
+- **Comprehensive UX Test Suite**: `test_ux_improvements.py` validates all new features
+- **AI Data Structure Testing**: Verification of complete generation data
+- **Event Management Testing**: Create, edit, delete event workflows
+- **Project Serialization Testing**: Global prompt and moodboard persistence
+
+---
+
 # Version 1.2.0 - Plugin Integration Release
 
 ## 🔌 NEW MAJOR FEATURE: Plugin Integration System
