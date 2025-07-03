@@ -10,6 +10,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
+from core.logging_config import log_info, log_error, log_warning, log_debug
 
 # Add the project root to Python path for imports
 project_root = Path(__file__).parent
@@ -79,7 +80,7 @@ class ReelForgeApp(QApplication):
             self.main_window.show()
             
         except Exception as e:
-            print(f"Error opening main window: {e}")
+            log_error(f"Error opening main window: {e}")
             sys.exit(1)
 
 
@@ -98,7 +99,7 @@ def main():
             sys.exit(0)
             
     except Exception as e:
-        print(f"Fatal error: {e}")
+        log_error(f"Fatal error: {e}")
         sys.exit(1)
 
 

@@ -37,17 +37,70 @@ ReelTune is a modern PyQt6-based desktop application designed for professional c
 
 ## 🛠️ Technical Architecture
 
+# ReelTune
+
+**Professional AI-Ready Social Media Content Planning Tool**
+
+ReelTune is a modern PyQt6-based desktop application designed for professional content creators and audio plugin developers. Originally ReelForge, it has been transformed into a comprehensive content planning and management system with AI integration capabilities, timeline scheduling, and enhanced asset management.
+
+## 🚀 Features
+
+### Core Foundation
+- **Project Management**: Create, save, and load projects with JSON-based `.rforge` files
+- **Enhanced Asset Panel**: Professional asset management with thumbnails, categorization, and import
+- **Professional UI**: Dark theme with responsive design and intuitive workflow
+- **Recent Projects**: Quick access to recently opened projects
+- **AI-Ready Structure**: Comprehensive project data for AI content generation
+- **Structured Logging**: Professional logging system replacing print statements for better debugging
+
+### 🎯 Timeline & Event Management
+- **Interactive Timeline Canvas**: Professional calendar-based content planning
+- **Event Scheduling**: Create, edit, and delete content events with visual feedback
+- **Fixed Duration**: Always 4-week timeline for consistent planning (duration selection removed)
+- **Visual Event Display**: Color-coded content types with comprehensive event details
+- **Timeline Navigation**: Smooth previous/next navigation with date controls
+- **Event Persistence**: Reliable save/load with proper event-timeline synchronization
+- **Robust Event Management**: Fixed timeline refresh and event deletion/editing bugs
+
+### 🖼️ Enhanced Asset Management
+- **Visual Asset Panel**: Thumbnail previews for images, video previews, and professional icons
+- **Smart Categorization**: Automatic grouping by Images, Videos, Audio, and Other files
+- **Asset Import**: Drag-and-drop and button-based import with file type detection
+- **Professional Design**: Responsive grid layout with category headers and modern styling
+- **Asset Integration**: Link assets to timeline events for complete content planning
+
+### 🔌 Plugin Integration
+- **Artista .adsp Import**: Import plugin metadata from Artista plugin files
+- **Plugin Information Dashboard**: Complete plugin details and management
+- **AI Content Preparation**: Structured data for AI content generation
+- **Marketing Content**: Extract descriptions, features, and selling points
+- **Technical Specifications**: Plugin parameters, categories, and capabilities
+
+## 🛠️ Technical Architecture
+
 ### Core Modules
-- **`core/project.py`** - Enhanced project management with asset import and timeline integration
+- **`core/project.py`** - Enhanced project management with asset import, timeline integration, and structured logging
 - **`core/assets.py`** - Asset management and file operations
+- **`core/plugins.py`** - Plugin management and .adsp file handling
+- **`core/logging_config.py`** - Centralized logging configuration
 - **`core/utils.py`** - Utility functions and helpers
 
 ### UI Components
 - **`ui/mainwindow.py`** - Main application with timeline integration and delayed event updates
 - **`ui/enhanced_asset_panel.py`** - Professional asset panel with thumbnails and categorization
+- **`ui/timeline/canvas.py`** - Timeline rendering and event management
+- **`ui/timeline/controls.py`** - Timeline controls (duration fixed to 4 weeks)
 - **`ui/startup_dialog.py`** - Project creation/opening dialog
 - **`ui/menu.py`** - Menu bar management
 - **`ui/style_utils.py`** - Dark theme styling
+
+### Test Suite
+- **`tests/`** - Comprehensive test suite for all core functionality
+  - Timeline and event management tests
+  - Asset import and categorization tests
+  - Project loading and navigation tests
+  - UI integration tests
+- **`tests/run_tests.py`** - Test runner for automated validation
 
 ### Design Patterns
 - **Modular Architecture** - Clean separation of concerns

@@ -13,6 +13,7 @@ from PyQt6.QtGui import QPixmap, QPainter, QBrush, QColor, QFont, QIcon, QPen
 from pathlib import Path
 from typing import Optional
 import subprocess
+from core.logging_config import log_info, log_error, log_warning, log_debug
 import tempfile
 import os
 
@@ -41,7 +42,7 @@ class ThumbnailWorker(QThread):
             if thumbnail and not thumbnail.isNull():
                 self.thumbnail_ready.emit(self.asset_id, thumbnail)
         except Exception as e:
-            print(f"Error generating thumbnail for {self.asset_id}: {e}")
+            log_error(f"Error generating thumbnail for {self.asset_id}: {e}")
             
     def create_image_thumbnail(self) -> QPixmap:
         """Create thumbnail for image files"""
@@ -499,15 +500,15 @@ class EnhancedAssetPanel(QWidget):
             # Import asset to project
             asset_id = self.current_project.import_asset(str(file_path))
             if asset_id:
-                print(f"✅ Imported asset: {file_path.name} (ID: {asset_id})")
+                log_info(f"Imported asset: {file_path.name} (ID: {asset_id})")
                 # Refresh the display
                 self.refresh_assets()
                 # Emit signal
                 self.asset_imported.emit(asset_id)
             else:
-                print(f"❌ Failed to import: {file_path.name}")
+                log_warning(f"Failed to import: {file_path.name}")
         except Exception as e:
-            print(f"Error importing {file_path}: {e}")
+            log_error(f"Error importing {file_path}: {e}")
         
     def dragEnterEvent(self, event):
         """Handle drag enter"""

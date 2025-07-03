@@ -1,5 +1,5 @@
 """
-Project data models and management for ReelForge
+Project data models and management for ReelTune
 Handles creation, loading, and saving of .rforge project files
 """
 
@@ -11,6 +11,7 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict, field
 import uuid
 from core.plugins import PluginManager
+from core.logging_config import log_info, log_error, log_warning, log_debug
 
 
 @dataclass
@@ -169,41 +170,41 @@ class ReelForgeProject:
             return True
             
         except Exception as e:
-            print(f"Error adding release event: {e}")
+            log_error(f"Error adding release event: {e}")
             return False
     
     def remove_release_event(self, event_id: str) -> bool:
         """Remove a release event"""
         try:
             if event_id not in self.release_events:
-                print(f"Event {event_id} not found in release_events")
+                log_warning(f"Event {event_id} not found in release_events")
                 return False
                 
             event = self.release_events[event_id]
-            print(f"Removing event: {event.title} (ID: {event_id}) from date: {event.date}")
+            log_info(f"Removing event: {event.title} (ID: {event_id}) from date: {event.date}")
             
             # Remove from timeline plan
             if self.timeline_plan and event.date in self.timeline_plan.events:
                 if event_id in self.timeline_plan.events[event.date]:
                     self.timeline_plan.events[event.date].remove(event_id)
-                    print(f"Removed event from timeline_plan.events[{event.date}]")
+                    log_debug(f"Removed event from timeline_plan.events[{event.date}]")
                     
                 # Clean up empty date entries
                 if not self.timeline_plan.events[event.date]:
                     del self.timeline_plan.events[event.date]
-                    print(f"Cleaned up empty date entry: {event.date}")
+                    log_debug(f"Cleaned up empty date entry: {event.date}")
             else:
-                print(f"Event date {event.date} not found in timeline_plan.events")
+                log_warning(f"Event date {event.date} not found in timeline_plan.events")
                     
             # Remove from events dict
             del self.release_events[event_id]
-            print(f"Event {event_id} removed from release_events")
+            log_debug(f"Event {event_id} removed from release_events")
             
             self.mark_modified()
             return True
             
         except Exception as e:
-            print(f"Error removing release event: {e}")
+            log_error(f"Error removing release event: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -212,15 +213,15 @@ class ReelForgeProject:
         """Update an existing release event"""
         try:
             if event.id not in self.release_events:
-                print(f"Event {event.id} not found for updating")
+                log_warning(f"Event {event.id} not found for updating")
                 return False
                 
             old_event = self.release_events[event.id]
             old_date = old_event.date
             new_date = event.date
             
-            print(f"Updating event: {event.title} (ID: {event.id})")
-            print(f"Date change: {old_date} -> {new_date}")
+            log_info(f"Updating event: {event.title} (ID: {event.id})")
+            log_debug(f"Date change: {old_date} -> {new_date}")
             
             # If date changed, update timeline plan
             if old_date != new_date and self.timeline_plan:
@@ -240,11 +241,11 @@ class ReelForgeProject:
             self.release_events[event.id] = event
             
             self.mark_modified()
-            print(f"Event {event.id} updated successfully")
+            log_debug(f"Event {event.id} updated successfully")
             return True
             
         except Exception as e:
-            print(f"Error updating release event: {e}")
+            log_error(f"Error updating release event: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -270,7 +271,7 @@ class ReelForgeProject:
             return matching_events
             
         except Exception as e:
-            print(f"Error getting events for date: {e}")
+            log_error(f"Error getting events for date: {e}")
             return []
 
     # Plugin Management Methods
@@ -284,7 +285,7 @@ class ReelForgeProject:
                 return True
             return False
         except Exception as e:
-            print(f"Error importing plugin info: {e}")
+            log_error(f"Error importing plugin info: {e}")
             return False
     
     def set_current_plugin(self, plugin_name: str) -> bool:
@@ -411,7 +412,7 @@ class ReelForgeProject:
             return None
             
         except Exception as e:
-            print(f"Error importing asset: {e}")
+            log_error(f"Error importing asset: {e}")
             return None
 
     def add_asset(self, asset: AssetReference) -> bool:
@@ -526,7 +527,7 @@ class ReelForgeProject:
             return True
             
         except Exception as e:
-            print(f"Error saving project: {e}")
+            log_error(f"Error saving project: {e}")
             return False
             
     @classmethod
@@ -546,7 +547,7 @@ class ReelForgeProject:
             return project
             
         except Exception as e:
-            print(f"Error loading project: {e}")
+            log_error(f"Error loading project: {e}")
             return None
             
     def create_new(self, name: str, location: Path, 
@@ -566,7 +567,7 @@ class ReelForgeProject:
             return self.save(project_file)
             
         except Exception as e:
-            print(f"Error creating project: {e}")
+            log_error(f"Error creating project: {e}")
             return False
 
 
@@ -607,7 +608,7 @@ class ProjectManager:
             with open(settings_path, 'w') as f:
                 json.dump(data, f, indent=2)
         except Exception as e:
-            print(f"Error saving recent projects: {e}")
+            log_error(f"Error saving recent projects: {e}")
             
     def add_recent_project(self, project_path: str):
         """Add project to recent list"""

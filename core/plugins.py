@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
+from core.logging_config import log_info, log_error, log_warning, log_debug
 
 
 @dataclass
@@ -115,7 +116,7 @@ class PluginManager:
             return plugin_info
             
         except Exception as e:
-            print(f"Error importing .adsp file {file_path}: {e}")
+            log_error(f"Error importing .adsp file {file_path}: {e}")
             return None
             
     def _extract_company_from_components(self, components: List[Dict]) -> str:
