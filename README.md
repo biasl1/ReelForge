@@ -23,6 +23,15 @@ ReelForge is a modern PyQt6-based desktop application designed for creating and 
 - **Platform Targeting**: Multi-platform content scheduling
 - **Status Tracking**: Planned → Ready → Published workflow
 
+### 🔌 NEW: Plugin Integration (v1.2.0)
+- **Artista .adsp Import**: Import plugin metadata from Artista plugin files
+- **Plugin Information Dashboard**: Complete plugin details and management
+- **AI Content Preparation**: Structured data for future AI content generation
+- **Marketing Content**: Extract descriptions, features, and selling points
+- **Technical Specifications**: Plugin parameters, categories, and capabilities
+- **Content Generation Prompts**: AI-ready prompts for different content types
+- **Branding Integration**: Plugin colors, sizing, and visual elements
+
 ### Project Templates
 - **Social Media - Square** (1080x1080) - Instagram posts
 - **Social Media - Vertical** (1080x1920) - TikTok, Reels, Shorts
@@ -81,6 +90,21 @@ ReelForge is a modern PyQt6-based desktop application designed for creating and 
 python main.py
 ```
 
+### Managing Plugin Information
+
+1. **Import Plugin Data** - Click "Import .adsp" in the Plugin Dashboard
+2. **Select .adsp File** - Choose your Artista plugin file (.adsp format)
+3. **View Plugin Details**:
+   - **Basic Info**: Name, version, categories, use cases
+   - **Marketing**: Descriptions, unique selling points, problem solved
+   - **Technical**: Specifications, parameters, capabilities
+   - **AI Prompts**: Generated content prompts for different social media types
+4. **Content Generation Preparation**:
+   - All plugin data is structured for AI content generation
+   - Prompts are customized based on plugin characteristics
+   - Visual branding elements are preserved
+   - Marketing content is ready for social media
+
 ### Creating Your First Timeline
 
 1. **Launch ReelForge** - The startup dialog will appear
@@ -127,17 +151,25 @@ python main.py
 ReelForge/
 ├── core/                    # Core business logic
 │   ├── __init__.py
-│   ├── project.py          # Project management
+│   ├── project.py          # Project management & timeline
 │   ├── assets.py           # Asset handling
+│   ├── plugins.py          # Plugin management & .adsp import
 │   └── utils.py            # Utilities
 ├── ui/                     # User interface
 │   ├── __init__.py
 │   ├── mainwindow.py       # Main window
 │   ├── startup_dialog.py   # Startup dialog
+│   ├── plugin_dashboard.py # Plugin information dashboard
+│   ├── timeline/           # Timeline components
+│   │   ├── canvas.py       # Timeline canvas
+│   │   ├── controls.py     # Timeline controls
+│   │   └── event_dialog.py # Event scheduling dialog
 │   ├── menu.py             # Menu management
 │   └── style_utils.py      # Dark theme
 ├── main.py                 # Application entry point
 ├── requirements.txt        # Dependencies
+├── test_timeline.py        # Timeline tests
+├── test_plugins.py         # Plugin tests
 └── README.md              # This file
 ```
 
@@ -151,7 +183,7 @@ ReelForge/
 - **Border Colors**: `#464647` / `#3c3c3c`
 
 ### Layout Principles
-- **Three-panel layout**: Assets | Timeline/Canvas | Properties
+- **Three-panel layout**: Assets | Timeline/Canvas | Plugin Dashboard
 - **Consistent spacing**: 5px, 10px, 20px grid system
 - **Professional typography**: System fonts with proper weights
 - **Intuitive navigation**: Standard keyboard shortcuts
@@ -195,22 +227,28 @@ Projects are saved as JSON files with the `.rforge` extension:
 - [x] Dark theme UI
 - [x] Basic file operations
 
-### Phase 2: Timeline (Next)
-- [ ] Timeline interface
-- [ ] Asset arrangement
-- [ ] Basic editing operations
-- [ ] Preview functionality
+### Phase 2: Timeline & Planning ✅
+- [x] Timeline Canvas with calendar grid
+- [x] Event scheduling and management
+- [x] Content type planning
+- [x] Multi-week navigation
 
-### Phase 3: Effects & Export
-- [ ] Transitions and effects
-- [ ] Text overlays
-- [ ] Export functionality
-- [ ] Render queue
+### Phase 3: Plugin Integration ✅
+- [x] .adsp file import from Artista
+- [x] Plugin information dashboard
+- [x] AI content preparation
+- [x] Marketing data extraction
 
-### Phase 4: Advanced Features
-- [ ] Audio mixing
-- [ ] Color correction
-- [ ] Plugin system
+### Phase 4: Content Generation (Next)
+- [ ] AI integration for content generation
+- [ ] Automated video/image creation
+- [ ] Social media post generation
+- [ ] Content export and publishing
+
+### Phase 5: Advanced Features
+- [ ] Batch content generation
+- [ ] Template management
+- [ ] Analytics and performance tracking
 - [ ] Collaboration features
 
 ## 🧪 Testing
@@ -221,21 +259,33 @@ To test the application:
 # Run the application
 python main.py
 
-# Test project creation
+# Test core functionality
+python test_core.py
+
+# Test timeline features
+python test_timeline.py
+
+# Test plugin functionality
+python test_plugins.py
+
+# Complete workflow test:
 1. Create a new project
 2. Import some media files
-3. Save the project
-4. Close and reopen to verify persistence
+3. Import a plugin (.adsp file)
+4. Schedule content in timeline
+5. Save the project
+6. Close and reopen to verify persistence
 ```
 
 ## 🤝 Contributing
 
 This is the foundation for a larger content creation tool. Key areas for contribution:
 
-1. **Timeline Implementation** - Core editing interface
-2. **Media Processing** - Video/audio handling with FFmpeg
-3. **Export System** - Multiple format support
-4. **Plugin Architecture** - Extensible effects system
+1. **AI Content Generation** - Integration with AI services for automated content creation
+2. **Social Media APIs** - Direct publishing to Instagram, TikTok, YouTube
+3. **Template System** - Pre-built content templates and layouts
+4. **Analytics Integration** - Content performance tracking and optimization
+5. **Collaboration Features** - Multi-user project management
 
 ## 📝 License
 

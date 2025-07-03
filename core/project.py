@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict, field
 import uuid
+from core.plugins import PluginManager
 
 
 @dataclass
@@ -102,6 +103,10 @@ class ReelForgeProject:
         # Timeline components
         self.timeline_plan: Optional[TimelinePlan] = None
         self.release_events: Dict[str, ReleaseEvent] = {}  # event_id -> event
+        
+        # Plugin management
+        self.plugin_manager = PluginManager()
+        self.current_plugin: Optional[str] = None  # Name of current plugin
         
     @property
     def is_modified(self) -> bool:
@@ -222,6 +227,61 @@ class ReelForgeProject:
         self.timeline_plan.duration_weeks = weeks
         self.mark_modified()
 
+    # Plugin Management Methods
+    def import_plugin_info(self, adsp_file_path: Path) -> bool:
+        """Import plugin information from .adsp file"""
+        try:
+            plugin_info = self.plugin_manager.import_adsp_file(adsp_file_path)
+            if plugin_info:
+                self.current_plugin = plugin_info.name
+                self.mark_modified()
+                return True
+            return False
+        except Exception as e:
+            print(f"Error importing plugin info: {e}")
+            return False
+    
+    def set_current_plugin(self, plugin_name: str) -> bool:
+        """Set the current plugin for content generation"""
+        if self.plugin_manager.get_plugin(plugin_name):
+            self.current_plugin = plugin_name
+            self.mark_modified()
+            return True
+        return False
+    
+    def get_current_plugin_info(self):
+        """Get current plugin information"""
+        if self.current_plugin:
+            return self.plugin_manager.get_plugin(self.current_plugin)
+        return None
+    
+    def get_content_generation_data(self) -> Optional[Dict[str, Any]]:
+        """Get all data needed for AI content generation"""
+        if not self.current_plugin:
+            return None
+            
+        plugin_data = self.plugin_manager.get_content_generation_data(self.current_plugin)
+        if not plugin_data:
+            return None
+            
+        return {
+            "plugin": plugin_data,
+            "project": {
+                "name": self.metadata.name,
+                "description": self.metadata.description,
+                "format": self.metadata.format,
+                "target_platforms": self.metadata.target_platforms,
+                "assets": [asdict(asset) for asset in self.get_all_assets()],
+                "timeline_events": [asdict(event) for event in self.release_events.values()]
+            },
+            "generation_context": {
+                "total_assets": len(self.assets),
+                "scheduled_events": len(self.release_events),
+                "timeline_duration": self.timeline_plan.duration_weeks if self.timeline_plan else 1,
+                "project_created": self.metadata.created_date
+            }
+        }
+    
     # ...existing asset management methods...
     def add_asset(self, asset: AssetReference) -> bool:
         """Add asset to project"""
@@ -261,7 +321,9 @@ class ReelForgeProject:
             "assets": {k: asdict(v) for k, v in self.assets.items()},
             "timeline_plan": asdict(self.timeline_plan) if self.timeline_plan else None,
             "release_events": {k: asdict(v) for k, v in self.release_events.items()},
-            "version": "1.1"  # Updated version for timeline support
+            "plugin_data": self.plugin_manager.to_dict(),
+            "current_plugin": self.current_plugin,
+            "version": "1.2"  # Updated version for plugin support
         }
         
     @classmethod
@@ -288,6 +350,14 @@ class ReelForgeProject:
             for event_id, event_data in data["release_events"].items():
                 event = ReleaseEvent(**event_data)
                 project.release_events[event_id] = event
+        
+        # Load plugin data
+        if "plugin_data" in data:
+            project.plugin_manager.from_dict(data["plugin_data"])
+            
+        # Load current plugin
+        if "current_plugin" in data:
+            project.current_plugin = data["current_plugin"]
                 
         project._is_modified = False
         return project

@@ -28,7 +28,7 @@ class ReelForgeApp(QApplication):
         
         # Application metadata
         self.setApplicationName("ReelForge")
-        self.setApplicationVersion("1.0.0")
+        self.setApplicationVersion("1.2.0")
         self.setOrganizationName("Artists in DSP")
         self.setOrganizationDomain("artistsindsp.com")
         

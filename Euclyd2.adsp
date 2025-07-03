@@ -1,0 +1,483 @@
+{
+  "pluginSize": [
+    800,
+    580
+  ],
+  "headerHeight": 100,
+  "components": [
+    {
+      "type": "header_logo",
+      "position": [
+        0,
+        5
+      ],
+      "size": [
+        116,
+        26
+      ],
+      "display_name": "Logo"
+    },
+    {
+      "type": "header_name",
+      "position": [
+        126,
+        1
+      ],
+      "size": [
+        132,
+        29
+      ],
+      "display_name": "euclyd"
+    },
+    {
+      "type": "header_tagline",
+      "position": [
+        255,
+        10
+      ],
+      "size": [
+        246,
+        19
+      ],
+      "display_name": "euclidean multitap delay engine"
+    },
+    {
+      "type": "header_company",
+      "position": [
+        15,
+        30
+      ],
+      "size": [
+        96,
+        15
+      ],
+      "display_name": "Artists in DSP"
+    },
+    {
+      "type": "header_preset",
+      "position": [
+        130,
+        60
+      ],
+      "size": [
+        471,
+        21
+      ],
+      "display_name": "Preset"
+    },
+    {
+      "type": "visualizer",
+      "position": [
+        130,
+        115
+      ],
+      "size": [
+        471,
+        421
+      ],
+      "display_name": "Visualizer 6",
+      "param_id": "visualizer_5",
+      "source_type": "Parameter-based",
+      "param_sources": [
+        "steps",
+        "fills",
+        "taps_strength",
+        "period",
+        "sync",
+        "decay",
+        "start_strength",
+        "rotate"
+      ],
+      "audio_sources": []
+    },
+    {
+      "type": "dial",
+      "position": [
+        15,
+        115
+      ],
+      "size": [
+        101,
+        101
+      ],
+      "display_name": "steps",
+      "param_id": "steps",
+      "min_value": 1.0,
+      "max_value": 32.0,
+      "step": 1.0,
+      "default": 20.0,
+      "skew_factor": 1.0,
+      "unit": "steps",
+      "useLabelFontSizeForValue": true,
+      "state_link_controller": null,
+      "state_link_config": []
+    },
+    {
+      "type": "dial",
+      "position": [
+        20,
+        280
+      ],
+      "size": [
+        101,
+        101
+      ],
+      "display_name": "fills",
+      "param_id": "fills",
+      "min_value": 1.0,
+      "max_value": 15.0,
+      "step": 1.0,
+      "default": 5.0,
+      "skew_factor": 1.0,
+      "unit": "taps",
+      "useLabelFontSizeForValue": true,
+      "state_link_controller": null,
+      "state_link_config": []
+    },
+    {
+      "type": "dial",
+      "position": [
+        650,
+        435
+      ],
+      "size": [
+        101,
+        101
+      ],
+      "display_name": "taps strength",
+      "param_id": "taps_strength",
+      "min_value": 0.0,
+      "max_value": 100.0,
+      "step": 0.01,
+      "default": 50.0,
+      "skew_factor": 1.0,
+      "unit": "%",
+      "useLabelFontSizeForValue": true,
+      "state_link_controller": null,
+      "state_link_config": []
+    },
+    {
+      "type": "dial",
+      "position": [
+        620,
+        110
+      ],
+      "size": [
+        154,
+        154
+      ],
+      "display_name": "period",
+      "param_id": "period",
+      "min_value": 1000.0,
+      "max_value": 10000.0,
+      "step": 0.01,
+      "default": 2000.0,
+      "skew_factor": 1.0,
+      "unit": "ms",
+      "useLabelFontSizeForValue": false,
+      "state_link_controller": "sync",
+      "state_link_config": [
+        {
+          "enabled": true,
+          "min_value": 1000.0,
+          "max_value": 10000.0,
+          "step": 0.01,
+          "unit": "ms",
+          "num_steps": 0,
+          "value_labels": []
+        },
+        {
+          "enabled": true,
+          "min_value": 0.0,
+          "max_value": 15.0,
+          "step": 1.0,
+          "unit": "bars",
+          "num_steps": 16,
+          "value_labels": [
+            "1/4",
+            "1/2",
+            "3/4",
+            "1",
+            "5/4",
+            "3/2",
+            "7/4",
+            "2",
+            "9/4",
+            "5/2",
+            "11/4",
+            "3",
+            "13/4",
+            "7/2",
+            "15/4",
+            "4"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "button",
+      "position": [
+        645,
+        70
+      ],
+      "size": [
+        96,
+        22
+      ],
+      "display_name": "sync",
+      "param_id": "sync",
+      "states": [
+        "free",
+        "sync"
+      ],
+      "current_state": 0,
+      "default_state": false
+    },
+    {
+      "type": "dial",
+      "position": [
+        500,
+        435
+      ],
+      "size": [
+        101,
+        101
+      ],
+      "display_name": "tabs decay",
+      "param_id": "decay",
+      "min_value": 0.0,
+      "max_value": 100.0,
+      "step": 0.1,
+      "default": 50.0,
+      "skew_factor": 1.0,
+      "unit": "%",
+      "useLabelFontSizeForValue": true,
+      "state_link_controller": null,
+      "state_link_config": []
+    },
+    {
+      "type": "dial",
+      "position": [
+        645,
+        285
+      ],
+      "size": [
+        101,
+        101
+      ],
+      "display_name": "start strength",
+      "param_id": "start_strength",
+      "min_value": 0.0,
+      "max_value": 100.0,
+      "step": 0.01,
+      "default": 50.0,
+      "skew_factor": 1.0,
+      "unit": "%",
+      "useLabelFontSizeForValue": true,
+      "state_link_controller": null,
+      "state_link_config": []
+    },
+    {
+      "type": "dial",
+      "position": [
+        20,
+        435
+      ],
+      "size": [
+        101,
+        101
+      ],
+      "display_name": "rotate start",
+      "param_id": "rotate",
+      "min_value": -16.0,
+      "max_value": 16.0,
+      "step": 1.0,
+      "default": 0.0,
+      "skew_factor": 1.0,
+      "unit": "steps",
+      "useLabelFontSizeForValue": true,
+      "state_link_controller": null,
+      "state_link_config": []
+    },
+    {
+      "type": "button",
+      "position": [
+        595,
+        10
+      ],
+      "size": [
+        191,
+        21
+      ],
+      "display_name": "image",
+      "param_id": "mono_stereo_pingPong",
+      "states": [
+        "mono",
+        "stereo",
+        "ping pong"
+      ],
+      "current_state": 1,
+      "default_state": false
+    },
+    {
+      "type": "svg_icon",
+      "position": [
+        680,
+        40
+      ],
+      "size": [
+        26,
+        14
+      ],
+      "svg_filename": "link.svg",
+      "color_param_id": "sync",
+      "color_state": 1
+    },
+    {
+      "type": "label",
+      "position": [
+        480,
+        15
+      ],
+      "size": [
+        83,
+        11
+      ],
+      "display_name": "version 1.0.0",
+      "label_type": "text"
+    }
+  ],
+  "highlightColor": [
+    181,
+    127,
+    244
+  ],
+  "titleFontSize": 30,
+  "labelsFontSize": 14,
+  "state_links": [
+    {
+      "controller": "sync",
+      "targets": [
+        {
+          "dial": "period",
+          "states": [
+            {
+              "enabled": true,
+              "min_value": 1000.0,
+              "max_value": 10000.0,
+              "step": 0.01,
+              "unit": "ms",
+              "num_steps": 0,
+              "value_labels": []
+            },
+            {
+              "enabled": true,
+              "min_value": 0.0,
+              "max_value": 15.0,
+              "step": 1.0,
+              "unit": "bars",
+              "num_steps": 16,
+              "value_labels": [
+                "1/4",
+                "1/2",
+                "3/4",
+                "1",
+                "5/4",
+                "3/2",
+                "7/4",
+                "2",
+                "9/4",
+                "5/2",
+                "11/4",
+                "3",
+                "13/4",
+                "7/2",
+                "15/4",
+                "4"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "pluginName": "Euclyd",
+  "pluginTitle": "euclyd",
+  "pluginTagline": "euclidean multitap delay engine",
+  "pluginVersion": "1.0.0",
+  "pluginCode": "EUCLY1",
+  "short_description": "A Euclidean multitap delay engine that thinks in pulses, not echoes.",
+  "long_description": "Most delays repeat. EuClyd organizes.\nNo feedback. No trailing echoes. Just a set of taps, placed with structure and intent.\nYou define how many steps make up the cycle, and how many taps it should contain.\nEuClyd spaces them rhythmically \u2014 distributing the taps as evenly as possible within the defined resolution, based on Euclidean principles. The period can be set in bars or milliseconds, synced or free.\nYou can rotate the pattern to shift its phrasing without changing its form.\nTap levels follow a fixed shape: flat, linear, or exponential decay.\nTaps can be routed in mono, stereo, or ping pong.",
+  "category": [
+    "Modulation",
+    "Delay",
+    "Other"
+  ],
+  "intended_use": [
+    "Sound Design",
+    "Vocals",
+    "FX",
+    "Mixing",
+    "Live"
+  ],
+  "input_type": "Stereo",
+  "has_sidechain": false,
+  "tech_summary": "**EuClyd** is a stereo multitap delay plugin available in VST3 and AU formats for macOS (Intel and Apple Silicon) and Windows (64-bit). It features stereo input/output, zero latency, and supports sample rates from 44.1kHz to 192kHz. The plugin does not require authorization and has low CPU usage. MIDI input is not supported. Compatible with all major DAWs that support VST3 or AU, including Ableton Live, Logic Pro, Reaper, and Cubase. Installation is available via installer or manual file placement, and the plugin operates natively on both Intel and ARM-based Macs.\n",
+  "tagline": "Delay, by design",
+  "unique": "Instead of relying on feedback or tap tempo,  Euclyd uses Euclidean algorithms to place taps with mathematical balance inside a user-defined period \u2014 not fixed delay times. You don\u2019t dial in echoes, you design rhythmic patterns. Each tap is a precise, single event shaped in gain and position, free from accumulation or modulation. This turns delay from an effect into a temporal composition tool \u2014 clean, controlled, and structurally musical in ways traditional delays can\u2019t replicate.",
+  "one_word": "Geometric",
+  "problem": "Traditional delays repeat \u2014 they don\u2019t compose.",
+  "wow": "You're not adjusting delay time, you're designing a rhythmic structure that plays like an instrument.",
+  "personality": "Deliberate, mathematical, but deeply musical.",
+  "changelog": [
+    "v1.0.0 - Beta: testing version"
+  ],
+  "key_parameters": [
+    {
+      "name": "period",
+      "description": "Sets the total duration of the cycle, in bars or milliseconds.\n\n",
+      "importance": "1"
+    },
+    {
+      "name": "steps",
+      "description": "Defines how many time divisions make up one full cycle.\n\n",
+      "importance": "2"
+    },
+    {
+      "name": "fills",
+      "description": "Sets how many taps are placed within the cycle.\n\n",
+      "importance": "3"
+    },
+    {
+      "name": "rotate start",
+      "description": "Offsets the starting point of the tap pattern without changing its structure.\n\n",
+      "importance": "4"
+    },
+    {
+      "name": "tabs decay",
+      "description": "Controls how tap amplitudes decrease: flat, linear, or exponential.\n\n",
+      "importance": "5"
+    },
+    {
+      "name": "start strength",
+      "description": "Adjusts the gain of the first tap in the pattern.\n\n",
+      "importance": "6"
+    },
+    {
+      "name": "taps strength",
+      "description": "Scales the overall amplitude of all taps.\n\n",
+      "importance": "7"
+    },
+    {
+      "name": "sync",
+      "description": "Toggles between tempo-synced (bars) and free (ms) period mode.\n\n",
+      "importance": "8"
+    },
+    {
+      "name": "image",
+      "description": "Switches between stereo modes: mono, stereo, and ping pong.\n\n",
+      "importance": "9"
+    }
+  ],
+  "source_folder": "/Users/test/Documents/development/Artists in DSP/Audio Plugins/WORKING ON/Euclyd/Plugin_Template/Source"
+}

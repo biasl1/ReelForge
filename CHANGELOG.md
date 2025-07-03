@@ -1,3 +1,53 @@
+# Version 1.2.0 - Plugin Integration Release
+
+## 🔌 NEW MAJOR FEATURE: Plugin Integration System
+
+### Artista .adsp File Integration
+- **Direct Import**: Import plugin metadata from Artista .adsp files
+- **Complete Data Extraction**: Plugin name, version, descriptions, technical specs
+- **Marketing Content**: Unique selling points, problem solved, wow factors
+- **Visual Branding**: Colors, sizing, and component information
+- **Parameter Information**: Key plugin parameters and their importance
+
+### Plugin Information Dashboard
+- **Comprehensive Display**: Tabbed interface showing all plugin details
+- **Basic Info Tab**: Name, version, categories, use cases, personality
+- **Marketing Tab**: Short/long descriptions, USP, problem/solution
+- **Technical Tab**: Input type, sidechain support, technical summary
+- **AI Prompts Tab**: Generated content prompts for different social media types
+
+### AI Content Preparation
+- **Structured Data**: All plugin information formatted for AI consumption
+- **Content Type Prompts**: Customized prompts for Reels, Stories, Posts, Teasers, Tutorials
+- **Plugin-Specific Context**: Prompts incorporate plugin characteristics and unique features
+- **Generation Ready**: Complete data package for future AI content generation
+
+### Project Integration
+- **Plugin Management**: Store and manage multiple plugins per project
+- **Current Plugin Selection**: Set active plugin for content generation
+- **Serialization Support**: Plugin data saves/loads with .rforge project files
+- **Version Compatibility**: Backward compatible with existing projects
+
+## 🎨 UI Enhancements
+- **Three-Panel Layout**: Assets | Timeline | Plugin Dashboard (replaces Properties)
+- **Plugin Selection**: Visual plugin browser with import functionality
+- **Generate Media Button**: Placeholder for future AI integration (currently disabled)
+- **Improved Window Size**: Increased default size to accommodate plugin dashboard
+
+## 🔧 Technical Improvements
+- **Modular Plugin Architecture**: Clean separation in `core/plugins.py`
+- **Enhanced Data Models**: Extended project serialization for plugin support
+- **Robust .adsp Parsing**: Comprehensive extraction of Artista plugin metadata
+- **Content Generation API**: Structured data interface for AI systems
+
+## 🧪 Testing
+- **Comprehensive Test Suite**: `test_plugins.py` covers all plugin functionality
+- **Real File Testing**: Validation with actual .adsp files (Euclyd2.adsp)
+- **Integration Testing**: Plugin data persistence and project compatibility
+- **AI Prompt Validation**: Generated prompts for all content types
+
+---
+
 # Version 1.1.0 - Timeline Canvas Release
 
 ## 🎯 NEW MAJOR FEATURE: Timeline Canvas

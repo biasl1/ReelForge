@@ -24,6 +24,7 @@ from ui.startup_dialog import StartupDialog
 from ui.timeline.canvas import TimelineCanvas
 from ui.timeline.controls import TimelineControls
 from ui.timeline.event_dialog import EventDialog
+from ui.plugin_dashboard import PluginDashboard
 
 
 class AssetPanel(QWidget):
@@ -197,66 +198,6 @@ class AssetPanel(QWidget):
                 self._import_single_asset(file_path)
 
 
-class PropertiesPanel(QWidget):
-    """Properties panel for selected items"""
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.current_asset = None
-        self._setup_ui()
-        
-    def _setup_ui(self):
-        """Setup properties panel UI"""
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
-        
-        # Title
-        title = QLabel("Properties")
-        title.setStyleSheet("font-weight: bold; font-size: 14px; padding: 5px;")
-        layout.addWidget(title)
-        
-        # Properties form
-        self.properties_group = QGroupBox("Asset Properties")
-        self.properties_layout = QFormLayout(self.properties_group)
-        layout.addWidget(self.properties_group)
-        
-        # Initially empty
-        self._show_empty_state()
-        
-        layout.addStretch()
-        
-    def _show_empty_state(self):
-        """Show empty state when no asset selected"""
-        self._clear_properties()
-        label = QLabel("No asset selected")
-        label.setStyleSheet("color: #969696; font-style: italic;")
-        self.properties_layout.addRow(label)
-        
-    def _clear_properties(self):
-        """Clear all property widgets"""
-        while self.properties_layout.count():
-            child = self.properties_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
-                
-    def show_asset_properties(self, asset: AssetReference):
-        """Show properties for an asset"""
-        self.current_asset = asset
-        self._clear_properties()
-        
-        # Basic properties
-        self.properties_layout.addRow("Name:", QLabel(asset.name))
-        self.properties_layout.addRow("Type:", QLabel(asset.file_type.title()))
-        
-        if asset.file_size:
-            size_str = AssetManager.format_file_size(asset.file_size)
-            self.properties_layout.addRow("Size:", QLabel(size_str))
-            
-        self.properties_layout.addRow("Path:", QLabel(asset.file_path))
-        
-        # TODO: Add type-specific properties (dimensions, duration, etc.)
-
-
 class MainWindow(QMainWindow):
     """Main application window"""
     
@@ -273,7 +214,7 @@ class MainWindow(QMainWindow):
         
         # Window settings
         self.setWindowTitle("ReelForge")
-        self.resize(1200, 800)
+        self.resize(1400, 900)  # Increased size for plugin dashboard
         
     def _setup_ui(self):
         """Setup main window UI"""
@@ -298,14 +239,14 @@ class MainWindow(QMainWindow):
         self.center_panel = self._create_center_panel()
         main_splitter.addWidget(self.center_panel)
         
-        # Right panel - Properties
-        self.properties_panel = PropertiesPanel()
-        self.properties_panel.setMinimumWidth(200)
-        self.properties_panel.setMaximumWidth(300)
-        main_splitter.addWidget(self.properties_panel)
+        # Right panel - Plugin Dashboard
+        self.plugin_dashboard = PluginDashboard()
+        self.plugin_dashboard.setMinimumWidth(350)
+        self.plugin_dashboard.setMaximumWidth(500)
+        main_splitter.addWidget(self.plugin_dashboard)
         
-        # Set splitter proportions
-        main_splitter.setSizes([300, 600, 250])
+        # Set splitter proportions  
+        main_splitter.setSizes([300, 600, 400])
         
         # Setup menu bar
         self.menu_manager = MenuManager(self.menuBar(), self)
@@ -354,6 +295,10 @@ class MainWindow(QMainWindow):
         # Asset panel connections
         self.asset_panel.asset_selected.connect(self._on_asset_selected)
         self.asset_panel.asset_imported.connect(self._on_asset_imported)
+        
+        # Plugin dashboard connections
+        self.plugin_dashboard.plugin_selected.connect(self._on_plugin_selected)
+        self.plugin_dashboard.plugin_imported.connect(self._on_plugin_imported)
         
         # Timeline connections
         self.timeline_canvas.day_selected.connect(self._on_day_selected)
@@ -438,6 +383,7 @@ class MainWindow(QMainWindow):
         if self.current_project:
             # Update panels
             self.asset_panel.set_project(self.current_project)
+            self.plugin_dashboard.set_project(self.current_project)
             
             # Initialize timeline if needed
             if not self.current_project.timeline_plan:
@@ -481,11 +427,21 @@ class MainWindow(QMainWindow):
         if self.current_project:
             asset = self.current_project.get_asset(asset_id)
             if asset:
-                self.properties_panel.show_asset_properties(asset)
+                # Could show asset details in a future asset inspector
+                pass
                 
     def _on_asset_imported(self, asset_id: str):
         """Handle asset import"""
         self._update_status_bar()
+        
+    def _on_plugin_selected(self, plugin_name: str):
+        """Handle plugin selection"""
+        self.status_bar.showMessage(f"Selected plugin: {plugin_name}", 2000)
+        
+    def _on_plugin_imported(self, plugin_name: str):
+        """Handle plugin import"""
+        self._update_status_bar()
+        self.status_bar.showMessage(f"Imported plugin: {plugin_name}", 3000)
         
     def _show_about(self):
         """Show about dialog"""
