@@ -6,16 +6,92 @@ Professional-looking asset management with visual previews
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
     QScrollArea, QFrame, QGridLayout, QMessageBox, QFileDialog,
-    QApplication, QSizePolicy
+    QApplication, QSizePolicy, QMenu, QDialog, QDialogButtonBox,
+    QTextEdit, QFormLayout, QComboBox
 )
 from PyQt6.QtCore import pyqtSignal, Qt, QSize, QThread, pyqtSlot
-from PyQt6.QtGui import QPixmap, QPainter, QBrush, QColor, QFont, QIcon, QPen
+from PyQt6.QtGui import QPixmap, QPainter, QBrush, QColor, QFont, QIcon, QPen, QAction
 from pathlib import Path
 from typing import Optional
 import subprocess
 from core.logging_config import log_info, log_error, log_warning, log_debug
 import tempfile
 import os
+
+
+class AssetDescriptionDialog(QDialog):
+    """Dialog for editing asset description and category"""
+    
+    def __init__(self, asset, parent=None):
+        super().__init__(parent)
+        self.asset = asset
+        self.setWindowTitle(f"Edit Asset: {asset.name}")
+        self.setModal(True)
+        self.resize(400, 250)
+        
+        self._setup_ui()
+        self._load_data()
+        
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        
+        # Form layout
+        form_layout = QFormLayout()
+        
+        # Asset name (read-only)
+        name_label = QLabel(self.asset.name)
+        name_label.setStyleSheet("font-weight: bold; color: #007acc;")
+        form_layout.addRow("Asset Name:", name_label)
+        
+        # Content category
+        self.category_combo = QComboBox()
+        self.category_combo.addItems([
+            "General",
+            "Intro",
+            "Demo", 
+            "Tutorial",
+            "Outro",
+            "Background",
+            "UI/Interface",
+            "Audio Sample"
+        ])
+        form_layout.addRow("Category:", self.category_combo)
+        
+        # Description
+        self.description_edit = QTextEdit()
+        self.description_edit.setMaximumHeight(100)
+        self.description_edit.setPlaceholderText("Add description to help AI understand this asset's purpose and content...")
+        form_layout.addRow("Description:", self.description_edit)
+        
+        layout.addLayout(form_layout)
+        
+        # Buttons
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+        
+    def _load_data(self):
+        """Load current asset data"""
+        # Set category if it exists in description or folder
+        current_category = getattr(self.asset, 'folder', '') or 'General'
+        index = self.category_combo.findText(current_category)
+        if index >= 0:
+            self.category_combo.setCurrentIndex(index)
+            
+        # Set description
+        description = getattr(self.asset, 'description', '')
+        self.description_edit.setPlainText(description)
+        
+    def get_category(self) -> str:
+        """Get selected category"""
+        return self.category_combo.currentText()
+        
+    def get_description(self) -> str:
+        """Get description text"""
+        return self.description_edit.toPlainText().strip()
 
 
 class ThumbnailWorker(QThread):
@@ -177,6 +253,8 @@ class AssetThumbnailWidget(QFrame):
     
     clicked = pyqtSignal(str)  # asset_id
     double_clicked = pyqtSignal(str)  # asset_id
+    edit_requested = pyqtSignal(str)  # asset_id
+    delete_requested = pyqtSignal(str)  # asset_id
     
     def __init__(self, asset, parent=None):
         super().__init__(parent)
@@ -200,6 +278,10 @@ class AssetThumbnailWidget(QFrame):
         
         self.setup_ui()
         self.generate_thumbnail()
+        
+        # Enable context menu
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.show_context_menu)
         
     def setup_ui(self):
         """Setup the widget UI"""
@@ -246,7 +328,8 @@ class AssetThumbnailWidget(QFrame):
         
         # Type and size info
         size_text = self.format_file_size(self.asset.file_size or 0)
-        info_text = f"{self.asset.file_type.upper()} • {size_text}"
+        category = getattr(self.asset, 'folder', '') or 'General'
+        info_text = f"{self.asset.file_type.upper()} • {category} • {size_text}"
         self.info_label = QLabel(info_text)
         self.info_label.setStyleSheet("""
             QLabel {
@@ -255,6 +338,22 @@ class AssetThumbnailWidget(QFrame):
             }
         """)
         layout.addWidget(self.info_label)
+        
+        # Description preview (if exists)
+        description = getattr(self.asset, 'description', '')
+        if description:
+            desc_preview = description[:40] + "..." if len(description) > 40 else description
+            self.desc_label = QLabel(desc_preview)
+            self.desc_label.setWordWrap(True)
+            self.desc_label.setStyleSheet("""
+                QLabel {
+                    color: #888888;
+                    font-size: 8px;
+                    font-style: italic;
+                }
+            """)
+            self.desc_label.setMaximumHeight(25)
+            layout.addWidget(self.desc_label)
         
     def format_file_size(self, size_bytes: int) -> str:
         """Format file size in human readable format"""
@@ -298,6 +397,25 @@ class AssetThumbnailWidget(QFrame):
         if event.button() == Qt.MouseButton.LeftButton:
             self.double_clicked.emit(self.asset.id)
         super().mouseDoubleClickEvent(event)
+        
+    def show_context_menu(self, position):
+        """Show context menu for asset actions"""
+        context_menu = QMenu(self)
+        
+        # Edit action
+        edit_action = QAction("Edit Description && Category", self)
+        edit_action.triggered.connect(lambda: self.edit_requested.emit(self.asset.id))
+        context_menu.addAction(edit_action)
+        
+        context_menu.addSeparator()
+        
+        # Delete action
+        delete_action = QAction("Delete Asset", self)
+        delete_action.triggered.connect(lambda: self.delete_requested.emit(self.asset.id))
+        context_menu.addAction(delete_action)
+        
+        # Show menu at cursor position
+        context_menu.exec(self.mapToGlobal(position))
 
 
 class EnhancedAssetPanel(QWidget):
@@ -306,11 +424,13 @@ class EnhancedAssetPanel(QWidget):
     asset_selected = pyqtSignal(str)  # asset_id
     asset_imported = pyqtSignal(str)  # asset_id
     asset_double_clicked = pyqtSignal(str)  # asset_id
+    assets_changed = pyqtSignal()  # When assets are modified/deleted
     
     def __init__(self, parent=None):
         super().__init__(parent)
         self.current_project = None
         self.asset_widgets = {}
+        self.current_category_filter = "All"
         
         self.setup_ui()
         
@@ -359,6 +479,21 @@ class EnhancedAssetPanel(QWidget):
         
         layout.addLayout(header_layout)
         
+        # Category filter
+        filter_layout = QHBoxLayout()
+        filter_layout.addWidget(QLabel("Category:"))
+        
+        self.category_filter = QComboBox()
+        self.category_filter.addItems([
+            "All", "General", "Intro", "Demo", "Tutorial", 
+            "Outro", "Background", "UI/Interface", "Audio Sample"
+        ])
+        self.category_filter.currentTextChanged.connect(self._on_category_filter_changed)
+        filter_layout.addWidget(self.category_filter)
+        
+        filter_layout.addStretch()
+        layout.addLayout(filter_layout)
+        
         # Scroll area for assets
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -405,8 +540,15 @@ class EnhancedAssetPanel(QWidget):
         if not self.current_project:
             return
             
+        # Get filtered assets
+        all_assets = self.current_project.get_all_assets()
+        if self.current_category_filter == "All":
+            assets = all_assets
+        else:
+            assets = [a for a in all_assets 
+                     if getattr(a, 'folder', 'General') == self.current_category_filter]
+            
         # Group assets by type
-        assets = self.current_project.get_all_assets()
         asset_groups = {
             'image': [],
             'video': [],
@@ -420,10 +562,10 @@ class EnhancedAssetPanel(QWidget):
         # Create category sections
         row = 0
         category_styles = {
-            'image': {'color': '#4CAF50', 'icon': '🖼️', 'name': 'Images'},
-            'video': {'color': '#f44336', 'icon': '🎬', 'name': 'Videos'},
-            'audio': {'color': '#2196F3', 'icon': '🎵', 'name': 'Audio'},
-            'other': {'color': '#9E9E9E', 'icon': '📄', 'name': 'Other'}
+            'image': {'color': '#4CAF50', 'name': 'Images'},
+            'video': {'color': '#f44336', 'name': 'Videos'},
+            'audio': {'color': '#2196F3', 'name': 'Audio'},
+            'other': {'color': '#9E9E9E', 'name': 'Other'}
         }
         
         for category, assets_in_category in asset_groups.items():
@@ -437,7 +579,7 @@ class EnhancedAssetPanel(QWidget):
             header_layout = QHBoxLayout(header_widget)
             header_layout.setContentsMargins(0, 10, 0, 5)
             
-            header_label = QLabel(f"{style['icon']} {style['name']} ({len(assets_in_category)})")
+            header_label = QLabel(f"{style['name']} ({len(assets_in_category)})")
             header_label.setStyleSheet(f"""
                 QLabel {{
                     color: {style['color']};
@@ -462,6 +604,8 @@ class EnhancedAssetPanel(QWidget):
                 asset_widget = AssetThumbnailWidget(asset)
                 asset_widget.clicked.connect(self.asset_selected.emit)
                 asset_widget.double_clicked.connect(self.asset_double_clicked.emit)
+                asset_widget.edit_requested.connect(self._edit_asset)
+                asset_widget.delete_requested.connect(self._delete_asset)
                 
                 self.assets_layout.addWidget(asset_widget, row, col)
                 self.asset_widgets[asset.id] = asset_widget
@@ -524,3 +668,126 @@ class EnhancedAssetPanel(QWidget):
             file_path = Path(url.toLocalFile())
             if file_path.is_file():
                 self.import_single_asset(file_path)
+                
+    def _on_category_filter_changed(self, category):
+        """Handle category filter change"""
+        self.current_category_filter = category
+        self.refresh_assets()
+        
+    def _edit_asset(self, asset_id: str):
+        """Edit asset description and category"""
+        if not self.current_project or asset_id not in self.current_project.assets:
+            return
+            
+        asset = self.current_project.assets[asset_id]
+        dialog = AssetDescriptionDialog(asset, self)
+        
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # Update asset
+            new_category = dialog.get_category()
+            new_description = dialog.get_description()
+            
+            self.current_project.update_asset_folder(asset_id, new_category)
+            self.current_project.update_asset_description(asset_id, new_description)
+            
+            # Refresh display
+            self.refresh_assets()
+            self.assets_changed.emit()
+            
+    def _delete_asset(self, asset_id: str):
+        """Delete asset after confirmation"""
+        if not self.current_project or asset_id not in self.current_project.assets:
+            return
+            
+        asset = self.current_project.assets[asset_id]
+        
+        reply = QMessageBox.question(
+            self,
+            "Delete Asset",
+            f"Are you sure you want to delete '{asset.name}'?\n\nThis will remove the asset from all events and delete the file.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            if self.current_project.delete_asset(asset_id):
+                self.refresh_assets()
+                self.assets_changed.emit()
+                QMessageBox.information(self, "Deleted", f"Asset '{asset.name}' has been deleted.")
+            else:
+                QMessageBox.critical(self, "Error", "Failed to delete asset.")
+
+
+class AssetDescriptionDialog(QDialog):
+    """Dialog for editing asset description and category"""
+    
+    def __init__(self, asset, parent=None):
+        super().__init__(parent)
+        self.asset = asset
+        self.setWindowTitle(f"Edit Asset: {asset.name}")
+        self.setModal(True)
+        self.resize(400, 250)
+        
+        self._setup_ui()
+        self._load_data()
+        
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        
+        # Form layout
+        form_layout = QFormLayout()
+        
+        # Asset name (read-only)
+        name_label = QLabel(self.asset.name)
+        name_label.setStyleSheet("font-weight: bold; color: #007acc;")
+        form_layout.addRow("Asset Name:", name_label)
+        
+        # Content category
+        self.category_combo = QComboBox()
+        self.category_combo.addItems([
+            "General",
+            "Intro",
+            "Demo", 
+            "Tutorial",
+            "Outro",
+            "Background",
+            "UI/Interface",
+            "Audio Sample"
+        ])
+        form_layout.addRow("Category:", self.category_combo)
+        
+        # Description
+        self.description_edit = QTextEdit()
+        self.description_edit.setMaximumHeight(100)
+        self.description_edit.setPlaceholderText("Add description to help AI understand this asset's purpose and content...")
+        form_layout.addRow("Description:", self.description_edit)
+        
+        layout.addLayout(form_layout)
+        
+        # Buttons
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+        
+    def _load_data(self):
+        """Load current asset data"""
+        # Set category if it exists in description or folder
+        current_category = getattr(self.asset, 'folder', '') or 'General'
+        index = self.category_combo.findText(current_category)
+        if index >= 0:
+            self.category_combo.setCurrentIndex(index)
+            
+        # Set description
+        description = getattr(self.asset, 'description', '')
+        self.description_edit.setPlainText(description)
+        
+    def get_category(self) -> str:
+        """Get selected category"""
+        return self.category_combo.currentText()
+        
+    def get_description(self) -> str:
+        """Get description text"""
+        return self.description_edit.toPlainText().strip()

@@ -86,6 +86,8 @@ class AssetReference:
     dimensions: Optional[tuple] = None  # For images/video
     file_size: Optional[int] = None
     import_date: str = ""
+    description: str = ""  # User description for AI context
+    folder: str = ""  # Folder organization (e.g., "intro", "demos", "outro")
     
     def __post_init__(self):
         if not self.import_date:
@@ -445,6 +447,67 @@ class ReelForgeProject:
     def get_all_assets(self) -> List[AssetReference]:
         """Get all assets as list"""
         return list(self.assets.values())
+        
+    def update_asset_description(self, asset_id: str, description: str) -> bool:
+        """Update asset description for AI context"""
+        if asset_id in self.assets:
+            self.assets[asset_id].description = description
+            self.mark_modified()
+            return True
+        return False
+        
+    def update_asset_folder(self, asset_id: str, folder: str) -> bool:
+        """Update asset folder for organization"""
+        if asset_id in self.assets:
+            self.assets[asset_id].folder = folder
+            self.mark_modified()
+            return True
+        return False
+        
+    def delete_asset(self, asset_id: str) -> bool:
+        """Delete an asset from the project"""
+        try:
+            if asset_id not in self.assets:
+                return False
+                
+            asset = self.assets[asset_id]
+            
+            # Remove from all events
+            for event in self.release_events.values():
+                if asset_id in event.assets:
+                    event.assets.remove(asset_id)
+                    
+            # Remove asset file if it exists in project directory
+            if self.project_file_path:
+                project_dir = self.project_file_path.parent
+                asset_path = project_dir / asset.file_path
+                if asset_path.exists():
+                    asset_path.unlink()
+                    
+            # Remove from assets dict
+            del self.assets[asset_id]
+            self.mark_modified()
+            return True
+            
+        except Exception as e:
+            log_error(f"Error deleting asset {asset_id}: {e}")
+            return False
+            
+    def get_asset_folders(self) -> List[str]:
+        """Get list of all asset folders for organization"""
+        folders = set()
+        for asset in self.assets.values():
+            if asset.folder:
+                folders.add(asset.folder)
+        return sorted(list(folders))
+        
+    def get_assets_in_folder(self, folder: str) -> List[AssetReference]:
+        """Get all assets in a specific folder"""
+        return [asset for asset in self.assets.values() if asset.folder == folder]
+        
+    def get_assets_without_folder(self) -> List[AssetReference]:
+        """Get all assets not in any folder"""
+        return [asset for asset in self.assets.values() if not asset.folder]
         
     def to_dict(self) -> Dict[str, Any]:
         """Convert project to dictionary for JSON serialization"""

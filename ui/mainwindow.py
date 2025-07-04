@@ -124,8 +124,7 @@ class MainWindow(QMainWindow):
         
         # Asset panel connections
         self.asset_panel.asset_selected.connect(self._on_asset_selected)
-        self.asset_panel.asset_imported.connect(self._on_asset_imported)
-        self.asset_panel.asset_double_clicked.connect(self._on_asset_double_clicked)
+        self.asset_panel.assets_changed.connect(self._on_assets_changed)
         
         # Plugin dashboard connections
         self.plugin_dashboard.plugin_imported.connect(self._on_plugin_imported)
@@ -259,35 +258,14 @@ class MainWindow(QMainWindow):
         if self.current_project:
             asset = self.current_project.get_asset(asset_id)
             if asset:
-                # Could show asset details in a future asset inspector
-                pass
+                # Show asset details in status bar
+                self.status_bar.showMessage(f"Selected: {asset.name} ({asset.file_type})", 3000)
                 
-    def _on_asset_imported(self, asset_id: str):
-        """Handle asset import"""
+    def _on_assets_changed(self):
+        """Handle asset changes (add, delete, modify)"""
         self._update_status_bar()
-        
-    def _on_asset_double_clicked(self, asset_id: str):
-        """Handle asset double-click to open/preview"""
-        if self.current_project:
-            asset = self.current_project.get_asset(asset_id)
-            if asset:
-                # Open asset with system default application
-                import subprocess
-                import platform
-                
-                try:
-                    if platform.system() == 'Darwin':  # macOS
-                        subprocess.run(['open', asset.file_path])
-                    elif platform.system() == 'Windows':
-                        subprocess.run(['start', asset.file_path], shell=True)
-                    else:  # Linux
-                        subprocess.run(['xdg-open', asset.file_path])
-                except Exception as e:
-                    QMessageBox.warning(
-                        self,
-                        "Cannot Open File",
-                        f"Could not open {asset.name}: {e}"
-                    )
+        # Refresh timeline display in case events reference deleted assets
+        self._update_timeline_display()
         
     def _on_plugin_imported(self, plugin_name: str):
         """Handle plugin import"""
