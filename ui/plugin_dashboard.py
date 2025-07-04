@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
     QComboBox, QSplitter, QListWidget, QListWidgetItem
 )
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QPixmap
 
 from core.plugins import PluginInfo, get_supported_content_types, generate_ai_prompts_for_plugin
 
@@ -418,6 +418,21 @@ class PluginDashboard(QWidget):
         explanation.setWordWrap(True)
         layout.addWidget(explanation)
         
+        # Preview area (hidden by default)
+        self.moodboard_preview = QLabel()
+        self.moodboard_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.moodboard_preview.setMinimumHeight(100)
+        self.moodboard_preview.setMaximumHeight(100)
+        self.moodboard_preview.setStyleSheet("""
+            QLabel {
+                border: 1px solid #444;
+                border-radius: 6px;
+                background-color: #2A2A2A;
+            }
+        """)
+        self.moodboard_preview.hide()  # Hidden by default
+        layout.addWidget(self.moodboard_preview)
+        
         # Moodboard controls
         moodboard_layout = QHBoxLayout()
         
@@ -523,10 +538,41 @@ class PluginDashboard(QWidget):
             self.moodboard_label.setText(f"Uploaded: {filename}")
             self.moodboard_label.setStyleSheet("color: #007acc;")
             self.clear_moodboard_btn.setVisible(True)
+            
+            # Show preview with image
+            self._load_moodboard_preview()
+            self.moodboard_preview.show()
         else:
             self.moodboard_label.setText("No moodboard uploaded")
             self.moodboard_label.setStyleSheet("color: #969696; font-style: italic;")
             self.clear_moodboard_btn.setVisible(False)
+            
+            # Hide preview
+            self.moodboard_preview.hide()
+            
+    def _load_moodboard_preview(self):
+        """Load and display moodboard preview image"""
+        if not self.current_moodboard_path or not self.current_project:
+            return
+            
+        try:
+            # Get full path to moodboard
+            project_dir = self.current_project.project_directory
+            if project_dir:
+                full_path = project_dir / self.current_moodboard_path
+                
+                if full_path.exists():
+                    # Load and scale the image to fit preview
+                    pixmap = QPixmap(str(full_path))
+                    if not pixmap.isNull():
+                        scaled_pixmap = pixmap.scaled(
+                            200, 100, 
+                            Qt.AspectRatioMode.KeepAspectRatio, 
+                            Qt.TransformationMode.SmoothTransformation
+                        )
+                        self.moodboard_preview.setPixmap(scaled_pixmap)
+        except Exception as e:
+            self.moodboard_preview.setText("Error loading preview")
             
     def _import_adsp_file(self):
         """Import .adsp file"""
