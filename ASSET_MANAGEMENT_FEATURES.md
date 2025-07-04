@@ -73,8 +73,8 @@ get_assets_without_folder() -> List[AssetReference]
 
 ### Files Modified
 - `core/project.py`: Enhanced `AssetReference` and added management methods
-- `ui/asset_management_panel.py`: New professional asset management panel
-- `ui/mainwindow.py`: Updated to use new asset panel
+- `ui/enhanced_asset_panel.py`: Professional asset management panel with thumbnails and context menus
+- `ui/mainwindow.py`: Updated to use enhanced asset panel
 
 ### Backward Compatibility
 - Existing projects will load correctly with empty descriptions and folders

@@ -17,18 +17,18 @@ from ui.plugin_dashboard import PluginDashboard
 
 def test_moodboard_simple():
     """Test simple moodboard functionality"""
-    
+
     app = QApplication(sys.argv)
-    
+
     # Create test project
     project = ReelForgeProject()
     project.metadata.name = "Test Moodboard Project"
-    
+
     # Create plugin dashboard
     dashboard = PluginDashboard()
     dashboard.set_project(project)
     dashboard.show()
-    
+
     print("✅ Minimal moodboard implementation ready!")
     print("📋 Features:")
     print("   - Upload button to select moodboard image")
@@ -37,12 +37,12 @@ def test_moodboard_simple():
     print("   - File path saved in project.moodboard_path")
     print("   - Clear button to remove moodboard")
     print("   - Clean, minimal UI")
-    
+
     # Close after short delay
     QTimer.singleShot(3000, app.quit)
-    
+
     app.exec()
-    
+
     print("✅ Test completed - upload functionality is ready!")
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 """
-Plugin management and .adsp file handling for ReelForge
+Plugin management and .adsp file handling for ReelTune
 Integrates with Artista plugin metadata for content generation
 """
 
@@ -20,7 +20,7 @@ class PluginInfo:
     version: str = ""
     company: str = ""
     code: str = ""
-    
+
     # Descriptions
     short_description: str = ""
     long_description: str = ""
@@ -29,28 +29,28 @@ class PluginInfo:
     wow: str = ""
     personality: str = ""
     one_word: str = ""
-    
+
     # Technical info
     category: List[str] = field(default_factory=list)
     intended_use: List[str] = field(default_factory=list)
     input_type: str = ""
     has_sidechain: bool = False
     tech_summary: str = ""
-    
+
     # Visual/branding
     highlight_color: List[int] = field(default_factory=list)
     plugin_size: List[int] = field(default_factory=list)
-    
+
     # Parameters and components
     key_parameters: List[Dict] = field(default_factory=list)
     components: List[Dict] = field(default_factory=list)
-    
+
     # Metadata
     changelog: List[str] = field(default_factory=list)
     source_folder: str = ""
     import_date: str = ""
     adsp_file_path: str = ""
-    
+
     def __post_init__(self):
         if not self.import_date:
             self.import_date = datetime.now().isoformat()
@@ -58,19 +58,19 @@ class PluginInfo:
 
 class PluginManager:
     """Manages plugin information and .adsp file imports"""
-    
+
     def __init__(self):
         self.plugins: Dict[str, PluginInfo] = {}
-        
+
     def import_adsp_file(self, file_path: Path) -> Optional[PluginInfo]:
         """Import plugin information from .adsp file"""
         try:
             if not file_path.exists() or file_path.suffix.lower() != '.adsp':
                 return None
-                
+
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                
+
             # Extract plugin information
             plugin_info = PluginInfo(
                 name=data.get('pluginName', file_path.stem),
@@ -79,7 +79,7 @@ class PluginManager:
                 version=data.get('pluginVersion', ''),
                 company=self._extract_company_from_components(data.get('components', [])),
                 code=data.get('pluginCode', ''),
-                
+
                 # Descriptions
                 short_description=data.get('short_description', ''),
                 long_description=data.get('long_description', ''),
@@ -88,65 +88,65 @@ class PluginManager:
                 wow=data.get('wow', ''),
                 personality=data.get('personality', ''),
                 one_word=data.get('one_word', ''),
-                
+
                 # Technical
                 category=data.get('category', []),
                 intended_use=data.get('intended_use', []),
                 input_type=data.get('input_type', ''),
                 has_sidechain=data.get('has_sidechain', False),
                 tech_summary=data.get('tech_summary', ''),
-                
+
                 # Visual
                 highlight_color=data.get('highlightColor', []),
                 plugin_size=data.get('pluginSize', []),
-                
+
                 # Components
                 key_parameters=data.get('key_parameters', []),
                 components=data.get('components', []),
-                
+
                 # Meta
                 changelog=data.get('changelog', []),
                 source_folder=data.get('source_folder', ''),
                 adsp_file_path=str(file_path)
             )
-            
+
             # Store plugin
             self.plugins[plugin_info.name] = plugin_info
-            
+
             return plugin_info
-            
+
         except Exception as e:
             log_error(f"Error importing .adsp file {file_path}: {e}")
             return None
-            
+
     def _extract_company_from_components(self, components: List[Dict]) -> str:
         """Extract company name from header components"""
         for component in components:
             if component.get('type') == 'header_company':
                 return component.get('display_name', '')
         return ''
-        
+
     def get_plugin(self, name: str) -> Optional[PluginInfo]:
         """Get plugin by name"""
         return self.plugins.get(name)
-        
+
     def get_all_plugins(self) -> List[PluginInfo]:
         """Get all imported plugins"""
         return list(self.plugins.values())
-        
+
     def remove_plugin(self, name: str) -> bool:
         """Remove plugin from manager"""
         if name in self.plugins:
             del self.plugins[name]
             return True
         return False
-        
+
     def get_content_generation_data(self, plugin_name: str) -> Optional[Dict[str, Any]]:
         """Get structured data for AI content generation"""
         plugin = self.get_plugin(plugin_name)
         if not plugin:
             return None
-            
+
         return {
             "plugin_info": {
                 "name": plugin.name,
@@ -182,13 +182,13 @@ class PluginManager:
                 "current_version": plugin.version
             }
         }
-        
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization"""
         return {
             "plugins": {name: asdict(plugin) for name, plugin in self.plugins.items()}
         }
-        
+
     def from_dict(self, data: Dict[str, Any]):
         """Load from dictionary"""
         self.plugins.clear()
@@ -213,7 +213,7 @@ def get_supported_content_types() -> Dict[str, Dict[str, Any]]:
             ]
         },
         "story": {
-            "name": "Instagram Story", 
+            "name": "Instagram Story",
             "format": "1080x1920",
             "duration": "15s",
             "ai_prompts": [
@@ -225,7 +225,7 @@ def get_supported_content_types() -> Dict[str, Dict[str, Any]]:
         },
         "post": {
             "name": "Instagram Post",
-            "format": "1080x1080", 
+            "format": "1080x1080",
             "duration": "static or 15-30s",
             "ai_prompts": [
                 "Clean plugin interface shot",
@@ -248,7 +248,7 @@ def get_supported_content_types() -> Dict[str, Dict[str, Any]]:
         "tutorial": {
             "name": "Tutorial Video",
             "format": "1920x1080",
-            "duration": "60-300s", 
+            "duration": "60-300s",
             "ai_prompts": [
                 "Step-by-step parameter explanation",
                 "Creative usage examples",
@@ -262,28 +262,28 @@ def get_supported_content_types() -> Dict[str, Dict[str, Any]]:
 def generate_ai_prompts_for_plugin(plugin_info: PluginInfo, content_type: str) -> List[str]:
     """Generate AI prompts based on plugin info and content type"""
     base_prompts = get_supported_content_types().get(content_type, {}).get("ai_prompts", [])
-    
+
     # Customize prompts with plugin-specific information
     customized_prompts = []
-    
+
     for prompt in base_prompts:
         # Replace generic terms with plugin-specific info
         customized = prompt.replace("plugin", plugin_info.name)
-        
+
         # Add plugin-specific context
         if plugin_info.unique:
             customized += f" (Highlight: {plugin_info.unique[:100]}...)"
-            
+
         if plugin_info.one_word:
             customized += f" (Style: {plugin_info.one_word})"
-            
+
         customized_prompts.append(customized)
-    
+
     # Add plugin-specific prompts
     if plugin_info.problem:
         customized_prompts.append(f"Show how {plugin_info.name} solves: {plugin_info.problem}")
-        
+
     if plugin_info.wow:
         customized_prompts.append(f"Demonstrate the wow factor: {plugin_info.wow}")
-        
+
     return customized_prompts

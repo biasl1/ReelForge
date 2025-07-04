@@ -158,7 +158,7 @@ python main.py
 
 ### Creating Your First Timeline
 
-1. **Launch ReelForge** - The startup dialog will appear
+1. **Launch ReelTune** - The startup dialog will appear
 2. **Create or open a project** - Timeline automatically initializes
 3. **Navigate the Timeline Canvas**:
    - Use duration controls to view 1-4 weeks
@@ -178,7 +178,7 @@ python main.py
 
 ### Creating Your First Project
 
-1. **Launch ReelForge** - The startup dialog will appear
+1. **Launch ReelTune** - The startup dialog will appear
 2. **Choose "Create New Project"** in the right panel
 3. **Enter project details**:
    - Name: Your project name
@@ -199,7 +199,7 @@ python main.py
 ## 📁 Project Structure
 
 ```
-ReelForge/
+ReelTune/
 ├── core/                    # Core business logic
 │   ├── __init__.py
 │   ├── project.py          # Project management & timeline
@@ -266,9 +266,9 @@ Projects are saved as JSON files with the `.rforge` extension:
 ```
 
 ### Settings Location
-- **macOS**: `~/Library/Application Support/ReelForge/`
-- **Windows**: `%APPDATA%/ReelForge/`
-- **Linux**: `~/.config/ReelForge/`
+- **macOS**: `~/Library/Application Support/ReelTune/`
+- **Windows**: `%APPDATA%/ReelTune/`
+- **Linux**: `~/.config/ReelTune/`
 
 ## 🚧 Roadmap
 

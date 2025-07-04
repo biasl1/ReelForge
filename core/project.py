@@ -28,7 +28,7 @@ class ReleaseEvent:
     duration_seconds: int = 30  # Target content duration
     hashtags: List[str] = field(default_factory=list)
     created_date: str = ""
-    
+
     def __post_init__(self):
         if not self.id:
             self.id = str(uuid.uuid4())[:8]
@@ -43,7 +43,7 @@ class TimelinePlan:
     duration_weeks: int = 4  # Fixed to 4 weeks
     events: Dict[str, List[str]] = field(default_factory=dict)  # date_string -> [event_ids]
     current_week_offset: int = 0  # For navigation
-    
+
     def __post_init__(self):
         if not self.start_date:
             # Default to current Monday
@@ -62,20 +62,20 @@ class ProjectMetadata:
     created_date: str = ""
     modified_date: str = ""
     version: str = "1.0"
-    
+
     # Timeline-specific metadata
     plugin_name: str = ""
     plugin_version: str = ""
     release_date: str = ""  # Plugin release date
     target_platforms: List[str] = field(default_factory=list)
-    
+
     def __post_init__(self):
         if not self.created_date:
             self.created_date = datetime.now().isoformat()
         self.modified_date = datetime.now().isoformat()
 
 
-@dataclass  
+@dataclass
 class AssetReference:
     """Reference to an asset file"""
     id: str
@@ -88,55 +88,55 @@ class AssetReference:
     import_date: str = ""
     description: str = ""  # User description for AI context
     folder: str = ""  # Folder organization (e.g., "intro", "demos", "outro")
-    
+
     def __post_init__(self):
         if not self.import_date:
             self.import_date = datetime.now().isoformat()
 
 
 class ReelForgeProject:
-    """Main project class for ReelForge - AI-focused content generation"""
-    
+    """Main project class for ReelTune - AI-focused content generation"""
+
     def __init__(self, metadata: Optional[ProjectMetadata] = None):
         self.metadata = metadata or ProjectMetadata(name="Untitled Project")
         self.assets: Dict[str, AssetReference] = {}
         self.project_file_path: Optional[Path] = None
         self._is_modified = False
-        
+
         # Timeline components
         self.timeline_plan: Optional[TimelinePlan] = None
         self.release_events: Dict[str, ReleaseEvent] = {}  # event_id -> event
-        
+
         # Plugin management - simplified for one plugin per project
         self.plugin_manager = PluginManager()
         self.current_plugin: Optional[str] = None  # Name of current plugin
-        
+
         # AI-focused features
         self.global_prompt: str = ""  # Global AI prompt for content generation
         self.moodboard_path: Optional[str] = None  # Path to moodboard image (relative to project)
-        
+
     @property
     def is_modified(self) -> bool:
         """Check if project has unsaved changes"""
         return self._is_modified
-        
+
     @property
     def project_name(self) -> str:
         """Get project name"""
         return self.metadata.name
-        
-    @property 
+
+    @property
     def project_directory(self) -> Optional[Path]:
         """Get project directory path"""
         if self.project_file_path:
             return self.project_file_path.parent
         return None
-    
+
     def mark_modified(self):
         """Mark project as modified"""
         self._is_modified = True
         self.metadata.modified_date = datetime.now().isoformat()
-    
+
     # Timeline Management Methods
     def initialize_timeline(self, start_date: Optional[datetime] = None, duration_weeks: int = 4):
         """Initialize timeline plan"""
@@ -144,87 +144,87 @@ class ReelForgeProject:
             # Default to current Monday
             today = datetime.now()
             start_date = today - timedelta(days=today.weekday())
-            
+
         self.timeline_plan = TimelinePlan(
             start_date=start_date.date().isoformat(),
             duration_weeks=duration_weeks
         )
         self.mark_modified()
-    
+
     def add_release_event(self, event: ReleaseEvent) -> bool:
         """Add a release event to the project"""
         try:
             if not self.timeline_plan:
                 self.initialize_timeline()
-                
+
             # Store the event
             self.release_events[event.id] = event
-            
+
             # Add to timeline plan events for the specific date
             date_str = event.date
             if date_str not in self.timeline_plan.events:
                 self.timeline_plan.events[date_str] = []
-                
+
             if event.id not in self.timeline_plan.events[date_str]:
                 self.timeline_plan.events[date_str].append(event.id)
-                
+
             self.mark_modified()
             return True
-            
+
         except Exception as e:
             log_error(f"Error adding release event: {e}")
             return False
-    
+
     def remove_release_event(self, event_id: str) -> bool:
         """Remove a release event"""
         try:
             if event_id not in self.release_events:
                 log_warning(f"Event {event_id} not found in release_events")
                 return False
-                
+
             event = self.release_events[event_id]
             log_info(f"Removing event: {event.title} (ID: {event_id}) from date: {event.date}")
-            
+
             # Remove from timeline plan
             if self.timeline_plan and event.date in self.timeline_plan.events:
                 if event_id in self.timeline_plan.events[event.date]:
                     self.timeline_plan.events[event.date].remove(event_id)
                     log_debug(f"Removed event from timeline_plan.events[{event.date}]")
-                    
+
                 # Clean up empty date entries
                 if not self.timeline_plan.events[event.date]:
                     del self.timeline_plan.events[event.date]
                     log_debug(f"Cleaned up empty date entry: {event.date}")
             else:
                 log_warning(f"Event date {event.date} not found in timeline_plan.events")
-                    
+
             # Remove from events dict
             del self.release_events[event_id]
             log_debug(f"Event {event_id} removed from release_events")
-            
+
             self.mark_modified()
             return True
-            
+
         except Exception as e:
             log_error(f"Error removing release event: {e}")
             import traceback
             traceback.print_exc()
             return False
-    
+
     def update_release_event(self, event: ReleaseEvent) -> bool:
         """Update an existing release event"""
         try:
             if event.id not in self.release_events:
                 log_warning(f"Event {event.id} not found for updating")
                 return False
-                
+
             old_event = self.release_events[event.id]
             old_date = old_event.date
             new_date = event.date
-            
+
             log_info(f"Updating event: {event.title} (ID: {event.id})")
             log_debug(f"Date change: {old_date} -> {new_date}")
-            
+
             # If date changed, update timeline plan
             if old_date != new_date and self.timeline_plan:
                 # Remove from old date
@@ -232,26 +232,26 @@ class ReelForgeProject:
                     self.timeline_plan.events[old_date].remove(event.id)
                     if not self.timeline_plan.events[old_date]:
                         del self.timeline_plan.events[old_date]
-                        
+
                 # Add to new date
                 if new_date not in self.timeline_plan.events:
                     self.timeline_plan.events[new_date] = []
                 if event.id not in self.timeline_plan.events[new_date]:
                     self.timeline_plan.events[new_date].append(event.id)
-            
+
             # Update the event data
             self.release_events[event.id] = event
-            
+
             self.mark_modified()
             log_debug(f"Event {event.id} updated successfully")
             return True
-            
+
         except Exception as e:
             log_error(f"Error updating release event: {e}")
             import traceback
             traceback.print_exc()
             return False
-    
+
     def get_events_for_date(self, date) -> List[ReleaseEvent]:
         """Get all events scheduled for a specific date"""
         try:
@@ -262,16 +262,16 @@ class ReelForgeProject:
                 date_str = date.isoformat()
             else:
                 date_str = str(date)
-            
+
             # Find events matching the date
             matching_events = []
             for event in self.release_events.values():
                 event_date_str = event.date
                 if event_date_str == date_str:
                     matching_events.append(event)
-            
+
             return matching_events
-            
+
         except Exception as e:
             log_error(f"Error getting events for date: {e}")
             return []
@@ -289,7 +289,7 @@ class ReelForgeProject:
         except Exception as e:
             log_error(f"Error importing plugin info: {e}")
             return False
-    
+
     def set_current_plugin(self, plugin_name: str) -> bool:
         """Set the current plugin for content generation"""
         if self.plugin_manager.get_plugin(plugin_name):
@@ -297,22 +297,22 @@ class ReelForgeProject:
             self.mark_modified()
             return True
         return False
-    
+
     def get_current_plugin_info(self):
         """Get current plugin information"""
         if self.current_plugin:
             return self.plugin_manager.get_plugin(self.current_plugin)
         return None
-    
+
     def get_content_generation_data(self) -> Optional[Dict[str, Any]]:
         """Get all data needed for AI content generation"""
         if not self.current_plugin:
             return None
-            
+
         plugin_data = self.plugin_manager.get_content_generation_data(self.current_plugin)
         if not plugin_data:
             return None
-            
+
         return {
             "plugin": plugin_data,
             "project": {
@@ -330,7 +330,7 @@ class ReelForgeProject:
                 "project_created": self.metadata.created_date
             }
         }
-    
+
     def get_ai_generation_data(self) -> Dict[str, Any]:
         """Get complete data package for AI content generation"""
         # Get plugin info
@@ -346,7 +346,7 @@ class ReelForgeProject:
                 "categories": plugin_info.category,
                 "use_cases": plugin_info.intended_use
             }
-        
+
         # Get all assets (AI will select appropriate ones)
         assets_data = []
         for asset in self.get_all_assets():
@@ -356,7 +356,7 @@ class ReelForgeProject:
                 "type": asset.file_type,
                 "path": asset.file_path
             })
-        
+
         # Get all scheduled events with their prompts
         events_data = []
         for event in self.release_events.values():
@@ -367,7 +367,7 @@ class ReelForgeProject:
                 "prompt": event.description,  # The AI prompt/description
                 "platforms": event.platforms
             })
-        
+
         return {
             "plugin": plugin_data,
             "global_prompt": self.global_prompt,
@@ -386,7 +386,7 @@ class ReelForgeProject:
             path = Path(file_path)
             if not path.exists():
                 return None
-                
+
             # Determine file type
             extension = path.suffix.lower()
             if extension in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']:
@@ -397,7 +397,7 @@ class ReelForgeProject:
                 file_type = 'audio'
             else:
                 file_type = 'other'
-                
+
             # Create asset reference
             asset_id = str(uuid.uuid4())[:8]
             asset = AssetReference(
@@ -407,12 +407,12 @@ class ReelForgeProject:
                 file_type=file_type,
                 file_size=path.stat().st_size if path.exists() else None
             )
-            
+
             # Add to project
             if self.add_asset(asset):
                 return asset_id
             return None
-            
+
         except Exception as e:
             log_error(f"Error importing asset: {e}")
             return None
@@ -422,13 +422,13 @@ class ReelForgeProject:
         try:
             if asset.id in self.assets:
                 return False  # Asset ID already exists
-                
+
             self.assets[asset.id] = asset
             self.mark_modified()
             return True
         except Exception:
             return False
-            
+
     def remove_asset(self, asset_id: str) -> bool:
         """Remove asset from project"""
         try:
@@ -439,15 +439,15 @@ class ReelForgeProject:
             return False
         except Exception:
             return False
-            
+
     def get_asset(self, asset_id: str) -> Optional[AssetReference]:
         """Get asset by ID"""
         return self.assets.get(asset_id)
-        
+
     def get_all_assets(self) -> List[AssetReference]:
         """Get all assets as list"""
         return list(self.assets.values())
-        
+
     def update_asset_description(self, asset_id: str, description: str) -> bool:
         """Update asset description for AI context"""
         if asset_id in self.assets:
@@ -455,7 +455,7 @@ class ReelForgeProject:
             self.mark_modified()
             return True
         return False
-        
+
     def update_asset_folder(self, asset_id: str, folder: str) -> bool:
         """Update asset folder for organization"""
         if asset_id in self.assets:
@@ -463,36 +463,36 @@ class ReelForgeProject:
             self.mark_modified()
             return True
         return False
-        
+
     def delete_asset(self, asset_id: str) -> bool:
         """Delete an asset from the project"""
         try:
             if asset_id not in self.assets:
                 return False
-                
+
             asset = self.assets[asset_id]
-            
+
             # Remove from all events
             for event in self.release_events.values():
                 if asset_id in event.assets:
                     event.assets.remove(asset_id)
-                    
+
             # Remove asset file if it exists in project directory
             if self.project_file_path:
                 project_dir = self.project_file_path.parent
                 asset_path = project_dir / asset.file_path
                 if asset_path.exists():
                     asset_path.unlink()
-                    
+
             # Remove from assets dict
             del self.assets[asset_id]
             self.mark_modified()
             return True
-            
+
         except Exception as e:
             log_error(f"Error deleting asset {asset_id}: {e}")
             return False
-            
+
     def get_asset_folders(self) -> List[str]:
         """Get list of all asset folders for organization"""
         folders = set()
@@ -500,15 +500,15 @@ class ReelForgeProject:
             if asset.folder:
                 folders.add(asset.folder)
         return sorted(list(folders))
-        
+
     def get_assets_in_folder(self, folder: str) -> List[AssetReference]:
         """Get all assets in a specific folder"""
         return [asset for asset in self.assets.values() if asset.folder == folder]
-        
+
     def get_assets_without_folder(self) -> List[AssetReference]:
         """Get all assets not in any folder"""
         return [asset for asset in self.assets.values() if not asset.folder]
-        
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert project to dictionary for JSON serialization"""
         return {
@@ -522,98 +522,98 @@ class ReelForgeProject:
             "moodboard_path": self.moodboard_path,
             "version": "1.3"  # Updated version for AI features
         }
-        
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'ReelForgeProject':
         """Create project from dictionary"""
         project = cls()
-        
+
         # Load metadata
         if "metadata" in data:
             project.metadata = ProjectMetadata(**data["metadata"])
-            
+
         # Load assets
         if "assets" in data:
             for asset_id, asset_data in data["assets"].items():
                 asset = AssetReference(**asset_data)
                 project.assets[asset_id] = asset
-        
+
         # Load timeline plan
         if "timeline_plan" in data and data["timeline_plan"]:
             project.timeline_plan = TimelinePlan(**data["timeline_plan"])
-            
+
         # Load release events
         if "release_events" in data:
             for event_id, event_data in data["release_events"].items():
                 event = ReleaseEvent(**event_data)
                 project.release_events[event_id] = event
-        
+
         # Load plugin data
         if "plugin_data" in data:
             project.plugin_manager.from_dict(data["plugin_data"])
-            
+
         # Load current plugin
         if "current_plugin" in data:
             project.current_plugin = data["current_plugin"]
-            
+
         # Load AI features
         if "global_prompt" in data:
             project.global_prompt = data["global_prompt"]
-            
+
         if "moodboard_path" in data:
             project.moodboard_path = data["moodboard_path"]
-                
+
         project._is_modified = False
         return project
-        
+
     def save(self, file_path: Optional[Path] = None) -> bool:
         """Save project to file"""
         try:
             target_path = file_path or self.project_file_path
             if not target_path:
                 raise ValueError("No file path specified")
-                
+
             # Ensure .rforge extension
             if target_path.suffix.lower() != '.rforge':
                 target_path = target_path.with_suffix('.rforge')
-                
+
             # Create directory if needed
             target_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Save project data
             with open(target_path, 'w', encoding='utf-8') as f:
                 json.dump(self.to_dict(), f, indent=2)
-                
+
             self.project_file_path = target_path
             self._is_modified = False
-            
+
             return True
-            
+
         except Exception as e:
             log_error(f"Error saving project: {e}")
             return False
-            
+
     @classmethod
     def load(cls, file_path: Path) -> Optional['ReelForgeProject']:
         """Load project from file"""
         try:
             if not file_path.exists():
                 return None
-                
+
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                
+
             project = cls.from_dict(data)
             project.project_file_path = file_path
             project._is_modified = False
-            
+
             return project
-            
+
         except Exception as e:
             log_error(f"Error loading project: {e}")
             return None
-            
-    def create_new(self, name: str, location: Path, 
+
+    def create_new(self, name: str, location: Path,
                    description: str = "", format_preset: str = "1080p") -> bool:
         """Create new project"""
         try:
@@ -622,13 +622,13 @@ class ReelForgeProject:
             self.metadata.description = description
             self.metadata.format = format_preset
             self.metadata.created_date = datetime.now().isoformat()
-            
+
             # Set project file path
             project_file = location / f"{name}.rforge"
-            
+
             # Save new project
             return self.save(project_file)
-            
+
         except Exception as e:
             log_error(f"Error creating project: {e}")
             return False
@@ -636,20 +636,20 @@ class ReelForgeProject:
 
 class ProjectManager:
     """Manages recent projects and templates"""
-    
+
     def __init__(self):
         self.recent_projects: List[str] = []
         self.max_recent = 10
         self._load_recent_projects()
-        
+
     def _get_settings_path(self) -> Path:
         """Get path to settings file"""
         from PyQt6.QtCore import QStandardPaths
         app_data = QStandardPaths.writableLocation(
             QStandardPaths.StandardLocation.AppDataLocation
         )
-        return Path(app_data) / "reelforge_settings.json"
-        
+        return Path(app_data) / "reeltune_settings.json"
+
     def _load_recent_projects(self):
         """Load recent projects from settings"""
         try:
@@ -660,47 +660,47 @@ class ProjectManager:
                     self.recent_projects = data.get('recent_projects', [])
         except Exception:
             self.recent_projects = []
-            
+
     def _save_recent_projects(self):
         """Save recent projects to settings"""
         try:
             settings_path = self._get_settings_path()
             settings_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             data = {'recent_projects': self.recent_projects}
             with open(settings_path, 'w') as f:
                 json.dump(data, f, indent=2)
         except Exception as e:
             log_error(f"Error saving recent projects: {e}")
-            
+
     def add_recent_project(self, project_path: str):
         """Add project to recent list"""
         if project_path in self.recent_projects:
             self.recent_projects.remove(project_path)
-            
+
         self.recent_projects.insert(0, project_path)
         self.recent_projects = self.recent_projects[:self.max_recent]
         self._save_recent_projects()
-        
+
     def get_recent_projects(self) -> List[str]:
         """Get list of recent project paths that still exist"""
         existing_projects = []
         for path in self.recent_projects:
             if Path(path).exists():
                 existing_projects.append(path)
-                
+
         # Update list if some projects no longer exist
         if len(existing_projects) != len(self.recent_projects):
             self.recent_projects = existing_projects
             self._save_recent_projects()
-            
+
         return existing_projects
-        
+
     def clear_recent_projects(self):
         """Clear recent projects list"""
         self.recent_projects = []
         self._save_recent_projects()
-        
+
     @staticmethod
     def get_project_templates() -> Dict[str, Dict[str, Any]]:
         """Get available project templates"""
@@ -711,7 +711,7 @@ class ProjectManager:
                 "description": "Perfect for Instagram posts and stories"
             },
             "Social Media - Vertical": {
-                "format": "1080x1920", 
+                "format": "1080x1920",
                 "fps": 30,
                 "description": "Optimized for TikTok, Instagram Reels, YouTube Shorts"
             },

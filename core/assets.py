@@ -1,5 +1,5 @@
 """
-Asset management utilities for ReelForge
+Asset management utilities for ReelTune
 Handles file operations, validation, and metadata extraction
 """
 
@@ -33,32 +33,32 @@ class FileInfo:
 
 class AssetManager:
     """Manages project assets and file operations"""
-    
+
     def __init__(self, project_directory: Optional[Path] = None):
         self.project_directory = project_directory
-        
+
     def set_project_directory(self, directory: Path):
         """Set the project directory"""
         self.project_directory = directory
-        
+
     def validate_file(self, file_path: Path) -> FileInfo:
         """Validate and get info about a file"""
         try:
             if not file_path.exists():
                 raise FileNotFoundError(f"File not found: {file_path}")
-                
+
             # Get file stats
             stat = file_path.stat()
             extension = file_path.suffix.lower()
-            
+
             # Determine file type
             file_type = self._get_file_type(extension)
             is_supported = extension in ALL_SUPPORTED_FORMATS
-            
+
             # Get MIME type
             mime_type, _ = mimetypes.guess_type(str(file_path))
             mime_type = mime_type or "application/octet-stream"
-            
+
             return FileInfo(
                 path=file_path,
                 name=file_path.name,
@@ -68,10 +68,10 @@ class AssetManager:
                 extension=extension,
                 is_supported=is_supported
             )
-            
+
         except Exception as e:
             raise ValueError(f"Failed to validate file: {e}")
-            
+
     def _get_file_type(self, extension: str) -> str:
         """Determine file type from extension"""
         if extension in SUPPORTED_VIDEO_FORMATS:
@@ -82,7 +82,7 @@ class AssetManager:
             return "image"
         else:
             return "other"
-            
+
     def generate_asset_id(self, file_path: Path) -> str:
         """Generate unique asset ID based on file path and content"""
         try:
@@ -93,18 +93,18 @@ class AssetManager:
             # Fallback to timestamp-based ID
             import time
             return f"asset_{int(time.time() * 1000)}"
-            
-    def copy_asset_to_project(self, source_path: Path, 
+
+    def copy_asset_to_project(self, source_path: Path,
                             asset_name: Optional[str] = None) -> Optional[Path]:
         """Copy asset file to project directory"""
         try:
             if not self.project_directory:
                 raise ValueError("No project directory set")
-                
+
             # Create assets directory
             assets_dir = self.project_directory / "assets"
             assets_dir.mkdir(exist_ok=True)
-            
+
             # Determine target filename
             if asset_name:
                 target_name = asset_name
@@ -112,9 +112,9 @@ class AssetManager:
                     target_name += source_path.suffix
             else:
                 target_name = source_path.name
-                
+
             target_path = assets_dir / target_name
-            
+
             # Handle name conflicts
             counter = 1
             original_target = target_path
@@ -123,17 +123,17 @@ class AssetManager:
                 suffix = original_target.suffix
                 target_path = assets_dir / f"{stem}_{counter}{suffix}"
                 counter += 1
-                
+
             # Copy file
             import shutil
             shutil.copy2(source_path, target_path)
-            
+
             return target_path
-            
+
         except Exception as e:
             print(f"Error copying asset: {e}")
             return None
-            
+
     def get_relative_path(self, file_path: Path) -> str:
         """Get relative path from project directory"""
         try:
@@ -143,7 +143,7 @@ class AssetManager:
                 return str(file_path.absolute())
         except Exception:
             return str(file_path)
-            
+
     def resolve_asset_path(self, relative_path: str) -> Path:
         """Resolve relative path to absolute path"""
         try:
@@ -156,18 +156,18 @@ class AssetManager:
                 return path.absolute()
         except Exception:
             return Path(relative_path)
-            
-    def scan_directory(self, directory: Path, 
+
+    def scan_directory(self, directory: Path,
                       recursive: bool = True) -> List[FileInfo]:
         """Scan directory for supported media files"""
         try:
             files = []
-            
+
             if recursive:
                 pattern = "**/*"
             else:
                 pattern = "*"
-                
+
             for file_path in directory.glob(pattern):
                 if file_path.is_file():
                     try:
@@ -176,13 +176,13 @@ class AssetManager:
                             files.append(file_info)
                     except Exception:
                         continue  # Skip problematic files
-                        
+
             return files
-            
+
         except Exception as e:
             print(f"Error scanning directory: {e}")
             return []
-            
+
     def get_file_preview_info(self, file_path: Path) -> Dict[str, any]:
         """Get preview information for a file (dimensions, duration, etc.)"""
         try:
@@ -193,18 +193,18 @@ class AssetManager:
                 "type": file_info.file_type,
                 "mime_type": file_info.mime_type
             }
-            
+
             # Add type-specific info
             if file_info.file_type == "image":
                 preview_info.update(self._get_image_info(file_path))
             elif file_info.file_type in ["video", "audio"]:
                 preview_info.update(self._get_media_info(file_path))
-                
+
             return preview_info
-            
+
         except Exception as e:
             return {"error": str(e)}
-            
+
     def _get_image_info(self, file_path: Path) -> Dict[str, any]:
         """Get image-specific information"""
         try:
@@ -216,7 +216,7 @@ class AssetManager:
             }
         except Exception:
             return {}
-            
+
     def _get_media_info(self, file_path: Path) -> Dict[str, any]:
         """Get video/audio-specific information"""
         try:
@@ -229,21 +229,21 @@ class AssetManager:
             }
         except Exception:
             return {}
-            
+
     @staticmethod
     def format_file_size(size_bytes: int) -> str:
         """Format file size in human-readable format"""
         if size_bytes == 0:
             return "0 B"
-            
+
         size_names = ["B", "KB", "MB", "GB", "TB"]
         import math
         i = int(math.floor(math.log(size_bytes, 1024)))
         p = math.pow(1024, i)
         s = round(size_bytes / p, 2)
-        
+
         return f"{s} {size_names[i]}"
-        
+
     @staticmethod
     def is_supported_format(file_path: Path) -> bool:
         """Check if file format is supported"""

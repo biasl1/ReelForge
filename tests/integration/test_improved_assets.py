@@ -17,18 +17,18 @@ from ui.enhanced_asset_panel import EnhancedAssetPanel
 
 def test_improved_assets():
     """Test improved asset panel with thumbnails and right-click"""
-    
+
     app = QApplication(sys.argv)
-    
+
     # Create test project with sample assets
     project = ReelForgeProject()
     project.metadata.name = "Test Improved Assets"
-    
+
     # Add sample assets with descriptions and categories
     sample_assets = [
         AssetReference(
             id="asset1",
-            name="intro_video.mp4", 
+            name="intro_video.mp4",
             file_path="assets/intro_video.mp4",
             file_type="video",
             description="Main introduction video showing plugin overview",
@@ -37,7 +37,7 @@ def test_improved_assets():
         AssetReference(
             id="asset2",
             name="demo_clean.wav",
-            file_path="assets/demo_clean.wav", 
+            file_path="assets/demo_clean.wav",
             file_type="audio",
             description="Clean audio sample for before/after comparison",
             folder="Demo"
@@ -51,16 +51,16 @@ def test_improved_assets():
             folder="General"
         )
     ]
-    
+
     for asset in sample_assets:
         project.assets[asset.id] = asset
-    
+
     # Create and show improved asset panel
     panel = EnhancedAssetPanel()
     panel.set_project(project)
     panel.resize(600, 800)
     panel.show()
-    
+
     print("Improved Asset Management Features")
     print("=================================")
     print("")
@@ -78,12 +78,12 @@ def test_improved_assets():
     print("• Right-click any asset -> Delete Asset")
     print("• Use category filter to view specific content types")
     print("• Thumbnails load automatically in background")
-    
+
     # Close after showing
     QTimer.singleShot(6000, app.quit)
-    
+
     app.exec()
-    
+
     print("Asset management test completed!")
 
 if __name__ == "__main__":

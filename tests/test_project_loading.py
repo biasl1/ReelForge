@@ -16,17 +16,17 @@ from core.project import ReelForgeProject, ReleaseEvent
 
 def create_test_project_with_events():
     """Create a test project with events and save it"""
-    
+
     print("🏗️  Creating test project with events...")
-    
+
     # Create project
     project = ReelForgeProject()
     project.metadata.name = "Test Project With Events"
-    
+
     # Initialize timeline
     start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     project.initialize_timeline(start_date, duration_weeks=2)
-    
+
     # Add several test events
     events = [
         ReleaseEvent(
@@ -58,81 +58,81 @@ def create_test_project_with_events():
             description="Tutorial content for next week"
         )
     ]
-    
+
     # Add events to project
     for event in events:
         success = project.add_release_event(event)
         print(f"{'✅' if success else '❌'} Added event: {event.title} on {event.date}")
-    
+
     # Save project
     test_file = Path("/tmp/test_project_with_events.rforge")
     success = project.save(test_file)
     print(f"{'✅' if success else '❌'} Saved project to: {test_file}")
-    
+
     return test_file if success else None
 
 
 def test_project_loading():
     """Test loading a project and verifying events are displayed"""
-    
+
     print("\n🔍 Testing Project Loading with Events")
     print("=" * 50)
-    
+
     # Create test project file
     test_file = create_test_project_with_events()
     if not test_file:
         print("❌ Failed to create test project")
         return False
-    
+
     # Load the project
     print(f"\n📂 Loading project from: {test_file}")
     loaded_project = ReelForgeProject.load(test_file)
-    
+
     if not loaded_project:
         print("❌ Failed to load project")
         return False
-    
+
     print(f"✅ Project loaded: {loaded_project.metadata.name}")
-    
+
     # Verify timeline plan exists
     if not loaded_project.timeline_plan:
         print("❌ No timeline plan found in loaded project")
         return False
-    
+
     print(f"✅ Timeline plan found: {loaded_project.timeline_plan.duration_weeks} weeks")
-    
+
     # Verify events exist
     event_count = len(loaded_project.release_events)
     timeline_count = sum(len(event_ids) for event_ids in loaded_project.timeline_plan.events.values())
-    
+
     print(f"📊 Loaded project has:")
     print(f"   - {event_count} events in release_events")
     print(f"   - {timeline_count} events in timeline_plan.events")
     print(f"   - Timeline dates: {list(loaded_project.timeline_plan.events.keys())}")
-    
+
     if event_count == 0:
         print("❌ No events found in loaded project")
         return False
-    
+
     if timeline_count == 0:
         print("❌ No events found in timeline plan")
         return False
-    
+
     if event_count != timeline_count:
         print(f"❌ Event count mismatch: {event_count} vs {timeline_count}")
         return False
-    
+
     print("✅ All events loaded correctly")
-    
+
     # Print event details
     print("\n📅 Event details:")
     for event_id, event in loaded_project.release_events.items():
         print(f"   - {event.title} ({event.content_type}) on {event.date}")
-    
+
     # Clean up
     test_file.unlink()
     print(f"\n🧹 Cleaned up test file: {test_file}")
-    
+
     return True
 
 
@@ -150,5 +150,5 @@ if __name__ == "__main__":
     else:
         print("\n❌ Project loading test FAILED!")
         print("   There's still an issue with the backend loading.")
-    
+
     sys.exit(0)

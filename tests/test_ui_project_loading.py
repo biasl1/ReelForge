@@ -21,11 +21,11 @@ def create_test_project_file():
     """Create a test project file with events"""
     project = ReelForgeProject()
     project.metadata.name = "UI Test Project"
-    
+
     # Initialize timeline
     start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     project.initialize_timeline(start_date, duration_weeks=1)
-    
+
     # Add test events
     events = [
         ReleaseEvent(
@@ -50,10 +50,10 @@ def create_test_project_file():
             description="Weekend event"
         )
     ]
-    
+
     for event in events:
         project.add_release_event(event)
-    
+
     # Save to temp file
     test_file = Path("/tmp/ui_test_project.rforge")
     project.save(test_file)
@@ -62,63 +62,63 @@ def create_test_project_file():
 
 def test_ui_project_loading():
     """Test loading project in UI and verifying timeline display"""
-    
+
     print("🎯 UI Project Loading Test")
     print("=" * 40)
-    
+
     app = QApplication(sys.argv)
-    
+
     # Create test project file
     test_file = create_test_project_file()
     print(f"✅ Created test project: {test_file}")
-    
+
     # Create main window
     window = MainWindow()
-    
+
     # Load the project using the same method as the UI
     print(f"📂 Loading project using UI method...")
     window._open_project(str(test_file))
-    
+
     # Check if project was loaded
     if not window.current_project:
         print("❌ Project not loaded in UI")
         return False
-    
+
     print(f"✅ Project loaded: {window.current_project.metadata.name}")
     print(f"📊 Project has {len(window.current_project.release_events)} events")
-    
+
     # Check timeline plan
     if not window.current_project.timeline_plan:
         print("❌ No timeline plan in loaded project")
         return False
-    
+
     timeline_events = window.current_project.timeline_plan.events
     print(f"📅 Timeline has events on dates: {list(timeline_events.keys())}")
-    
+
     # Show window
     window.show()
-    
+
     print("\n🎯 UI Verification:")
     print("=" * 40)
     print("✅ Window is now open with the loaded project")
     print("🔍 Check if the timeline shows the 3 events immediately:")
     print("   - Today's Event (red reel indicator)")
-    print("   - Tomorrow's Event (blue post indicator)")  
+    print("   - Tomorrow's Event (blue post indicator)")
     print("   - Weekend Event (purple story indicator)")
     print("\n⚠️  If events are NOT visible immediately, the bug persists")
     print("✅ If events ARE visible immediately, the bug is FIXED!")
-    
+
     # Auto-close after 15 seconds
     def auto_close():
         print("\n🔄 Auto-closing test window...")
         test_file.unlink()
         window.close()
         app.quit()
-    
+
     timer = QTimer()
     timer.timeout.connect(auto_close)
     timer.start(15000)  # 15 seconds
-    
+
     return app.exec()
 
 
@@ -127,7 +127,7 @@ if __name__ == "__main__":
     print("   This will create a project with events and load it in the UI")
     print("   Check if events are immediately visible on the timeline")
     print()
-    
+
     try:
         result = test_ui_project_loading()
         print(f"\n✅ Test completed with exit code: {result}")

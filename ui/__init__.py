@@ -1,3 +1,3 @@
-"""UI module for ReelForge application"""
+"""UI module for ReelTune application"""
 
 __version__ = "1.0.0"

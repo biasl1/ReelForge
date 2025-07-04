@@ -10,27 +10,27 @@ from datetime import datetime
 
 class ReelTuneLogger:
     """Centralized logging for ReelTune application"""
-    
+
     def __init__(self, name: str = "ReelTune"):
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.INFO)
-        
+
         # Prevent duplicate handlers
         if not self.logger.handlers:
             self._setup_handlers()
-    
+
     def _setup_handlers(self):
         """Setup console and file handlers"""
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         )
-        
+
         # Console handler
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(logging.INFO)
         console_handler.setFormatter(formatter)
         self.logger.addHandler(console_handler)
-        
+
         # File handler (optional)
         try:
             from PyQt6.QtCore import QStandardPaths
@@ -39,7 +39,7 @@ class ReelTuneLogger:
             )
             log_dir = Path(app_data) / "logs"
             log_dir.mkdir(parents=True, exist_ok=True)
-            
+
             log_file = log_dir / f"reeltune_{datetime.now().strftime('%Y%m%d')}.log"
             file_handler = logging.FileHandler(log_file)
             file_handler.setLevel(logging.DEBUG)
@@ -48,19 +48,19 @@ class ReelTuneLogger:
         except Exception:
             # If file logging fails, continue with console only
             pass
-    
+
     def info(self, message: str):
         """Log info level message"""
         self.logger.info(message)
-    
+
     def debug(self, message: str):
         """Log debug level message"""
         self.logger.debug(message)
-    
+
     def warning(self, message: str):
         """Log warning level message"""
         self.logger.warning(message)
-    
+
     def error(self, message: str, exc_info: bool = False):
         """Log error level message"""
         self.logger.error(message, exc_info=exc_info)

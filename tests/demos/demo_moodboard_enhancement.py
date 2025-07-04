@@ -19,14 +19,14 @@ from core.logging_config import log_info
 def demo_moodboard_features():
     """Demo the enhanced moodboard functionality"""
     log_info("Starting Moodboard Enhancement Demo...")
-    
+
     app = QApplication(sys.argv)
-    
+
     # Import and create main window
     from ui.mainwindow import MainWindow
     window = MainWindow()
     window.show()
-    
+
     # Show information about the new moodboard features
     def show_feature_info():
         QMessageBox.information(
@@ -44,13 +44,13 @@ def demo_moodboard_features():
             "5. Watch the 'Plugin Information' tab transform!\n\n"
             "The moodboard will be saved with your project and automatically loaded when reopened."
         )
-    
+
     # Show info after window loads
     QTimer.singleShot(1000, show_feature_info)
-    
+
     log_info("🎨 Moodboard Enhancement Demo is ready!")
     log_info("Try uploading a moodboard image to see the new features in action!")
-    
+
     return app.exec()
 
 if __name__ == "__main__":

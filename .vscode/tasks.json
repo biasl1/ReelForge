@@ -2,7 +2,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Run ReelForge",
+            "label": "Run ReelTune",
             "type": "shell",
             "command": "${workspaceFolder}/.venv/bin/python",
             "args": ["main.py"],
@@ -50,7 +50,7 @@
             "problemMatcher": []
         },
         {
-            "label": "Run ReelForge (Debug)",
+            "label": "Run ReelTune (Debug)",
             "type": "shell",
             "command": "${workspaceFolder}/.venv/bin/python",
             "args": ["-u", "main.py"],

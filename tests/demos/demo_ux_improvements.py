@@ -21,78 +21,78 @@ from core.logging_config import log_info
 
 class UXDemoWindow(QMainWindow):
     """Demo window showing UX improvements"""
-    
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("🚀 ReelTune UX Improvements DEMO")
         self.setGeometry(100, 100, 800, 600)
         self.setup_ui()
-        
+
     def setup_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        
+
         layout = QVBoxLayout(central_widget)
-        
+
         # Quick Action Toolbar
         self.quick_toolbar = QuickActionToolbar()
         self.quick_toolbar.quick_event_requested.connect(self.on_quick_event)
         self.quick_toolbar.duplicate_event_requested.connect(self.on_duplicate)
         self.quick_toolbar.toggle_week_view.connect(self.on_toggle_view)
         layout.addWidget(self.quick_toolbar)
-        
+
         # Status indicators
         status_layout = QHBoxLayout()
-        
+
         # Auto-save indicator
         self.save_indicator = AutoSaveIndicator()
         status_layout.addWidget(self.save_indicator)
-        
+
         # Progress indicator
         self.progress_indicator = ProjectProgressIndicator()
         status_layout.addWidget(self.progress_indicator)
-        
+
         status_layout.addStretch()
         layout.addLayout(status_layout)
-        
+
         # Demo info
         self.show_demo_info()
-        
+
         # Auto-demo sequence
         self.start_demo_sequence()
-        
+
     def on_quick_event(self, content_type):
         """Handle quick event creation"""
         template = ContentTypeTemplates.get_template(content_type, "Demo Plugin")
         log_info(f"✨ Quick event created: {content_type}")
         log_info(f"   Title: {template.get('title', 'N/A')}")
         log_info(f"   Platforms: {template.get('platforms', [])}")
-        
+
         # Show visual feedback
         self.save_indicator.set_unsaved_changes()
         QTimer.singleShot(1000, self.save_indicator.set_saved)
-        
+
     def on_duplicate(self):
         """Handle duplicate event"""
         log_info("📋 Duplicate event requested")
-        
+
     def on_toggle_view(self):
         """Handle view toggle"""
         log_info("📅 Timeline view toggled")
-        
+
     def start_demo_sequence(self):
         """Start automated demo sequence"""
         # Update progress over time
         QTimer.singleShot(2000, lambda: self.progress_indicator.update_progress(5, 1))
         QTimer.singleShot(4000, lambda: self.progress_indicator.update_progress(5, 3))
         QTimer.singleShot(6000, lambda: self.progress_indicator.update_progress(5, 5))
-        
+
         # Show save states
         QTimer.singleShot(3000, self.save_indicator.set_saving)
         QTimer.singleShot(3500, self.save_indicator.set_saved)
         QTimer.singleShot(5000, self.save_indicator.set_unsaved_changes)
         QTimer.singleShot(7000, self.save_indicator.set_saved)
-        
+
     def show_demo_info(self):
         """Show demo information"""
         info = """
@@ -112,14 +112,14 @@ class UXDemoWindow(QMainWindow):
 
 📋 TRY THESE ACTIONS:
 1. Click the 📸 button (Instagram Post)
-2. Click the 🎬 button (Instagram Reel)  
+2. Click the 🎬 button (Instagram Reel)
 3. Press Ctrl+3 (Story template)
 4. Click 📋 (Duplicate)
 5. Click 📅 (Toggle view)
 
 The demo will show automated progress updates!
         """
-        
+
         msg = QMessageBox(self)
         msg.setWindowTitle("🚀 UX Demo Features")
         msg.setText(info)
@@ -142,7 +142,7 @@ The demo will show automated progress updates!
                 border-color: #777;
             }
         """)
-        
+
         # Show after window is displayed
         QTimer.singleShot(500, msg.exec)
 
@@ -151,9 +151,9 @@ def main():
     """Run the UX improvements demo"""
     print("🚀 STARTING UX IMPROVEMENTS DEMO!")
     print("=" * 50)
-    
+
     app = QApplication(sys.argv)
-    
+
     # Apply dark theme
     app.setStyleSheet("""
         QMainWindow {
@@ -165,17 +165,17 @@ def main():
             color: #FFFFFF;
         }
     """)
-    
+
     window = UXDemoWindow()
     window.show()
-    
+
     print("✅ Demo window opened!")
     print("🎯 Try the quick action buttons and keyboard shortcuts!")
     print("⚡ Watch the status indicators change!")
-    
+
     # Auto-close after 30 seconds
     QTimer.singleShot(30000, app.quit)
-    
+
     return app.exec()
 
 

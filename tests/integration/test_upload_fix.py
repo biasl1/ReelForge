@@ -18,29 +18,29 @@ from ui.plugin_dashboard import PluginDashboard
 
 def test_upload_no_freeze():
     """Test that moodboard upload doesn't freeze the UI"""
-    
+
     app = QApplication(sys.argv)
-    
+
     # Create test project
     test_project_dir = Path("test_project_upload")
     if test_project_dir.exists():
         import shutil
         shutil.rmtree(test_project_dir)
-    
+
     project = ReelForgeProject()
     project.metadata.name = "Test Upload Project"
-    
+
     # Save project to establish directory
     if not test_project_dir.exists():
         test_project_dir.mkdir(parents=True)
     project_file = test_project_dir / "test_project.rforge"
     project.save(project_file)
-    
+
     # Create plugin dashboard
     dashboard = PluginDashboard()
     dashboard.set_project(project)
     dashboard.show()
-    
+
     print("✅ Plugin dashboard created and displayed")
     print("🔄 The upload functionality now uses QTimer to prevent UI freezing")
     print("📝 Key improvements:")
@@ -49,17 +49,17 @@ def test_upload_no_freeze():
     print("   - Large images are pre-scaled to avoid memory issues")
     print("   - Graceful error handling for invalid images")
     print("   - Background application is already protected with QTimer")
-    
+
     # Close after a short delay
     QTimer.singleShot(2000, app.quit)
-    
+
     app.exec()
-    
+
     # Cleanup
     if test_project_dir.exists():
         import shutil
         shutil.rmtree(test_project_dir)
-    
+
     print("✅ Upload freeze fix test completed successfully!")
 
 if __name__ == "__main__":
