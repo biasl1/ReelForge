@@ -1,0 +1,4 @@
+Create a tutorial using this template:
+- Background: AI should choose appropriate background
+- Media: AI should position and scale media optimally
+- Text: AI should choose appropriate font sizes

@@ -1,0 +1,112 @@
+{
+  "custom_visual_layers": [
+    {
+      "name": "Tutorial Background",
+      "type": "background",
+      "rect": [
+        0.0,
+        0.0,
+        405.0,
+        720.0
+      ],
+      "visible": true,
+      "locked": false,
+      "opacity": 1.0,
+      "color": "#1e1e1e",
+      "text": "Sample Tutorial Background",
+      "font_size": 24,
+      "text_color": null
+    },
+    {
+      "name": "Step Indicator",
+      "type": "overlay",
+      "rect": [
+        25.0,
+        25.0,
+        60.0,
+        30.0
+      ],
+      "visible": true,
+      "locked": false,
+      "opacity": 1.0,
+      "color": "#34c759",
+      "text": "Sample Step Indicator",
+      "font_size": 24,
+      "text_color": null
+    },
+    {
+      "name": "Tutorial Video",
+      "type": "media",
+      "rect": [
+        30.0,
+        70.0,
+        345.0,
+        400.0
+      ],
+      "visible": true,
+      "locked": false,
+      "opacity": 1.0,
+      "color": "#ffffff",
+      "text": "Sample Tutorial Video",
+      "font_size": 24,
+      "text_color": null
+    },
+    {
+      "name": "Tutorial Title",
+      "type": "text",
+      "rect": [
+        30.0,
+        480.0,
+        345.0,
+        50.0
+      ],
+      "visible": true,
+      "locked": false,
+      "opacity": 1.0,
+      "color": "#ffffff",
+      "text": "\ud83c\udf93 How to: Step by Step",
+      "font_size": 24,
+      "text_color": "#ffffff"
+    },
+    {
+      "name": "Instructions",
+      "type": "text",
+      "rect": [
+        30.0,
+        540.0,
+        345.0,
+        120.0
+      ],
+      "visible": true,
+      "locked": false,
+      "opacity": 1.0,
+      "color": "#ffffff",
+      "text": "Follow these simple steps to master this technique...",
+      "font_size": 16,
+      "text_color": "#c8c8c8"
+    },
+    {
+      "name": "Progress Bar",
+      "type": "overlay",
+      "rect": [
+        30.0,
+        680.0,
+        200.0,
+        8.0
+      ],
+      "visible": true,
+      "locked": false,
+      "opacity": 1.0,
+      "color": "#ff9f0a",
+      "text": "Sample Progress Bar",
+      "font_size": 24,
+      "text_color": null
+    }
+  ],
+  "content_type": "tutorial",
+  "canvas_size": {
+    "width": 405.0,
+    "height": 720.0
+  },
+  "layer_count": 6
+}

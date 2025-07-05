@@ -19,6 +19,7 @@ from PyQt6.QtGui import QAction, QDragEnterEvent, QDropEvent
 
 from core.project import ReelForgeProject, ProjectManager, AssetReference
 from core.assets import AssetManager, FileInfo
+from core.content_generation import ContentGenerationManager, ConfigMode
 from ui.menu import MenuManager
 from ui.startup_dialog import StartupDialog
 from ui.timeline.canvas import TimelineCanvas
@@ -26,6 +27,7 @@ from ui.timeline.controls import TimelineControls
 from ui.timeline.event_dialog import EventDialog
 from ui.plugin_dashboard import PluginDashboard
 from ui.enhanced_asset_panel import EnhancedAssetPanel
+from ui.ai_template_editor import AITemplateEditor
 
 
 class MainWindow(QMainWindow):
@@ -82,7 +84,7 @@ class MainWindow(QMainWindow):
         self.menu_manager = MenuManager(self.menuBar(), self)
 
     def _create_center_panel(self) -> QWidget:
-        """Create center panel with timeline canvas"""
+        """Create center panel with timeline canvas and content template view"""
         panel = QFrame()
         panel.setFrameStyle(QFrame.Shape.StyledPanel)
 
@@ -90,13 +92,78 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
+        # View toggle controls
+        toggle_frame = QFrame()
+        toggle_frame.setMaximumHeight(50)
+        toggle_layout = QHBoxLayout(toggle_frame)
+        
+        # View toggle buttons
+        self.calendar_btn = QPushButton("📅 Calendar View")
+        self.templates_btn = QPushButton("🎬 Content Templates")
+        
+        self.calendar_btn.setCheckable(True)
+        self.templates_btn.setCheckable(True)
+        self.calendar_btn.setChecked(True)  # Default to calendar
+        
+        # Style the buttons
+        button_style = """
+            QPushButton {
+                padding: 8px 16px;
+                border-radius: 4px;
+                border: 2px solid #0078d4;
+                background-color: white;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:checked {
+                background-color: #0078d4;
+                color: white;
+            }
+            QPushButton:hover {
+                background-color: #106ebe;
+                color: white;
+            }
+        """
+        self.calendar_btn.setStyleSheet(button_style)
+        self.templates_btn.setStyleSheet(button_style)
+        
+        # Connect toggle buttons
+        self.calendar_btn.clicked.connect(self._show_calendar_view)
+        self.templates_btn.clicked.connect(self._show_template_view)
+        
+        toggle_layout.addWidget(QLabel("View:"))
+        toggle_layout.addWidget(self.calendar_btn)
+        toggle_layout.addWidget(self.templates_btn)
+        toggle_layout.addStretch()
+        
+        layout.addWidget(toggle_frame)
+
+        # Stacked widget to hold both views
+        from PyQt6.QtWidgets import QStackedWidget
+        self.stacked_widget = QStackedWidget()
+        
+        # Calendar view (original timeline)
+        calendar_widget = QWidget()
+        calendar_layout = QVBoxLayout(calendar_widget)
+        calendar_layout.setContentsMargins(0, 0, 0, 0)
+        calendar_layout.setSpacing(0)
+        
         # Timeline controls
         self.timeline_controls = TimelineControls()
-        layout.addWidget(self.timeline_controls)
+        calendar_layout.addWidget(self.timeline_controls)
 
         # Timeline canvas
         self.timeline_canvas = TimelineCanvas()
-        layout.addWidget(self.timeline_canvas)
+        calendar_layout.addWidget(self.timeline_canvas)
+        
+        # Content template view
+        self.content_template_view = AITemplateEditor()
+        
+        # Add both views to stacked widget
+        self.stacked_widget.addWidget(calendar_widget)  # Index 0
+        self.stacked_widget.addWidget(self.content_template_view)  # Index 1
+        
+        layout.addWidget(self.stacked_widget)
 
         return panel
 
@@ -139,6 +206,9 @@ class MainWindow(QMainWindow):
         self.timeline_controls.previous_period.connect(self._on_timeline_previous)
         self.timeline_controls.next_period.connect(self._on_timeline_next)
         self.timeline_controls.today_clicked.connect(self._on_timeline_today)
+        
+        # Content template connections
+        self.content_template_view.template_changed.connect(self._on_template_changed)
 
     def load_project_data(self, project_data: Dict[str, Any]):
         """Load project from startup dialog data"""
@@ -219,6 +289,13 @@ class MainWindow(QMainWindow):
             # Initialize timeline if needed
             if not self.current_project.timeline_plan:
                 self.current_project.initialize_timeline()
+
+            # Initialize content generation manager if needed
+            if not hasattr(self.current_project, 'content_generation_manager'):
+                self.current_project.content_generation_manager = ContentGenerationManager()
+
+            # Update content template view with project data
+            self.content_template_view.set_project(self.current_project)
 
             # Update timeline
             self._update_timeline_display()
@@ -471,3 +548,22 @@ class MainWindow(QMainWindow):
 
         # Update timeline canvas with events (after it's been rebuilt)
         self.timeline_canvas.update_events(events_by_date)
+
+    def _show_calendar_view(self):
+        """Switch to calendar view"""
+        self.calendar_btn.setChecked(True)
+        self.templates_btn.setChecked(False)
+        self.stacked_widget.setCurrentIndex(0)
+        
+    def _show_template_view(self):
+        """Switch to content template view"""
+        self.calendar_btn.setChecked(False)
+        self.templates_btn.setChecked(True)
+        self.stacked_widget.setCurrentIndex(1)
+        
+    def _on_template_changed(self):
+        """Handle template parameter changes"""
+        print(f"Template changed signal received.")
+        if self.current_project:
+            self.current_project.mark_modified()
+            self._update_status_bar()

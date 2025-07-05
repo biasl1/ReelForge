@@ -28,8 +28,8 @@ from PyQt6.QtWidgets import (
     QApplication, QSizePolicy, QMenu, QDialog, QDialogButtonBox,
     QTextEdit, QFormLayout, QComboBox
 )
-from PyQt6.QtCore import pyqtSignal, Qt, QSize, QThread, pyqtSlot
-from PyQt6.QtGui import QPixmap, QPainter, QBrush, QColor, QFont, QIcon, QPen, QAction
+from PyQt6.QtCore import pyqtSignal, Qt, QSize, QThread, pyqtSlot, QMimeData
+from PyQt6.QtGui import QPixmap, QPainter, QBrush, QColor, QFont, QIcon, QPen, QAction, QDrag
 
 from core.logging_config import log_info, log_error, log_warning, log_debug
 
@@ -402,10 +402,42 @@ class AssetThumbnailWidget(QFrame):
             self.thumbnail_label.setPixmap(thumbnail)
 
     def mousePressEvent(self, event):
-        """Handle mouse press"""
+        """Handle mouse press with drag initiation"""
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self.asset.id)
+            self.drag_start_position = event.position()
         super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        """Handle mouse move for drag operations"""
+        if not (event.buttons() & Qt.MouseButton.LeftButton):
+            return
+
+        if not hasattr(self, 'drag_start_position'):
+            return
+
+        # Check if we've moved far enough to start a drag
+        if ((event.position() - self.drag_start_position).manhattanLength() <
+            QApplication.startDragDistance()):
+            return
+
+        # Start drag operation
+        drag = QDrag(self)
+        mime_data = QMimeData()
+        mime_data.setText(self.asset.id)  # Pass asset ID
+        drag.setMimeData(mime_data)
+
+        # Create drag pixmap (thumbnail of the asset)
+        pixmap = self.thumbnail_label.pixmap()
+        if pixmap:
+            # Scale down for drag
+            scaled_pixmap = pixmap.scaled(64, 64, Qt.AspectRatioMode.KeepAspectRatio,
+                                        Qt.TransformationMode.SmoothTransformation)
+            drag.setPixmap(scaled_pixmap)
+            drag.setHotSpot(scaled_pixmap.rect().center())
+
+        # Execute drag
+        drop_action = drag.exec(Qt.DropAction.CopyAction)
 
     def mouseDoubleClickEvent(self, event):
         """Handle double click"""

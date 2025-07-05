@@ -1,0 +1,19 @@
+Create tutorial content using the following template specifications:
+
+## REQUIRED SETTINGS (must follow exactly):
+- Subtitle font_size must be: 24px
+- Subtitle font_family must be: Arial
+- Subtitle color must be: white
+- Subtitle position must be: bottom
+- Subtitle stroke_width must be: 2px
+- Subtitle stroke_color must be: black
+- Overlay background_style must be: #1e1e1e
+- Overlay animation_style must be: fade_in
+- Overlay overlay_elements must be: custom
+- Overlay branding_elements must be: logo
+- Overlay color_scheme must be: #ff9f0a
+- Timing duration must be: 60-120s
+- Timing intro_duration must be: 2s
+- Timing outro_duration must be: 3s
+- Timing segment_count must be: 6
+- Timing transition_style must be: smooth
