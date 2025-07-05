@@ -128,15 +128,105 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# ReelTune specific
+# ReelTune specific files that should NEVER be committed
 *.rforge
+*.rtune
 test_projects/
 temp_projects/
-.DS_Store
-thumbs.db
+sample_projects/
+demo_projects/
 
-# IDE specific
+# Generated log files
+*.log
+*.log.*
+logs/
+app.log
+debug.log
+error.log
+
+# Temporary files and directories
+temp/
+tmp/
+temp_*
+tmp_*
+.temp/
+.tmp/
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+thumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE and editor files
 .vscode/settings.json
+.vscode/launch.json
+.vscode/.ropeproject
 .idea/
 *.swp
 *.swo
+*~
+.project
+.pydevproject
+
+# Application data and user files
+user_data/
+application_data/
+app_data/
+settings.json
+user_settings.json
+recent_projects.json
+
+# Cache directories
+cache/
+.cache/
+*_cache/
+*_cache.*
+
+# Asset thumbnails and previews (generated at runtime)
+thumbnails/
+previews/
+.thumbnails/
+
+# Development and testing artifacts
+test_output/
+test_results/
+screenshots/
+exports/
+generated_content/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.bak
+*.backup
+*~
+*.old
+
+# Plugin and project files (user-specific)
+user_plugins/
+custom_plugins/
+project_exports/
+
+# AI generation outputs
+ai_exports/
+generated_ai_data/
+ai_output/
+
+# Sensitive configuration
+secrets.json
+api_keys.json
+config_local.json
+
+# Performance and profiling
+*.prof
+profile_*
+benchmark_*

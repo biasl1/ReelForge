@@ -12,45 +12,6 @@ ReelTune is a modern PyQt6-based desktop application designed for professional c
 - **Professional UI**: Dark theme with responsive design and intuitive workflow
 - **Recent Projects**: Quick access to recently opened projects
 - **AI-Ready Structure**: Comprehensive project data for AI content generation
-
-### 🎯 Timeline & Event Management
-- **Interactive Timeline Canvas**: Professional calendar-based content planning
-- **Event Scheduling**: Create, edit, and delete content events with visual feedback
-- **Duration Control**: Flexible 1-4 week timeline views with seamless transitions
-- **Visual Event Display**: Color-coded content types with comprehensive event details
-- **Timeline Navigation**: Smooth previous/next navigation with date controls
-- **Event Persistence**: Reliable save/load with proper event-timeline synchronization
-
-### 🖼️ Enhanced Asset Management
-- **Visual Asset Panel**: Thumbnail previews for images, video previews, and professional icons
-- **Smart Categorization**: Automatic grouping by Images, Videos, Audio, and Other files
-- **Asset Import**: Drag-and-drop and button-based import with file type detection
-- **Professional Design**: Responsive grid layout with category headers and modern styling
-- **Asset Integration**: Link assets to timeline events for complete content planning
-
-### 🔌 Plugin Integration
-- **Artista .adsp Import**: Import plugin metadata from Artista plugin files
-- **Plugin Information Dashboard**: Complete plugin details and management
-- **AI Content Preparation**: Structured data for AI content generation
-- **Marketing Content**: Extract descriptions, features, and selling points
-- **Technical Specifications**: Plugin parameters, categories, and capabilities
-
-## 🛠️ Technical Architecture
-
-# ReelTune
-
-**Professional AI-Ready Social Media Content Planning Tool**
-
-ReelTune is a modern PyQt6-based desktop application designed for professional content creators and audio plugin developers. Originally ReelForge, it has been transformed into a comprehensive content planning and management system with AI integration capabilities, timeline scheduling, and enhanced asset management.
-
-## 🚀 Features
-
-### Core Foundation
-- **Project Management**: Create, save, and load projects with JSON-based `.rforge` files
-- **Enhanced Asset Panel**: Professional asset management with thumbnails, categorization, and import
-- **Professional UI**: Dark theme with responsive design and intuitive workflow
-- **Recent Projects**: Quick access to recently opened projects
-- **AI-Ready Structure**: Comprehensive project data for AI content generation
 - **Structured Logging**: Professional logging system replacing print statements for better debugging
 
 ### 🎯 Timeline & Event Management
@@ -269,6 +230,74 @@ Projects are saved as JSON files with the `.rforge` extension:
 - **macOS**: `~/Library/Application Support/ReelTune/`
 - **Windows**: `%APPDATA%/ReelTune/`
 - **Linux**: `~/.config/ReelTune/`
+
+## 👥 Development Setup
+
+### For New Contributors
+
+1. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   cd ReelTune
+   ```
+
+2. **Run the setup script** (recommended):
+   ```bash
+   ./setup.sh
+   ```
+   This will:
+   - Create a virtual environment
+   - Install dependencies
+   - Set up git hooks to prevent committing generated files
+   - Clean up any existing artifacts
+
+3. **Or manually set up**:
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+4. **Run the application**:
+   ```bash
+   source .venv/bin/activate
+   python main.py
+   ```
+
+### VS Code Development
+
+This project includes VS Code tasks for easy development:
+
+- **Cmd+Shift+P** → "Tasks: Run Task" → Choose:
+  - `Run ReelTune` - Launch the application
+  - `Run ReelTune (Debug)` - Launch with debug output
+  - `Clean Generated Files` - Remove __pycache__ and temp files
+  - `Setup Project (Full)` - Complete environment setup
+
+### Important: Preventing Git Issues
+
+The repository includes comprehensive `.gitignore` and git hooks to prevent committing:
+
+- 🚫 **Generated files**: `__pycache__/`, `*.pyc`, `*.log`
+- 🚫 **Project files**: `*.rforge`, `*.rtune` (user-specific)
+- 🚫 **Temporary data**: `temp_*`, cache files, thumbnails
+- 🚫 **IDE files**: `.vscode/settings.json`, `.idea/`
+
+**If you're experiencing thousands of commits from generated files:**
+
+1. Run the cleanup command:
+   ```bash
+   find . -name "__pycache__" -type d -exec rm -rf {} +
+   find . -name "*.pyc" -delete
+   ```
+
+2. Remove from git tracking:
+   ```bash
+   git rm -r --cached __pycache__
+   git rm --cached *.pyc *.log
+   ```
+
+3. Use the setup script for future clones to avoid this issue.
 
 ## 🚧 Roadmap
 
