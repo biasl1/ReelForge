@@ -1,0 +1,39 @@
+{
+  "content_type": "story",
+  "template_zones": {
+    "background": {
+      "enabled": true
+    },
+    "media_window": {
+      "enabled": true
+    },
+    "subtitle": {
+      "enabled": true
+    }
+  },
+  "fixed_variables": {
+    "subtitle_position_fixed": true,
+    "subtitle_position_value": "Bottom",
+    "font_size_fixed": true,
+    "font_size_value": 51
+  },
+  "ai_choices": {
+    "intro_ai_chooses": true,
+    "outro_ai_chooses": true
+  },
+  "timeline": {
+    "intro_asset": null,
+    "intro_duration": 1,
+    "outro_asset": null,
+    "outro_duration": 3,
+    "has_intro": false,
+    "has_outro": false
+  },
+  "ai_instructions": "🤖 SMART TEMPLATE CONFIGURATION FOR AI CONTENT GENERATION\n============================================================\nContent Type: Story\nGenerated: 2025-07-05 23:52:33\nTemplate Version: 3.0 (Super Smart AI Editor)\n\n📌 FIXED VARIABLES (OVERRIDE AI FOR ALL CONTENT TYPES):\n   → Subtitle Position: Bottom - MUST be used regardless of content type\n   → Font Size: 51px - MUST be used regardless of content type\n   → These settings apply to reels, posts, stories, and tutorials\n   → AI must respect these fixed values in all generated content\n\n📋 TEMPLATE ZONES CONFIGURATION:\n🎨 Background Zone: ENABLED\n   → AI has full creative control over background design\n   → Choose or generate backgrounds that enhance content theme\n   → Consider color psychology and visual harmony\n📹 Media Window Zone: ENABLED\n   → AI should intelligently position and scale media content\n   → Optimize for maximum visual impact and engagement\n   → Ensure proper aspect ratios and focus points\n📝 Text/Subtitle Zone: ENABLED\n   → AI controls text generation and styling\n   → FIXED POSITION: Bottom (applies to ALL content)\n   → FIXED FONT SIZE: 51px (applies to ALL content)\n   → Optimize for readability and visual hierarchy\n\n🤖 AI DECISION ZONES:\n   → Intro: AI should decide whether to include and what content to use\n   → Outro: AI should decide whether to include and what content to use\n   → AI has full creative freedom for these elements\n\n🎯 CONTENT TYPE OPTIMIZATION:\n   → Emphasize personal connection and authenticity\n   → Use intimate framing and natural transitions\n   → Create narrative flow that keeps viewers engaged\n   → Optimize for full-screen mobile experience\n\n🚀 SUPER SMART AI DIRECTIVES:\n   → FIXED VARIABLES always override AI defaults for ALL content types\n   → AI chooses elements have complete creative freedom\n   → User-specified settings take precedence over AI defaults\n   → AI has creative freedom in non-specified areas\n   → Optimize for platform-specific best practices\n   → Ensure professional quality and brand consistency\n   → Maximize viewer engagement and content value\n   → Apply current design trends while maintaining timeless appeal\n\n✨ FINAL NOTE: This is a super smart template configuration where:\n   • Fixed variables apply to ALL content types (reels, posts, stories, tutorials)\n   • AI choice elements are completely AI-controlled\n   • User choices take precedence over AI defaults\n   Create content that exceeds expectations!",
+  "assets": {
+    "intro_asset": null,
+    "outro_asset": null
+  },
+  "export_timestamp": "2025-07-05T23:52:33.449601",
+  "template_version": "3.0"
+}

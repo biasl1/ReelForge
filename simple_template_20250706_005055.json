@@ -1,0 +1,101 @@
+{
+  "content_settings": {
+    "reel": {
+      "fixed_intro": false,
+      "fixed_outro": false,
+      "intro_asset": null,
+      "outro_asset": null,
+      "intro_length": 0.0,
+      "outro_length": 0.0,
+      "pip_enabled": true,
+      "pip_shape": "square",
+      "pip_rect": [
+        115,
+        121,
+        100,
+        100
+      ],
+      "text_enabled": true,
+      "text_size": 24,
+      "text_rect": [
+        50,
+        400,
+        200,
+        50
+      ]
+    },
+    "story": {
+      "fixed_intro": false,
+      "fixed_outro": false,
+      "intro_asset": null,
+      "outro_asset": null,
+      "intro_length": 0.0,
+      "outro_length": 0.0,
+      "pip_enabled": true,
+      "pip_shape": "square",
+      "pip_rect": [
+        50,
+        50,
+        100,
+        100
+      ],
+      "text_enabled": true,
+      "text_size": 24,
+      "text_rect": [
+        50,
+        400,
+        200,
+        50
+      ]
+    },
+    "teaser": {
+      "fixed_intro": false,
+      "fixed_outro": false,
+      "intro_asset": null,
+      "outro_asset": null,
+      "intro_length": 0.0,
+      "outro_length": 0.0,
+      "pip_enabled": true,
+      "pip_shape": "square",
+      "pip_rect": [
+        50,
+        50,
+        100,
+        100
+      ],
+      "text_enabled": true,
+      "text_size": 24,
+      "text_rect": [
+        50,
+        400,
+        200,
+        50
+      ]
+    },
+    "tutorial": {
+      "fixed_intro": false,
+      "fixed_outro": false,
+      "intro_asset": null,
+      "outro_asset": null,
+      "intro_length": 0.0,
+      "outro_length": 0.0,
+      "pip_enabled": true,
+      "pip_shape": "square",
+      "pip_rect": [
+        50,
+        50,
+        100,
+        100
+      ],
+      "text_enabled": true,
+      "text_size": 24,
+      "text_rect": [
+        50,
+        400,
+        200,
+        50
+      ]
+    }
+  },
+  "current_content_type": "reel"
+}

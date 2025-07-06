@@ -114,6 +114,7 @@ class ReelForgeProject:
         # AI-focused features
         self.global_prompt: str = ""  # Global AI prompt for content generation
         self.moodboard_path: Optional[str] = None  # Path to moodboard image (relative to project)
+        self.simple_templates: Dict[str, Any] = {}  # Template settings for AI generation
 
     @property
     def is_modified(self) -> bool:
@@ -520,6 +521,7 @@ class ReelForgeProject:
             "current_plugin": self.current_plugin,
             "global_prompt": self.global_prompt,
             "moodboard_path": self.moodboard_path,
+            "simple_templates": getattr(self, 'simple_templates', {}),
             "version": "1.3"  # Updated version for AI features
         }
 
@@ -562,6 +564,10 @@ class ReelForgeProject:
 
         if "moodboard_path" in data:
             project.moodboard_path = data["moodboard_path"]
+            
+        # Load template settings
+        if "simple_templates" in data:
+            project.simple_templates = data["simple_templates"]
 
         project._is_modified = False
         return project

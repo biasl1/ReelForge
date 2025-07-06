@@ -1,0 +1,27 @@
+🤖 SMART AI PROMPT for TUTORIAL
+------------------------------
+Template: 🎨 Background, 📹 Media, 📝 Text | Timeline: 🎬 Intro (2s), 🎬 Outro (3s)
+
+• Create a clear, educational tutorial with these intelligent template settings:
+
+• 🎨 Background Design: AI has full creative control - select or generate backgrounds that complement the content theme and enhance visual appeal
+
+• 📹 Media Positioning: AI should intelligently position and scale media content for maximum visual impact and optimal viewing experience
+
+• 📝 Text & Typography: Use 30px font size (user override), AI controls positioning, styling, and text generation for maximum readability
+
+• 🎬 Opening Sequence: Integrate asset 'b1f47c3a' as a 2-second intro - create smooth transitions and engaging opening
+
+• 🎬 Closing Sequence: Use asset 'b1f47c3a' for a 3-second outro - ensure memorable conclusion with clear call-to-action
+
+• 🎯 Tutorial Strategy: Prioritize clarity, step-by-step flow, and educational value. Clean, structured layout.
+
+• 🚀 AI Optimization Goals:
+
+• • Maximize visual impact and viewer engagement
+
+• • Ensure professional quality and brand consistency
+
+• • Optimize for platform-specific best practices
+
+• • Create content that captures attention and delivers value

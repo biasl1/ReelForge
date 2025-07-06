@@ -1,0 +1,40 @@
+{
+  "content_type": "tutorial",
+  "template_zones": {
+    "content_type": "tutorial",
+    "zones": {
+      "background": {
+        "enabled": true
+      },
+      "media_window": {
+        "enabled": true
+      },
+      "subtitle": {
+        "enabled": true
+      }
+    },
+    "smart_overrides": {
+      "font_size_override": true,
+      "font_size_value": 30
+    },
+    "timeline": {
+      "intro_asset": "b1f47c3a",
+      "intro_duration": 2,
+      "outro_asset": "b1f47c3a",
+      "outro_duration": 3,
+      "has_intro": true,
+      "has_outro": true
+    }
+  },
+  "ai_instructions": "🤖 SMART TEMPLATE CONFIGURATION FOR AI CONTENT GENERATION\n============================================================\nContent Type: Tutorial\nGenerated: 2025-07-05 23:24:53\nTemplate Version: 2.0 (Smart AI Editor)\n\n📋 TEMPLATE ZONES CONFIGURATION:\n🎨 Background Zone: ENABLED\n   → AI has full creative control over background design\n   → Choose or generate backgrounds that enhance content theme\n   → Consider color psychology and visual harmony\n📹 Media Window Zone: ENABLED\n   → AI should intelligently position and scale media content\n   → Optimize for maximum visual impact and engagement\n   → Ensure proper aspect ratios and focus points\n📝 Text/Subtitle Zone: ENABLED\n   → AI controls text generation and styling\n   → OVERRIDE: Use fixed font size of 30px\n   → AI controls positioning and other styling aspects\n   → Optimize for readability and visual hierarchy\n\n🎬 TIMELINE ASSET INTEGRATION:\n📥 Intro Sequence: 2s\n   → Asset: 'b1f47c3a'\n   → Create smooth transition from intro to main content\n   → Ensure engaging opening that captures attention\n📤 Outro Sequence: 3s\n   → Asset: 'b1f47c3a'\n   → Create memorable conclusion with clear call-to-action\n   → Smooth transition from main content to outro\n\n🎯 CONTENT TYPE OPTIMIZATION:\n   → Prioritize clarity and step-by-step progression\n   → Use clean, structured layout with clear sections\n   → Ensure educational value and easy following\n   → Include visual cues and progress indicators\n\n🚀 SMART AI DIRECTIVES:\n   → User-specified settings ALWAYS override AI defaults\n   → AI has creative freedom in non-specified areas\n   → Optimize for platform-specific best practices\n   → Ensure professional quality and brand consistency\n   → Maximize viewer engagement and content value\n   → Apply current design trends while maintaining timeless appeal\n\n✨ FINAL NOTE: This is a smart template configuration where user choices\n   take precedence over AI defaults. Create content that exceeds expectations!",
+  "assets": {
+    "intro_asset": "b1f47c3a",
+    "outro_asset": "b1f47c3a"
+  },
+  "smart_overrides": {
+    "font_size_override": true,
+    "font_size_value": 30
+  },
+  "export_timestamp": "2025-07-05T23:24:53.626766",
+  "template_version": "2.0"
+}
