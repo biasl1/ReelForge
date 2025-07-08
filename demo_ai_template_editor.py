@@ -12,7 +12,7 @@ from PyQt6.QtCore import QTimer
 # Add the project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from ui.ai_template_editor import AITemplateEditor
+from ui.template_editor import TemplateEditor
 from core.project import ReelForgeProject
 
 
@@ -46,7 +46,7 @@ class AITemplateDemo(QMainWindow):
         layout.addLayout(info_layout)
         
         # Create the AI template editor
-        self.template_editor = AITemplateEditor()
+        self.template_editor = TemplateEditor()
         layout.addWidget(self.template_editor)
         
         # Create a demo project

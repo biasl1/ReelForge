@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from core.project import ReelForgeProject
-from ui.ai_template_editor import SimpleTemplateEditor
+from ui.template_editor import SimpleTemplateEditor
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QPoint
 from PyQt6.QtGui import QMouseEvent

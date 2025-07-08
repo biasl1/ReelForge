@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
 from PyQt6.QtCore import QRect
-from ui.ai_template_editor import SimpleTemplateEditor
+from ui.template_editor import SimpleTemplateEditor
 
 def test_independence():
     """Test that content type settings are independent"""

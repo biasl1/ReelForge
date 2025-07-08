@@ -14,7 +14,8 @@ from PyQt6.QtGui import QColor
 # Add the project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from ui.visual_template_editor import VisualTemplateEditor, LayerItem
+from ui.template_editor import SimpleTemplateEditor as VisualTemplateEditor
+from ui.template_editor.compat import LayerItem
 from core.content_generation import ContentGenerationManager
 from core.project import ReelForgeProject
 

@@ -10,7 +10,7 @@ from PyQt6.QtCore import QRect
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from ui.ai_template_editor import SimpleTemplateEditor
+from ui.template_editor import TemplateEditor
 from core.project import ReelForgeProject
 
 def debug_save_load():
@@ -18,7 +18,7 @@ def debug_save_load():
     app = QApplication(sys.argv)
     
     project = ReelForgeProject()
-    editor = SimpleTemplateEditor()
+    editor = TemplateEditor()
     editor.set_project(project)
     
     print("Debugging save/load process...")
@@ -68,7 +68,7 @@ def debug_save_load():
         print("Project doesn't have simple_templates attribute")
     
     # Create new editor
-    editor2 = SimpleTemplateEditor()
+    editor2 = TemplateEditor()
     editor2.set_project(project)
     
     print(f"\n6. New editor after loading project:")

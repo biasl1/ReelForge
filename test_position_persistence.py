@@ -14,7 +14,7 @@ from PyQt6.QtCore import QRect
 # Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from ui.ai_template_editor import SimpleTemplateEditor
+from ui.template_editor import SimpleTemplateEditor
 from core.project import ReelForgeProject
 
 def test_position_persistence():

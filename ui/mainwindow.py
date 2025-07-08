@@ -27,7 +27,7 @@ from ui.timeline.controls import TimelineControls
 from ui.timeline.event_dialog import EventDialog
 from ui.plugin_dashboard import PluginDashboard
 from ui.enhanced_asset_panel import EnhancedAssetPanel
-from ui.ai_template_editor import AITemplateEditor
+from ui.template_editor import TemplateEditor
 
 
 class MainWindow(QMainWindow):
@@ -157,7 +157,7 @@ class MainWindow(QMainWindow):
         calendar_layout.addWidget(self.timeline_canvas)
         
         # Content template view
-        self.content_template_view = AITemplateEditor()
+        self.content_template_view = TemplateEditor()
         
         # Add both views to stacked widget
         self.stacked_widget.addWidget(calendar_widget)  # Index 0

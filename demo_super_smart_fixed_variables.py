@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
 from PyQt6.QtCore import Qt
 
 # Import the updated template editor
-from ui.ai_template_editor import AITemplateEditor
+from ui.template_editor import TemplateEditor as AITemplateEditor
 
 class DemoWindow(QMainWindow):
     def __init__(self):

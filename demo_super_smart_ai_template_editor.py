@@ -33,7 +33,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 
 # Import our super smart AI Template Editor
-from ui.ai_template_editor import AITemplateEditor
+from ui.template_editor import TemplateEditor
 
 class MockProject:
     """Mock project class for demo purposes"""
@@ -74,7 +74,7 @@ class SuperSmartDemoWindow(QMainWindow):
         self._create_demo_header(main_layout)
         
         # Main AI Template Editor
-        self.template_editor = AITemplateEditor()
+        self.template_editor = TemplateEditor()
         self.template_editor.set_project(self.project)
         main_layout.addWidget(self.template_editor)
         

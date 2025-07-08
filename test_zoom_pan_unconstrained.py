@@ -11,7 +11,7 @@ from PyQt6.QtGui import QWheelEvent
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from ui.ai_template_editor import SimpleTemplateEditor
+from ui.template_editor import SimpleTemplateEditor
 from core.project import ReelForgeProject
 
 def test_zoom_pan_unconstrained():

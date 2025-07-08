@@ -11,7 +11,7 @@ import json
 sys.path.insert(0, str(Path(__file__).parent))
 
 from core.project import ReelForgeProject
-from ui.ai_template_editor import SimpleTemplateEditor
+from ui.template_editor import TemplateEditor
 from PyQt6.QtWidgets import QApplication
 
 def debug_template_save():
@@ -24,7 +24,7 @@ def debug_template_save():
     project.metadata.name = "Debug Template Project"
     
     # Create template editor and set project
-    editor = SimpleTemplateEditor()
+    editor = TemplateEditor()
     editor.set_project(project)
     
     print("Original settings:")

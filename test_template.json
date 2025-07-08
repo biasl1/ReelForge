@@ -1,0 +1,82 @@
+{
+  "canvas_config": {
+    "content_type": "post",
+    "constrain_to_frame": false,
+    "elements": {
+      "pip": {
+        "type": "pip",
+        "enabled": true,
+        "rect": {
+          "x": 333,
+          "y": 275,
+          "width": 275,
+          "height": 147
+        },
+        "shape": "square",
+        "color": {
+          "r": 100,
+          "g": 150,
+          "b": 200,
+          "a": 128
+        },
+        "border_color": {
+          "r": 255,
+          "g": 255,
+          "b": 255,
+          "a": 255
+        },
+        "border_width": 2
+      },
+      "title": {
+        "type": "text",
+        "enabled": true,
+        "rect": {
+          "x": 344,
+          "y": 211,
+          "width": 261,
+          "height": 46
+        },
+        "content": "Main Title",
+        "size": 36,
+        "color": {
+          "r": 255,
+          "g": 255,
+          "b": 255,
+          "a": 255
+        },
+        "style": "bold"
+      },
+      "subtitle": {
+        "type": "text",
+        "enabled": true,
+        "rect": {
+          "x": 331,
+          "y": 446,
+          "width": 261,
+          "height": 30
+        },
+        "content": "Subtitle text here",
+        "size": 18,
+        "color": {
+          "r": 200,
+          "g": 200,
+          "b": 200,
+          "a": 255
+        },
+        "style": "normal"
+      }
+    }
+  },
+  "view_state": {
+    "zoom": 1.0,
+    "pan": {
+      "x": 0.0,
+      "y": 0.0
+    }
+  },
+  "metadata": {
+    "version": "1.0",
+    "created": "2025-07-08T08:54:10.626421",
+    "app": "ReelTune Template Editor"
+  }
+}

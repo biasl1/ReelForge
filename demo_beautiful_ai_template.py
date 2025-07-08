@@ -26,7 +26,7 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QHBoxLayout, QWidget, QSp
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 
-from ui.ai_template_editor import AITemplateEditor
+from ui.template_editor import TemplateEditor
 from ui.enhanced_asset_panel import EnhancedAssetPanel
 from core.project import ReelForgeProject, AssetReference, ProjectMetadata
 
@@ -72,7 +72,7 @@ class BeautifulAITemplateDemo(QMainWindow):
         splitter.addWidget(self.asset_panel)
         
         # AI Template Editor on the right
-        self.template_editor = AITemplateEditor()
+        self.template_editor = TemplateEditor()
         splitter.addWidget(self.template_editor)
         
         # Set splitter proportions
