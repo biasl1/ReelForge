@@ -5,7 +5,8 @@ Per-content-type settings with visual drag & drop editing
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel,
     QComboBox, QGroupBox, QPushButton, QCheckBox, 
-    QSpinBox, QSlider, QMessageBox, QDoubleSpinBox
+    QSpinBox, QSlider, QMessageBox, QDoubleSpinBox,
+    QLineEdit
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QRect, QSize
 from PyQt6.QtGui import QColor, QPainter, QPen, QFont, QBrush
@@ -33,7 +34,54 @@ class VisualTemplateEditor(QWidget):
         self.pip_dragging = False
         self.pip_resizing = False
         
-        # Text overlay settings
+        # Multiple text overlay settings
+        self.text_overlays = {
+            'title': {
+                'enabled': True,
+                'rect': QRect(50, 80, 200, 60),
+                'size': 36,
+                'content': "Main Title",
+                'dragging': False,
+                'resizing': False,
+                'color': QColor(255, 255, 255),  # White
+                'style': 'bold'
+            },
+            'subtitle': {
+                'enabled': True,
+                'rect': QRect(50, 450, 200, 40),
+                'size': 18,
+                'content': "Subtitle text here",
+                'dragging': False,
+                'resizing': False,
+                'color': QColor(200, 200, 200),  # Light gray
+                'style': 'normal'
+            },
+            'solo': {
+                'enabled': True,
+                'rect': QRect(50, 200, 250, 100),
+                'size': 48,
+                'content': "BIG EMPHASIS",
+                'dragging': False,
+                'resizing': False,
+                'color': QColor(255, 215, 0),  # Gold
+                'style': 'bold'
+            },
+            'regular': {
+                'enabled': True,
+                'rect': QRect(50, 350, 180, 50),
+                'size': 24,
+                'content': "Regular text",
+                'dragging': False,
+                'resizing': False,
+                'color': QColor(255, 255, 255),  # White
+                'style': 'normal'
+            }
+        }
+        
+        # Current text being dragged/resized
+        self.active_text_type = None
+        
+        # Legacy single text overlay (for backward compatibility)
         self.text_enabled = True
         self.text_rect = QRect(50, 400, 200, 50)
         self.text_content = "Sample Text"
@@ -96,9 +144,14 @@ class VisualTemplateEditor(QWidget):
         if self.pip_enabled:
             self._draw_pip(painter)
         
-        # Text overlay area
+        # Draw all text overlays
+        for text_type, text_data in self.text_overlays.items():
+            if text_data['enabled']:
+                self._draw_text_overlay_type(painter, text_type, text_data)
+        
+        # Legacy text overlay (for backward compatibility)
         if self.text_enabled:
-            self._draw_text_overlay(painter)
+            self._draw_legacy_text_overlay(painter)
     def _draw_content_frame(self, painter, canvas_width, canvas_height):
         """Draw content frame with proper aspect ratio for content type"""
         # Define aspect ratios for different content types
@@ -204,7 +257,19 @@ class VisualTemplateEditor(QWidget):
         if self.pip_rect.top() < self.content_frame.top():
             self.pip_rect.moveTop(self.content_frame.top())
             
-        # Constrain text
+        # Constrain ALL text overlays
+        for text_type, text_data in self.text_overlays.items():
+            rect = text_data['rect']
+            if rect.right() > self.content_frame.right():
+                rect.moveRight(self.content_frame.right())
+            if rect.bottom() > self.content_frame.bottom():
+                rect.moveBottom(self.content_frame.bottom())
+            if rect.left() < self.content_frame.left():
+                rect.moveLeft(self.content_frame.left())
+            if rect.top() < self.content_frame.top():
+                rect.moveTop(self.content_frame.top())
+            
+        # Constrain legacy text
         if self.text_rect.right() > self.content_frame.right():
             self.text_rect.moveRight(self.content_frame.right())
         if self.text_rect.bottom() > self.content_frame.bottom():
@@ -239,7 +304,20 @@ class VisualTemplateEditor(QWidget):
         
         self.pip_rect = QRect(int(new_pip_x), int(new_pip_y), int(new_pip_width), int(new_pip_height))
         
-        # Update text position and size relative to the new frame
+        # Update ALL text overlays position and size relative to the new frame
+        for text_type, text_data in self.text_overlays.items():
+            old_rect = text_data['rect']
+            old_text_rel_x = old_rect.x() - old_frame.x()
+            old_text_rel_y = old_rect.y() - old_frame.y()
+            
+            new_text_x = self.content_frame.x() + (old_text_rel_x * scale_x)
+            new_text_y = self.content_frame.y() + (old_text_rel_y * scale_y)
+            new_text_width = old_rect.width() * scale_x
+            new_text_height = old_rect.height() * scale_y
+            
+            text_data['rect'] = QRect(int(new_text_x), int(new_text_y), int(new_text_width), int(new_text_height))
+        
+        # Update legacy text position and size relative to the new frame
         old_text_rel_x = self.text_rect.x() - old_frame.x()
         old_text_rel_y = self.text_rect.y() - old_frame.y()
         
@@ -268,7 +346,26 @@ class VisualTemplateEditor(QWidget):
         
         self.pip_rect = QRect(pip_x, pip_y, pip_width, pip_height)
         
-        # Position text overlay in bottom area of content frame
+        # Position ALL text overlays relative to content frame
+        frame_width = self.content_frame.width()
+        frame_height = self.content_frame.height()
+        frame_x = self.content_frame.x()
+        frame_y = self.content_frame.y()
+        
+        # Default text overlay positions based on type
+        text_positions = {
+            'title': (frame_x + 20, frame_y + 60, min(250, frame_width - 40), 50),
+            'subtitle': (frame_x + 20, frame_y + 120, min(200, frame_width - 40), 35),
+            'solo': (frame_x + 20, frame_y + frame_height//2 - 30, min(300, frame_width - 40), 60),
+            'regular': (frame_x + 20, frame_y + frame_height - 90, min(200, frame_width - 40), 40)
+        }
+        
+        for text_type, text_data in self.text_overlays.items():
+            if text_type in text_positions:
+                x, y, w, h = text_positions[text_type]
+                text_data['rect'] = QRect(x, y, w, h)
+        
+        # Position legacy text overlay in bottom area of content frame
         text_width = min(200, self.content_frame.width() - 40)
         text_height = min(50, self.content_frame.height() // 8)
         text_x = self.content_frame.x() + 20
@@ -303,6 +400,83 @@ class VisualTemplateEditor(QWidget):
         painter.setFont(font)
         text_y = self.pip_rect.top() - 5
         painter.drawText(self.pip_rect.left(), text_y, f"PiP ({self.pip_shape})")
+
+    def _draw_text_overlay_type(self, painter, text_type, text_data):
+        """Draw a specific text overlay type"""
+        rect = text_data['rect']
+        
+        # Choose colors based on text type
+        colors = {
+            'title': (QColor(0, 120, 212), QColor(0, 120, 212, 30)),      # Blue
+            'subtitle': (QColor(128, 0, 128), QColor(128, 0, 128, 30)),   # Purple  
+            'solo': (QColor(255, 165, 0), QColor(255, 165, 0, 30)),       # Orange
+            'regular': (QColor(82, 199, 89), QColor(82, 199, 89, 30))     # Green
+        }
+        
+        border_color, bg_color = colors.get(text_type, colors['regular'])
+        
+        # Text background
+        painter.setPen(QPen(border_color, 2))
+        painter.setBrush(QBrush(bg_color))
+        painter.drawRect(rect)
+        
+        # Sample text with appropriate font
+        font_size = max(8, text_data['size'] // 3)  # Scale down for preview
+        font = QFont("Arial", font_size)
+        if text_data['style'] == 'bold':
+            font.setBold(True)
+        painter.setFont(font)
+        painter.setPen(text_data['color'])
+        painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text_data['content'])
+        
+        # Corner resize handle
+        handle_size = 10
+        handle_rect = QRect(
+            rect.right() - handle_size,
+            rect.bottom() - handle_size,
+            handle_size, handle_size
+        )
+        painter.setPen(QPen(border_color, 2))
+        painter.setBrush(QBrush(border_color))
+        painter.drawRect(handle_rect)
+        
+        # Label with type and size
+        painter.setPen(QColor(255, 255, 255))
+        font = QFont("Arial", 10)
+        painter.setFont(font)
+        text_y = rect.top() - 5
+        painter.drawText(rect.left(), text_y, f"{text_type.title()} ({text_data['size']}px)")
+
+    def _draw_legacy_text_overlay(self, painter):
+        """Draw legacy text overlay (for backward compatibility)"""
+        # Text background
+        painter.setPen(QPen(QColor(82, 199, 89), 2))
+        painter.setBrush(QBrush(QColor(82, 199, 89, 30)))
+        painter.drawRect(self.text_rect)
+        
+        # Sample text
+        font = QFont("Arial", max(8, self.text_size // 2))
+        painter.setFont(font)
+        painter.setPen(QColor(255, 255, 255))
+        painter.drawText(self.text_rect, Qt.AlignmentFlag.AlignCenter, self.text_content)
+        
+        # Corner resize handle
+        handle_size = 10
+        handle_rect = QRect(
+            self.text_rect.right() - handle_size,
+            self.text_rect.bottom() - handle_size,
+            handle_size, handle_size
+        )
+        painter.setPen(QPen(QColor(82, 199, 89), 2))
+        painter.setBrush(QBrush(QColor(82, 199, 89)))
+        painter.drawRect(handle_rect)
+        
+        # Label
+        painter.setPen(QColor(255, 255, 255))
+        font = QFont("Arial", 10)
+        painter.setFont(font)
+        text_y = self.text_rect.top() - 5
+        painter.drawText(self.text_rect.left(), text_y, f"Legacy Text ({self.text_size}px)")
 
     def _draw_text_overlay(self, painter):
         """Draw text overlay area"""
@@ -350,7 +524,21 @@ class VisualTemplateEditor(QWidget):
                 self.last_mouse_pos = pos
                 return
         
-        # Check text resize handle
+        # Check text overlay resize handles
+        for text_type, text_data in self.text_overlays.items():
+            if text_data['enabled']:
+                handle_rect = QRect(
+                    text_data['rect'].right() - 10,
+                    text_data['rect'].bottom() - 10,
+                    10, 10
+                )
+                if handle_rect.contains(pos):
+                    text_data['resizing'] = True
+                    self.active_text_type = text_type
+                    self.last_mouse_pos = pos
+                    return
+        
+        # Check legacy text resize handle
         if self.text_enabled:
             handle_rect = QRect(
                 self.text_rect.right() - 10,
@@ -368,12 +556,19 @@ class VisualTemplateEditor(QWidget):
             self.last_mouse_pos = pos
             return
         
-        # Check text dragging
+        # Check text overlay dragging
+        for text_type, text_data in self.text_overlays.items():
+            if text_data['enabled'] and text_data['rect'].contains(pos):
+                text_data['dragging'] = True
+                self.active_text_type = text_type
+                self.last_mouse_pos = pos
+                return
+        
+        # Check legacy text dragging
         if self.text_enabled and self.text_rect.contains(pos):
             self.text_dragging = True
             self.last_mouse_pos = pos
             return
-
     def mouseMoveEvent(self, event):
         if not self.last_mouse_pos:
             return
@@ -399,8 +594,23 @@ class VisualTemplateEditor(QWidget):
             
             self.pip_rect.setSize(QSize(new_width, new_height))
             
+        elif self.active_text_type and self.text_overlays[self.active_text_type]['resizing']:
+            # Resize active text overlay
+            text_data = self.text_overlays[self.active_text_type]
+            rect = text_data['rect']
+            
+            new_width = max(100, rect.width() + delta.x())
+            new_height = max(30, rect.height() + delta.y())
+            
+            max_width = self.content_frame.right() - rect.left()
+            max_height = self.content_frame.bottom() - rect.top()
+            new_width = min(new_width, max_width)
+            new_height = min(new_height, max_height)
+            
+            rect.setSize(QSize(new_width, new_height))
+            
         elif self.text_resizing:
-            # Resize text area
+            # Resize legacy text area
             new_width = max(100, self.text_rect.width() + delta.x())
             new_height = max(30, self.text_rect.height() + delta.y())
             
@@ -428,8 +638,24 @@ class VisualTemplateEditor(QWidget):
             
             self.pip_rect = new_rect
             
+        elif self.active_text_type and self.text_overlays[self.active_text_type]['dragging']:
+            # Move active text overlay
+            text_data = self.text_overlays[self.active_text_type]
+            new_rect = text_data['rect'].translated(delta)
+            
+            if new_rect.left() < self.content_frame.left():
+                new_rect.moveLeft(self.content_frame.left())
+            if new_rect.top() < self.content_frame.top():
+                new_rect.moveTop(self.content_frame.top())
+            if new_rect.right() > self.content_frame.right():
+                new_rect.moveRight(self.content_frame.right())
+            if new_rect.bottom() > self.content_frame.bottom():
+                new_rect.moveBottom(self.content_frame.bottom())
+            
+            text_data['rect'] = new_rect
+            
         elif self.text_dragging:
-            # Move text
+            # Move legacy text
             new_rect = self.text_rect.translated(delta)
             
             # Constrain to content frame
@@ -449,23 +675,28 @@ class VisualTemplateEditor(QWidget):
 
     def mouseReleaseEvent(self, event):
         # Check if we were dragging/resizing and need to save changes
-        was_modifying = (self.pip_dragging or self.pip_resizing or 
-                        self.text_dragging or self.text_resizing)
+        was_modifying = self.pip_dragging or self.pip_resizing or self.text_dragging or self.text_resizing
+        
+        # Check text overlays for modifications
+        for text_data in self.text_overlays.values():
+            if text_data['dragging'] or text_data['resizing']:
+                was_modifying = True
+                text_data['dragging'] = False
+                text_data['resizing'] = False
         
         self.pip_dragging = False
         self.pip_resizing = False
         self.text_dragging = False
         self.text_resizing = False
+        self.active_text_type = None
         self.last_mouse_pos = None
         
         # Emit signal to save changes if we were modifying
         if was_modifying:
-            # Use direct reference if available, otherwise try parent
             template_editor = getattr(self, 'template_editor', None) or self.parent()
             
             if template_editor and hasattr(template_editor, '_save_all_current_settings'):
                 template_editor._save_all_current_settings()
-                # Also auto-save to project
                 if hasattr(template_editor, '_auto_save_to_project'):
                     template_editor._auto_save_to_project()
 
@@ -493,7 +724,41 @@ class SimpleTemplateEditor(QWidget):
                 'pip_rect': [80, 80, 100, 100],  # x, y, width, height - top area for vertical
                 'text_enabled': True,
                 'text_size': 24,
-                'text_rect': [80, 450, 180, 50]  # Bottom area for vertical
+                'text_rect': [80, 450, 180, 50],  # Bottom area for vertical
+                'text_overlays': {
+                    'title': {
+                        'enabled': True,
+                        'rect': [80, 120, 200, 50],
+                        'content': 'Main Title',
+                        'size': 32,
+                        'color': [255, 255, 255],
+                        'style': 'bold'
+                    },
+                    'subtitle': {
+                        'enabled': False,
+                        'rect': [80, 180, 180, 35],
+                        'content': 'Subtitle',
+                        'size': 20,
+                        'color': [200, 200, 200],
+                        'style': 'normal'
+                    },
+                    'solo': {
+                        'enabled': False,
+                        'rect': [80, 250, 220, 60],
+                        'content': 'BIG TEXT',
+                        'size': 48,
+                        'color': [255, 255, 0],
+                        'style': 'bold'
+                    },
+                    'regular': {
+                        'enabled': True,
+                        'rect': [80, 380, 180, 40],
+                        'content': 'Regular Text',
+                        'size': 24,
+                        'color': [255, 255, 255],
+                        'style': 'normal'
+                    }
+                }
             },
             'story': {
                 'fixed_intro': False, 
@@ -507,7 +772,41 @@ class SimpleTemplateEditor(QWidget):
                 'pip_rect': [80, 80, 100, 100],  # Top area for vertical
                 'text_enabled': True,
                 'text_size': 24,
-                'text_rect': [80, 450, 180, 50]  # Bottom area for vertical
+                'text_rect': [80, 450, 180, 50],  # Bottom area for vertical
+                'text_overlays': {
+                    'title': {
+                        'enabled': True,
+                        'rect': [80, 120, 200, 50],
+                        'content': 'Main Title',
+                        'size': 32,
+                        'color': [255, 255, 255],
+                        'style': 'bold'
+                    },
+                    'subtitle': {
+                        'enabled': False,
+                        'rect': [80, 180, 180, 35],
+                        'content': 'Subtitle',
+                        'size': 20,
+                        'color': [200, 200, 200],
+                        'style': 'normal'
+                    },
+                    'solo': {
+                        'enabled': False,
+                        'rect': [80, 250, 220, 60],
+                        'content': 'BIG TEXT',
+                        'size': 48,
+                        'color': [255, 255, 0],
+                        'style': 'bold'
+                    },
+                    'regular': {
+                        'enabled': True,
+                        'rect': [80, 380, 180, 40],
+                        'content': 'Regular Text',
+                        'size': 24,
+                        'color': [255, 255, 255],
+                        'style': 'normal'
+                    }
+                }
             },
             'teaser': {
                 'fixed_intro': False, 
@@ -521,7 +820,41 @@ class SimpleTemplateEditor(QWidget):
                 'pip_rect': [80, 80, 100, 100],  # Top area for vertical
                 'text_enabled': True,
                 'text_size': 24,
-                'text_rect': [80, 450, 180, 50]  # Bottom area for vertical
+                'text_rect': [80, 450, 180, 50],  # Bottom area for vertical
+                'text_overlays': {
+                    'title': {
+                        'enabled': True,
+                        'rect': [80, 120, 200, 50],
+                        'content': 'Main Title',
+                        'size': 32,
+                        'color': [255, 255, 255],
+                        'style': 'bold'
+                    },
+                    'subtitle': {
+                        'enabled': False,
+                        'rect': [80, 180, 180, 35],
+                        'content': 'Subtitle',
+                        'size': 20,
+                        'color': [200, 200, 200],
+                        'style': 'normal'
+                    },
+                    'solo': {
+                        'enabled': False,
+                        'rect': [80, 250, 220, 60],
+                        'content': 'BIG TEXT',
+                        'size': 48,
+                        'color': [255, 255, 0],
+                        'style': 'bold'
+                    },
+                    'regular': {
+                        'enabled': True,
+                        'rect': [80, 380, 180, 40],
+                        'content': 'Regular Text',
+                        'size': 24,
+                        'color': [255, 255, 255],
+                        'style': 'normal'
+                    }
+                }
             },
             'tutorial': {
                 'fixed_intro': False, 
@@ -535,7 +868,41 @@ class SimpleTemplateEditor(QWidget):
                 'pip_rect': [50, 50, 120, 80],  # Wider for horizontal content
                 'text_enabled': True,
                 'text_size': 24,
-                'text_rect': [50, 200, 250, 50]  # More space for horizontal
+                'text_rect': [50, 200, 250, 50],  # More space for horizontal
+                'text_overlays': {
+                    'title': {
+                        'enabled': True,
+                        'rect': [50, 120, 250, 50],
+                        'content': 'Main Title',
+                        'size': 32,
+                        'color': [255, 255, 255],
+                        'style': 'bold'
+                    },
+                    'subtitle': {
+                        'enabled': False,
+                        'rect': [50, 180, 220, 35],
+                        'content': 'Subtitle',
+                        'size': 20,
+                        'color': [200, 200, 200],
+                        'style': 'normal'
+                    },
+                    'solo': {
+                        'enabled': False,
+                        'rect': [50, 250, 300, 60],
+                        'content': 'BIG TEXT',
+                        'size': 48,
+                        'color': [255, 255, 0],
+                        'style': 'bold'
+                    },
+                    'regular': {
+                        'enabled': True,
+                        'rect': [50, 350, 250, 40],
+                        'content': 'Regular Text',
+                        'size': 24,
+                        'color': [255, 255, 255],
+                        'style': 'normal'
+                    }
+                }
             },
             'post': {
                 'fixed_intro': False, 
@@ -549,7 +916,41 @@ class SimpleTemplateEditor(QWidget):
                 'pip_rect': [60, 60, 100, 100],  # Center-ish for square content
                 'text_enabled': True,
                 'text_size': 24,
-                'text_rect': [60, 300, 200, 50]  # Bottom area for square
+                'text_rect': [60, 300, 200, 50],  # Bottom area for square
+                'text_overlays': {
+                    'title': {
+                        'enabled': True,
+                        'rect': [60, 120, 200, 50],
+                        'content': 'Main Title',
+                        'size': 32,
+                        'color': [255, 255, 255],
+                        'style': 'bold'
+                    },
+                    'subtitle': {
+                        'enabled': False,
+                        'rect': [60, 180, 180, 35],
+                        'content': 'Subtitle',
+                        'size': 20,
+                        'color': [200, 200, 200],
+                        'style': 'normal'
+                    },
+                    'solo': {
+                        'enabled': False,
+                        'rect': [60, 200, 220, 60],
+                        'content': 'BIG TEXT',
+                        'size': 48,
+                        'color': [255, 255, 0],
+                        'style': 'bold'
+                    },
+                    'regular': {
+                        'enabled': True,
+                        'rect': [60, 280, 180, 40],
+                        'content': 'Regular Text',
+                        'size': 24,
+                        'color': [255, 255, 255],
+                        'style': 'normal'
+                    }
+                }
             }
         }
         
@@ -676,25 +1077,68 @@ class SimpleTemplateEditor(QWidget):
         layout.addWidget(pip_group)
         
         # Text Overlay Settings
-        text_group = QGroupBox("Text Overlay")
+        text_group = QGroupBox("Text Overlays")
         text_layout = QVBoxLayout(text_group)
         
-        self.text_enabled = QCheckBox("Enable Text Overlay")
-        self.text_enabled.setChecked(True)
-        text_layout.addWidget(self.text_enabled)
+        # Text overlay types
+        self.text_overlay_controls = {}
+        text_types = [
+            ('title', 'Title', 32, 'Main title text'),
+            ('subtitle', 'Subtitle', 20, 'Supporting subtitle'),
+            ('solo', 'Solo', 48, 'Big emphasis text'),
+            ('regular', 'Regular', 24, 'Standard text overlay')
+        ]
         
-        # Text size
-        size_layout = QHBoxLayout()
-        size_layout.addWidget(QLabel("Size:"))
-        self.text_size_slider = QSlider(Qt.Orientation.Horizontal)
-        self.text_size_slider.setRange(12, 72)
-        self.text_size_slider.setValue(24)
-        self.text_size_label = QLabel("24px")
-        size_layout.addWidget(self.text_size_slider)
-        size_layout.addWidget(self.text_size_label)
-        text_layout.addLayout(size_layout)
+        for text_type, display_name, default_size, description in text_types:
+            type_frame = QFrame()
+            type_frame.setFrameStyle(QFrame.Shape.Box)
+            type_frame.setStyleSheet("QFrame { border: 1px solid #666; padding: 5px; margin: 2px; }")
+            type_layout = QVBoxLayout(type_frame)
+            type_layout.setContentsMargins(8, 5, 8, 5)
+            
+            # Header with checkbox
+            header_layout = QHBoxLayout()
+            enabled_cb = QCheckBox(f"Enable {display_name}")
+            enabled_cb.setChecked(text_type in ['title', 'regular'])  # Default enabled
+            header_layout.addWidget(enabled_cb)
+            header_layout.addStretch()
+            
+            # Description
+            desc_label = QLabel(description)
+            desc_label.setStyleSheet("color: #888; font-size: 11px;")
+            header_layout.addWidget(desc_label)
+            type_layout.addLayout(header_layout)
+            
+            # Size control
+            size_layout = QHBoxLayout()
+            size_layout.addWidget(QLabel("Size:"))
+            size_slider = QSlider(Qt.Orientation.Horizontal)
+            size_slider.setRange(12, 72)
+            size_slider.setValue(default_size)
+            size_label = QLabel(f"{default_size}px")
+            size_layout.addWidget(size_slider)
+            size_layout.addWidget(size_label)
+            type_layout.addLayout(size_layout)
+            
+            # Content input
+            content_layout = QHBoxLayout()
+            content_layout.addWidget(QLabel("Text:"))
+            content_input = QLineEdit()
+            content_input.setPlaceholderText(f"Enter {text_type} text...")
+            content_layout.addWidget(content_input)
+            type_layout.addLayout(content_layout)
+            
+            text_layout.addWidget(type_frame)
+            
+            # Store controls for later access
+            self.text_overlay_controls[text_type] = {
+                'enabled': enabled_cb,
+                'size_slider': size_slider,
+                'size_label': size_label,
+                'content_input': content_input
+            }
         
-        text_help = QLabel("Drag to move, drag corner to resize")
+        text_help = QLabel("Drag to move, drag corner to resize each overlay independently")
         text_help.setStyleSheet("color: #888; font-size: 11px;")
         text_layout.addWidget(text_help)
         
@@ -721,14 +1165,46 @@ class SimpleTemplateEditor(QWidget):
         self.pip_rectangle.toggled.connect(self._on_pip_shape_changed)
         
         # Text settings
-        self.text_enabled.toggled.connect(self._on_text_settings_changed)
-        self.text_size_slider.valueChanged.connect(self._on_text_size_changed)
+        for text_type, controls in self.text_overlay_controls.items():
+            controls['enabled'].toggled.connect(self._on_text_overlay_settings_changed)
+            controls['size_slider'].valueChanged.connect(self._on_text_overlay_size_changed)
+            controls['content_input'].textChanged.connect(self._on_text_overlay_content_changed)
         
         # Initialize with first content type
         self._load_all_settings_for_current_type()
         
         # Populate asset combos initially
         self._populate_asset_combos()
+
+    def _on_text_overlay_settings_changed(self):
+        """Handle text overlay enable/disable changes"""
+        for text_type, controls in self.text_overlay_controls.items():
+            self.visual_editor.text_overlays[text_type]['enabled'] = controls['enabled'].isChecked()
+        
+        self.visual_editor.update()
+        self._save_all_current_settings()
+        self._auto_save_to_project()
+
+    def _on_text_overlay_size_changed(self):
+        """Handle text overlay size changes"""
+        for text_type, controls in self.text_overlay_controls.items():
+            size = controls['size_slider'].value()
+            controls['size_label'].setText(f"{size}px")
+            self.visual_editor.text_overlays[text_type]['size'] = size
+        
+        self.visual_editor.update()
+        self._save_all_current_settings()
+        self._auto_save_to_project()
+
+    def _on_text_overlay_content_changed(self):
+        """Handle text overlay content changes"""
+        for text_type, controls in self.text_overlay_controls.items():
+            content = controls['content_input'].text()
+            self.visual_editor.text_overlays[text_type]['content'] = content
+        
+        self.visual_editor.update()
+        self._save_all_current_settings()
+        self._auto_save_to_project()
 
     def _on_content_type_changed(self, content_type: str):
         """Handle content type change - SAVE CURRENT, LOAD NEW"""
@@ -746,9 +1222,21 @@ class SimpleTemplateEditor(QWidget):
         self._auto_save_to_project()
         
         self.template_changed.emit()
-
     def _save_all_current_settings(self):
         """Save ALL current settings including visual elements"""
+        # Save text overlay data
+        text_overlays = {}
+        for text_type, text_data in self.visual_editor.text_overlays.items():
+            text_overlays[text_type] = {
+                'enabled': text_data['enabled'],
+                'rect': [text_data['rect'].x(), text_data['rect'].y(), 
+                        text_data['rect'].width(), text_data['rect'].height()],
+                'content': text_data['content'],
+                'size': text_data['size'],
+                'color': [text_data['color'].red(), text_data['color'].green(), text_data['color'].blue()],
+                'style': text_data['style']
+            }
+        
         self.content_settings[self.current_content_type] = {
             'fixed_intro': self.fixed_intro.isChecked(),
             'fixed_outro': self.fixed_outro.isChecked(),
@@ -771,9 +1259,9 @@ class SimpleTemplateEditor(QWidget):
                 self.visual_editor.text_rect.y(),
                 self.visual_editor.text_rect.width(),
                 self.visual_editor.text_rect.height()
-            ]
+            ],
+            'text_overlays': text_overlays
         }
-
     def _load_all_settings_for_current_type(self):
         """Load ALL settings for current content type"""
         # Ensure the content type exists in settings (for backward compatibility)
@@ -804,18 +1292,36 @@ class SimpleTemplateEditor(QWidget):
             self.pip_square.setChecked(False)
             self.pip_rectangle.setChecked(True)
         
-        # Update text settings
-        self.text_enabled.setChecked(settings['text_enabled'])
-        self.text_size_slider.setValue(settings['text_size'])
-        self.text_size_label.setText(f"{settings['text_size']}px")
+        # Update text overlay controls and visual editor
+        if 'text_overlays' in settings:
+            for text_type, text_data in settings['text_overlays'].items():
+                if text_type in self.text_overlay_controls:
+                    # Update UI controls
+                    self.text_overlay_controls[text_type]['enabled'].setChecked(text_data['enabled'])
+                    self.text_overlay_controls[text_type]['size_slider'].setValue(text_data['size'])
+                    self.text_overlay_controls[text_type]['size_label'].setText(f"{text_data['size']}px")
+                    self.text_overlay_controls[text_type]['content_input'].setText(text_data['content'])
+                    
+                    # Update visual editor
+                    if text_type in self.visual_editor.text_overlays:
+                        self.visual_editor.text_overlays[text_type]['enabled'] = text_data['enabled']
+                        self.visual_editor.text_overlays[text_type]['rect'] = QRect(*text_data['rect'])
+                        self.visual_editor.text_overlays[text_type]['content'] = text_data['content']
+                        self.visual_editor.text_overlays[text_type]['size'] = text_data['size']
+                        if 'color' in text_data:
+                            self.visual_editor.text_overlays[text_type]['color'] = QColor(*text_data['color'])
+                        if 'style' in text_data:
+                            self.visual_editor.text_overlays[text_type]['style'] = text_data['style']
         
-        # Update visual editor
+        # Update visual editor PiP and legacy text
         self.visual_editor.pip_enabled = settings['pip_enabled']
         self.visual_editor.pip_shape = settings['pip_shape']
         self.visual_editor.pip_rect = QRect(*settings['pip_rect'])
-        self.visual_editor.text_enabled = settings['text_enabled']
-        self.visual_editor.text_size = settings['text_size']
-        self.visual_editor.text_rect = QRect(*settings['text_rect'])
+        self.visual_editor.text_enabled = settings.get('text_enabled', True)
+        self.visual_editor.text_size = settings.get('text_size', 24)
+        if 'text_rect' in settings:
+            self.visual_editor.text_rect = QRect(*settings['text_rect'])
+        
         self.visual_editor.update()
 
     def _set_combo_by_data(self, combo, data_value):
@@ -896,6 +1402,42 @@ class SimpleTemplateEditor(QWidget):
         text_x = frame.x() + 20
         text_y = frame.bottom() - 70  # 50px height + 20px margin
         
+        # Default text overlay positions
+        text_overlays = {
+            'title': {
+                'enabled': True,
+                'rect': [text_x, frame.y() + 60, 200, 50],
+                'content': 'Main Title',
+                'size': 32,
+                'color': [255, 255, 255],
+                'style': 'bold'
+            },
+            'subtitle': {
+                'enabled': False,
+                'rect': [text_x, frame.y() + 120, 180, 35],
+                'content': 'Subtitle',
+                'size': 20,
+                'color': [200, 200, 200],
+                'style': 'normal'
+            },
+            'solo': {
+                'enabled': False,
+                'rect': [text_x, frame.y() + frame.height()//2 - 30, 220, 60],
+                'content': 'BIG TEXT',
+                'size': 48,
+                'color': [255, 255, 0],
+                'style': 'bold'
+            },
+            'regular': {
+                'enabled': True,
+                'rect': [text_x, frame.y() + frame.height() - 90, 180, 40],
+                'content': 'Regular Text',
+                'size': 24,
+                'color': [255, 255, 255],
+                'style': 'normal'
+            }
+        }
+        
         # Default settings template with relative positioning
         default_settings = {
             'fixed_intro': False, 
@@ -909,7 +1451,8 @@ class SimpleTemplateEditor(QWidget):
             'pip_rect': [pip_x, pip_y, 100, 100],
             'text_enabled': True,
             'text_size': 24,
-            'text_rect': [text_x, text_y, 180, 50]
+            'text_rect': [text_x, text_y, 180, 50],
+            'text_overlays': text_overlays
         }
         
         # Customize based on content type
@@ -918,9 +1461,19 @@ class SimpleTemplateEditor(QWidget):
             default_settings['pip_rect'] = [pip_x, pip_y, 120, 80]
             # For horizontal content, place text in middle area
             default_settings['text_rect'] = [pip_x, frame.y() + frame.height()//2, 250, 50]
+            # Adjust text overlays for tutorial layout
+            default_settings['text_overlays']['title']['rect'] = [text_x, frame.y() + 80, 250, 50]
+            default_settings['text_overlays']['subtitle']['rect'] = [text_x, frame.y() + 140, 220, 35]
+            default_settings['text_overlays']['solo']['rect'] = [text_x, frame.y() + frame.height()//2, 300, 60]
+            default_settings['text_overlays']['regular']['rect'] = [text_x, frame.y() + frame.height() - 80, 250, 40]
         elif content_type == 'post':
             # For square content, center the text more
             default_settings['text_rect'] = [text_x, frame.y() + frame.height()//2 + 50, 200, 50]
+            # Adjust text overlays for square layout
+            default_settings['text_overlays']['title']['rect'] = [text_x, frame.y() + 80, 200, 50]
+            default_settings['text_overlays']['subtitle']['rect'] = [text_x, frame.y() + 140, 180, 35]
+            default_settings['text_overlays']['solo']['rect'] = [text_x, frame.y() + frame.height()//2 - 20, 220, 60]
+            default_settings['text_overlays']['regular']['rect'] = [text_x, frame.y() + frame.height() - 80, 180, 40]
         
         # Add to content_settings
         self.content_settings[content_type] = default_settings
