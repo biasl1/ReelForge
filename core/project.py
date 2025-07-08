@@ -730,7 +730,7 @@ class ReelForgeProject:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert project to dictionary for JSON serialization"""
-        return {
+        project_dict = {
             "metadata": asdict(self.metadata),
             "assets": {k: asdict(v) for k, v in self.assets.items()},
             "timeline_plan": asdict(self.timeline_plan) if self.timeline_plan else None,
@@ -742,6 +742,12 @@ class ReelForgeProject:
             "simple_templates": getattr(self, 'simple_templates', {}),
             "version": "1.3"  # Updated version for AI features
         }
+        
+        # Save template editor settings if available
+        if hasattr(self, 'template_editor_settings'):
+            project_dict["template_editor_settings"] = self.template_editor_settings
+            
+        return project_dict
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'ReelForgeProject':
@@ -786,6 +792,10 @@ class ReelForgeProject:
         # Load template settings
         if "simple_templates" in data:
             project.simple_templates = data["simple_templates"]
+            
+        # Load template editor settings
+        if "template_editor_settings" in data:
+            project.template_editor_settings = data["template_editor_settings"]
 
         project._is_modified = False
         return project
@@ -1048,6 +1058,54 @@ class ReelForgeProject:
         }
         return duration_map.get(content_type, "30s")
 
+    def save_template_editor_settings(self, template_editor):
+        """Save template editor settings to project"""
+        if not template_editor:
+            return
+            
+        # Save all content type configurations
+        template_settings = {}
+        
+        # Get current content type
+        current_type = template_editor.get_content_type()
+        
+        # Save settings for each content type that has been configured
+        content_types = ["reel", "story", "post", "tutorial", "teaser", "yt_short"]
+        
+        for content_type in content_types:
+            # Switch to content type to get its settings
+            template_editor.set_content_type(content_type)
+            config = template_editor.get_template_config()
+            
+            if config and config.get("canvas_config"):
+                template_settings[content_type] = config
+        
+        # Restore original content type
+        template_editor.set_content_type(current_type)
+        
+        # Save to project
+        self.template_editor_settings = template_settings
+        self._is_modified = True
+
+    def load_template_editor_settings(self, template_editor):
+        """Load template editor settings from project"""
+        if not template_editor or not hasattr(self, "template_editor_settings"):
+            return
+            
+        template_settings = getattr(self, "template_editor_settings", {})
+        
+        # Get current content type
+        current_type = template_editor.get_content_type()
+        
+        # Load settings for each content type
+        for content_type, config in template_settings.items():
+            template_editor.set_content_type(content_type)
+            template_editor.set_template_config(config)
+        
+        # Restore original content type
+        template_editor.set_content_type(current_type)
+
+
 
 class ProjectManager:
     """Manages recent projects and templates"""
@@ -1141,3 +1199,50 @@ class ProjectManager:
                 "description": "Custom project settings"
             }
         }
+
+    def save_template_editor_settings(self, template_editor):
+        """Save template editor settings to project"""
+        if not template_editor:
+            return
+            
+        # Save all content type configurations
+        template_settings = {}
+        
+        # Get current content type
+        current_type = template_editor.get_content_type()
+        
+        # Save settings for each content type that has been configured
+        content_types = ['reel', 'story', 'post', 'tutorial', 'teaser', 'yt_short']
+        
+        for content_type in content_types:
+            # Switch to content type to get its settings
+            template_editor.set_content_type(content_type)
+            config = template_editor.get_template_config()
+            
+            if config and config.get('canvas_config'):
+                template_settings[content_type] = config
+        
+        # Restore original content type
+        template_editor.set_content_type(current_type)
+        
+        # Save to project
+        self.template_editor_settings = template_settings
+        self._is_modified = True
+        
+    def load_template_editor_settings(self, template_editor):
+        """Load template editor settings from project"""
+        if not template_editor or not hasattr(self, 'template_editor_settings'):
+            return
+            
+        template_settings = getattr(self, 'template_editor_settings', {})
+        
+        # Get current content type
+        current_type = template_editor.get_content_type()
+        
+        # Load settings for each content type
+        for content_type, config in template_settings.items():
+            template_editor.set_content_type(content_type)
+            template_editor.set_template_config(config)
+        
+        # Restore original content type
+        template_editor.set_content_type(current_type)

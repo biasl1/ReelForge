@@ -248,6 +248,9 @@ class MainWindow(QMainWindow):
         """Save current project"""
         if not self.current_project:
             return
+        
+        # Save template editor settings before saving project
+        self.current_project.save_template_editor_settings(self.content_template_view)
 
         if self.current_project.save():
             self.status_bar.showMessage("Project saved", 2000)
@@ -262,6 +265,9 @@ class MainWindow(QMainWindow):
         """Save project with new name"""
         if not self.current_project:
             return
+        
+        # Save template editor settings before saving project
+        self.current_project.save_template_editor_settings(self.content_template_view)
 
         file_path, _ = QFileDialog.getSaveFileName(
             self,
@@ -299,6 +305,9 @@ class MainWindow(QMainWindow):
 
             # Update content template view with project data
             self.content_template_view.set_project(self.current_project)
+            
+            # Load template editor settings from project
+            self.current_project.load_template_editor_settings(self.content_template_view)
 
             # Update timeline
             self._update_timeline_display()
