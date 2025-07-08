@@ -27,6 +27,14 @@ class VisualTemplateEditor(QWidget):
         self.content_frame = QRect(50, 50, 300, 500)  # Default, will be recalculated
         self._need_frame_check = False
         
+        # Zoom and pan functionality
+        self.zoom_factor = 1.0
+        self.pan_offset_x = 0
+        self.pan_offset_y = 0
+        self.panning = False
+        self.last_pan_pos = None
+        self.constrain_to_frame = False  # Allow elements outside frame
+        
         # Picture-in-picture settings
         self.pip_enabled = True
         self.pip_shape = "square"  # "square" or "rectangle"
@@ -131,16 +139,15 @@ class VisualTemplateEditor(QWidget):
         # Background
         painter.fillRect(0, 0, width, height, QColor(30, 30, 30))
         
+        # Apply zoom and pan transformations
+        painter.save()
+        painter.translate(self.pan_offset_x, self.pan_offset_y)
+        painter.scale(self.zoom_factor, self.zoom_factor)
+        
         # Draw content type layout with proper aspect ratio
         self._draw_content_frame(painter, width, height)
         
-        # Title
-        painter.setPen(QColor(255, 255, 255))
-        font = QFont("Arial", 16, QFont.Weight.Bold)
-        painter.setFont(font)
-        painter.drawText(20, 35, f"{self.content_type.title()} Template")
-        
-        # Picture-in-picture area
+        # Draw elements with transformations applied
         if self.pip_enabled:
             self._draw_pip(painter)
         
@@ -149,9 +156,21 @@ class VisualTemplateEditor(QWidget):
             if text_data['enabled']:
                 self._draw_text_overlay_type(painter, text_type, text_data)
         
-        # Legacy text overlay (for backward compatibility)
+        # Draw legacy text overlay if enabled
         if self.text_enabled:
             self._draw_legacy_text_overlay(painter)
+        
+        painter.restore()
+        
+        # Draw zoom/pan controls on top (not transformed)
+        self._draw_zoom_pan_controls(painter, width, height)
+        
+        # Title (not transformed)
+        painter.setPen(QColor(255, 255, 255))
+        font = QFont("Arial", 16, QFont.Weight.Bold)
+        painter.setFont(font)
+        painter.drawText(20, 35, f"{self.content_type.title()} Template - Zoom: {self.zoom_factor:.1f}x")
+
     def _draw_content_frame(self, painter, canvas_width, canvas_height):
         """Draw content frame with proper aspect ratio for content type"""
         # Define aspect ratios for different content types
@@ -246,7 +265,10 @@ class VisualTemplateEditor(QWidget):
             self._need_frame_check = False
 
     def _constrain_elements_to_frame(self):
-        """Constrain PiP and text elements to stay within content frame"""
+        """Optionally constrain PiP and text elements to stay within content frame"""
+        if not self.constrain_to_frame:
+            return  # Allow elements to be placed anywhere
+            
         # Constrain PiP
         if self.pip_rect.right() > self.content_frame.right():
             self.pip_rect.moveRight(self.content_frame.right())
@@ -511,6 +533,34 @@ class VisualTemplateEditor(QWidget):
 
     def mousePressEvent(self, event):
         pos = event.position().toPoint()
+        button = event.button()
+        
+        # Check zoom control buttons first (not transformed)
+        if hasattr(self, 'zoom_in_rect') and self.zoom_in_rect.contains(pos):
+            self.zoom_factor = min(3.0, self.zoom_factor * 1.2)
+            self.update()
+            return
+        
+        if hasattr(self, 'zoom_out_rect') and self.zoom_out_rect.contains(pos):
+            self.zoom_factor = max(0.3, self.zoom_factor / 1.2)
+            self.update()
+            return
+            
+        if hasattr(self, 'zoom_reset_rect') and self.zoom_reset_rect.contains(pos):
+            self.zoom_factor = 1.0
+            self.pan_offset_x = 0
+            self.pan_offset_y = 0
+            self.update()
+            return
+        
+        # Handle right-click for panning
+        if button == Qt.MouseButton.RightButton:
+            self.panning = True
+            self.last_pan_pos = pos
+            return
+        
+        # Transform coordinates for element interaction
+        transformed_pos = self._transform_point_to_canvas(pos)
         
         # Check PiP resize handle
         if self.pip_enabled:
@@ -519,9 +569,9 @@ class VisualTemplateEditor(QWidget):
                 self.pip_rect.bottom() - 10,
                 10, 10
             )
-            if handle_rect.contains(pos):
+            if handle_rect.contains(transformed_pos):
                 self.pip_resizing = True
-                self.last_mouse_pos = pos
+                self.last_mouse_pos = transformed_pos
                 return
         
         # Check text overlay resize handles
@@ -532,10 +582,10 @@ class VisualTemplateEditor(QWidget):
                     text_data['rect'].bottom() - 10,
                     10, 10
                 )
-                if handle_rect.contains(pos):
+                if handle_rect.contains(transformed_pos):
                     text_data['resizing'] = True
                     self.active_text_type = text_type
-                    self.last_mouse_pos = pos
+                    self.last_mouse_pos = transformed_pos
                     return
         
         # Check legacy text resize handle
@@ -545,36 +595,48 @@ class VisualTemplateEditor(QWidget):
                 self.text_rect.bottom() - 10,
                 10, 10
             )
-            if handle_rect.contains(pos):
+            if handle_rect.contains(transformed_pos):
                 self.text_resizing = True
-                self.last_mouse_pos = pos
+                self.last_mouse_pos = transformed_pos
                 return
         
         # Check PiP dragging
-        if self.pip_enabled and self.pip_rect.contains(pos):
+        if self.pip_enabled and self.pip_rect.contains(transformed_pos):
             self.pip_dragging = True
-            self.last_mouse_pos = pos
+            self.last_mouse_pos = transformed_pos
             return
         
         # Check text overlay dragging
         for text_type, text_data in self.text_overlays.items():
-            if text_data['enabled'] and text_data['rect'].contains(pos):
+            if text_data['enabled'] and text_data['rect'].contains(transformed_pos):
                 text_data['dragging'] = True
                 self.active_text_type = text_type
-                self.last_mouse_pos = pos
+                self.last_mouse_pos = transformed_pos
                 return
         
         # Check legacy text dragging
-        if self.text_enabled and self.text_rect.contains(pos):
+        if self.text_enabled and self.text_rect.contains(transformed_pos):
             self.text_dragging = True
-            self.last_mouse_pos = pos
+            self.last_mouse_pos = transformed_pos
             return
     def mouseMoveEvent(self, event):
+        pos = event.position().toPoint()
+        
+        # Handle panning
+        if self.panning and self.last_pan_pos:
+            delta = pos - self.last_pan_pos
+            self.pan_offset_x += delta.x()
+            self.pan_offset_y += delta.y()
+            self.last_pan_pos = pos
+            self.update()
+            return
+        
         if not self.last_mouse_pos:
             return
-            
-        pos = event.position().toPoint()
-        delta = pos - self.last_mouse_pos
+        
+        # Transform coordinates for element interaction
+        transformed_pos = self._transform_point_to_canvas(pos)
+        delta = transformed_pos - self.last_mouse_pos
         
         if self.pip_resizing:
             # Resize PiP
@@ -586,11 +648,12 @@ class VisualTemplateEditor(QWidget):
                 size = max(new_width, new_height)
                 new_width = new_height = size
             
-            # Constrain to content frame
-            max_width = self.content_frame.right() - self.pip_rect.left()
-            max_height = self.content_frame.bottom() - self.pip_rect.top()
-            new_width = min(new_width, max_width)
-            new_height = min(new_height, max_height)
+            # Only constrain if enabled
+            if self.constrain_to_frame:
+                max_width = self.content_frame.right() - self.pip_rect.left()
+                max_height = self.content_frame.bottom() - self.pip_rect.top()
+                new_width = min(new_width, max_width)
+                new_height = min(new_height, max_height)
             
             self.pip_rect.setSize(QSize(new_width, new_height))
             
@@ -602,10 +665,12 @@ class VisualTemplateEditor(QWidget):
             new_width = max(100, rect.width() + delta.x())
             new_height = max(30, rect.height() + delta.y())
             
-            max_width = self.content_frame.right() - rect.left()
-            max_height = self.content_frame.bottom() - rect.top()
-            new_width = min(new_width, max_width)
-            new_height = min(new_height, max_height)
+            # Only constrain if enabled
+            if self.constrain_to_frame:
+                max_width = self.content_frame.right() - rect.left()
+                max_height = self.content_frame.bottom() - rect.top()
+                new_width = min(new_width, max_width)
+                new_height = min(new_height, max_height)
             
             rect.setSize(QSize(new_width, new_height))
             
@@ -614,11 +679,12 @@ class VisualTemplateEditor(QWidget):
             new_width = max(100, self.text_rect.width() + delta.x())
             new_height = max(30, self.text_rect.height() + delta.y())
             
-            # Constrain to content frame
-            max_width = self.content_frame.right() - self.text_rect.left()
-            max_height = self.content_frame.bottom() - self.text_rect.top()
-            new_width = min(new_width, max_width)
-            new_height = min(new_height, max_height)
+            # Only constrain if enabled
+            if self.constrain_to_frame:
+                max_width = self.content_frame.right() - self.text_rect.left()
+                max_height = self.content_frame.bottom() - self.text_rect.top()
+                new_width = min(new_width, max_width)
+                new_height = min(new_height, max_height)
             
             self.text_rect.setSize(QSize(new_width, new_height))
             
@@ -626,15 +692,16 @@ class VisualTemplateEditor(QWidget):
             # Move PiP
             new_rect = self.pip_rect.translated(delta)
             
-            # Constrain to content frame
-            if new_rect.left() < self.content_frame.left():
-                new_rect.moveLeft(self.content_frame.left())
-            if new_rect.top() < self.content_frame.top():
-                new_rect.moveTop(self.content_frame.top())
-            if new_rect.right() > self.content_frame.right():
-                new_rect.moveRight(self.content_frame.right())
-            if new_rect.bottom() > self.content_frame.bottom():
-                new_rect.moveBottom(self.content_frame.bottom())
+            # Only constrain if enabled
+            if self.constrain_to_frame:
+                if new_rect.left() < self.content_frame.left():
+                    new_rect.moveLeft(self.content_frame.left())
+                if new_rect.top() < self.content_frame.top():
+                    new_rect.moveTop(self.content_frame.top())
+                if new_rect.right() > self.content_frame.right():
+                    new_rect.moveRight(self.content_frame.right())
+                if new_rect.bottom() > self.content_frame.bottom():
+                    new_rect.moveBottom(self.content_frame.bottom())
             
             self.pip_rect = new_rect
             
@@ -643,14 +710,16 @@ class VisualTemplateEditor(QWidget):
             text_data = self.text_overlays[self.active_text_type]
             new_rect = text_data['rect'].translated(delta)
             
-            if new_rect.left() < self.content_frame.left():
-                new_rect.moveLeft(self.content_frame.left())
-            if new_rect.top() < self.content_frame.top():
-                new_rect.moveTop(self.content_frame.top())
-            if new_rect.right() > self.content_frame.right():
-                new_rect.moveRight(self.content_frame.right())
-            if new_rect.bottom() > self.content_frame.bottom():
-                new_rect.moveBottom(self.content_frame.bottom())
+            # Only constrain if enabled
+            if self.constrain_to_frame:
+                if new_rect.left() < self.content_frame.left():
+                    new_rect.moveLeft(self.content_frame.left())
+                if new_rect.top() < self.content_frame.top():
+                    new_rect.moveTop(self.content_frame.top())
+                if new_rect.right() > self.content_frame.right():
+                    new_rect.moveRight(self.content_frame.right())
+                if new_rect.bottom() > self.content_frame.bottom():
+                    new_rect.moveBottom(self.content_frame.bottom())
             
             text_data['rect'] = new_rect
             
@@ -658,22 +727,29 @@ class VisualTemplateEditor(QWidget):
             # Move legacy text
             new_rect = self.text_rect.translated(delta)
             
-            # Constrain to content frame
-            if new_rect.left() < self.content_frame.left():
-                new_rect.moveLeft(self.content_frame.left())
-            if new_rect.top() < self.content_frame.top():
-                new_rect.moveTop(self.content_frame.top())
-            if new_rect.right() > self.content_frame.right():
-                new_rect.moveRight(self.content_frame.right())
-            if new_rect.bottom() > self.content_frame.bottom():
-                new_rect.moveBottom(self.content_frame.bottom())
+            # Only constrain if enabled
+            if self.constrain_to_frame:
+                if new_rect.left() < self.content_frame.left():
+                    new_rect.moveLeft(self.content_frame.left())
+                if new_rect.top() < self.content_frame.top():
+                    new_rect.moveTop(self.content_frame.top())
+                if new_rect.right() > self.content_frame.right():
+                    new_rect.moveRight(self.content_frame.right())
+                if new_rect.bottom() > self.content_frame.bottom():
+                    new_rect.moveBottom(self.content_frame.bottom())
             
             self.text_rect = new_rect
         
-        self.last_mouse_pos = pos
+        self.last_mouse_pos = transformed_pos
         self.update()
 
     def mouseReleaseEvent(self, event):
+        # Reset panning
+        if self.panning:
+            self.panning = False
+            self.last_pan_pos = None
+            return
+        
         # Check if we were dragging/resizing and need to save changes
         was_modifying = self.pip_dragging or self.pip_resizing or self.text_dragging or self.text_resizing
         
@@ -1070,7 +1146,12 @@ class SimpleTemplateEditor(QWidget):
         shape_layout.addWidget(self.pip_rectangle)
         pip_layout.addLayout(shape_layout)
         
-        pip_help = QLabel("Drag to move, drag corner to resize")
+        # Constraint toggle
+        self.constrain_to_frame = QCheckBox("Constrain elements to content frame")
+        self.constrain_to_frame.setChecked(False)  # Allow free placement by default
+        pip_layout.addWidget(self.constrain_to_frame)
+        
+        pip_help = QLabel("Drag to move, drag corner to resize\nMouse wheel: zoom, Right-click: pan")
         pip_help.setStyleSheet("color: #888; font-size: 11px;")
         pip_layout.addWidget(pip_help)
         
@@ -1163,6 +1244,7 @@ class SimpleTemplateEditor(QWidget):
         self.pip_enabled.toggled.connect(self._on_pip_settings_changed)
         self.pip_square.toggled.connect(self._on_pip_shape_changed)
         self.pip_rectangle.toggled.connect(self._on_pip_shape_changed)
+        self.constrain_to_frame.toggled.connect(self._on_constraint_changed)
         
         # Text settings
         for text_type, controls in self.text_overlay_controls.items():
@@ -1383,6 +1465,11 @@ class SimpleTemplateEditor(QWidget):
         self._save_all_current_settings()
         # Auto-save to project immediately
         self._auto_save_to_project()
+
+    def _on_constraint_changed(self):
+        """Handle constraint toggle changes"""
+        self.visual_editor.constrain_to_frame = self.constrain_to_frame.isChecked()
+        self.visual_editor.update()
 
     def _auto_save_to_project(self):
         """Automatically save template settings to project"""
