@@ -12,6 +12,7 @@ from dataclasses import dataclass, asdict, field
 import uuid
 from core.plugins import PluginManager
 from core.logging_config import log_info, log_error, log_warning, log_debug
+from core.content_generation import ReelTuneJSONEncoder
 
 
 @dataclass
@@ -493,6 +494,18 @@ class ReelForgeProject:
             "yt_short": "youtube"
         }
         return platform_mapping.get(content_type, "instagram")
+        
+    def export_ai_data_to_json(self, file_path: str) -> bool:
+        """Export AI generation data to a JSON file using custom encoder"""
+        try:
+            ai_data = self.get_ai_generation_data()
+            with open(file_path, 'w') as f:
+                json.dump(ai_data, f, indent=2, cls=ReelTuneJSONEncoder)
+            log_info(f"AI generation data exported to {file_path}")
+            return True
+        except Exception as e:
+            log_error(f"Failed to export AI generation data: {e}")
+            return False
 
     def import_asset(self, file_path: str) -> Optional[str]:
         """Import an asset from file path and return asset ID"""

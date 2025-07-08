@@ -13,6 +13,16 @@ from enum import Enum
 from core.logging_config import log_info, log_error, log_debug
 
 
+class ReelTuneJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder for ReelTune objects"""
+    def default(self, obj):
+        if isinstance(obj, Enum):
+            return obj.value
+        if hasattr(obj, 'to_dict') and callable(getattr(obj, 'to_dict')):
+            return obj.to_dict()
+        return super().default(obj)
+
+
 class ConfigMode(Enum):
     """Configuration parameter modes"""
     FIXED = "fixed"      # 🔒 Always use this exact value
