@@ -13,7 +13,22 @@ import uuid
 from core.plugins import PluginManager
 from core.logging_config import log_info, log_error, log_warning, log_debug
 from core.content_generation import ReelTuneJSONEncoder
+import enum
 
+def convert_enums(obj):
+    """Recursively convert all Enum objects to their string values for JSON serialization"""
+    if isinstance(obj, dict):
+        return {k: convert_enums(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_enums(i) for i in obj]
+    elif isinstance(obj, tuple):
+        return tuple(convert_enums(i) for i in obj)
+    elif isinstance(obj, set):
+        return {convert_enums(i) for i in obj}
+    elif isinstance(obj, enum.Enum):
+        return obj.value
+    else:
+        return obj
 
 @dataclass
 class ReleaseEvent:
@@ -333,7 +348,7 @@ class ReelForgeProject:
             }
         }
 
-    def get_ai_generation_data(self) -> Dict[str, Any]:
+    def get_ai_generation_data(self, template_editor=None) -> Dict[str, Any]:
         """Get complete data package for AI content generation"""
         # Get plugin info
         plugin_info = self.get_current_plugin_info()
@@ -356,7 +371,9 @@ class ReelForgeProject:
                 "id": asset.id,
                 "name": asset.name,
                 "type": asset.file_type,
-                "path": asset.file_path
+                "path": asset.file_path,
+                "description": asset.description,
+                "folder": asset.folder
             })
 
         # Get all scheduled events with their prompts
@@ -370,44 +387,61 @@ class ReelForgeProject:
                 "platforms": event.platforms
             })
 
-        # Get content generation templates
+        # Get content generation templates - always export practical layout info for all content types
         templates_data = {}
-        if hasattr(self, 'content_generation_manager') and self.content_generation_manager:
-            # Export all content type templates
-            for content_type, template in self.content_generation_manager.content_type_templates.items():
-                templates_data[content_type] = {
-                    "name": template.content_type.replace("_", " ").title(),
-                    "content_type": template.content_type,
-                    "platform": self._get_platform_for_content_type(template.content_type),
-                    "subtitle_options": template.subtitle.to_dict(),
-                    "overlay_options": template.overlay.to_dict(),
-                    "timing_options": template.timing.to_dict(),
-                    "custom_settings": {k: v.to_dict() for k, v in template.custom_parameters.items()}
-                }
-
-            # Add project-wide template if it exists
+        
+        # First priority: Get REAL layout data from UI template editor
+        if template_editor and hasattr(template_editor, 'export_template_data'):
+            content_types_used = set()
+            for event in events_data:
+                content_types_used.add(event["content_type"])
+            
+            # Export actual UI layout data for each content type
+            for content_type in content_types_used:
+                # Get the current content type from template editor
+                current_type = template_editor.get_content_type()
+                
+                # Only set content type if it's different to avoid resetting elements
+                if current_type != content_type:
+                    template_editor.set_content_type(content_type)
+                    real_layout_data = template_editor.export_template_data()
+                    # Restore original content type
+                    template_editor.set_content_type(current_type)
+                else:
+                    real_layout_data = template_editor.export_template_data()
+                
+                # Convert to expected format
+                templates_data[content_type] = self._convert_ui_layout_to_export_format(real_layout_data, content_type)
+        
+        # Second priority: Export from ContentGenerationManager if it exists
+        elif hasattr(self, 'content_generation_manager') and self.content_generation_manager:
+            # Export all content type templates with REAL settings
+            content_types_used = set()
+            for event in events_data:
+                content_types_used.add(event["content_type"])
+            
+            # Export actual configured templates for each content type used
+            for content_type in content_types_used:
+                actual_template = self.content_generation_manager.get_content_template(content_type)
+                templates_data[content_type] = self._export_practical_template(actual_template, content_type.replace("_", " ").title())
+            
+            # Export project-wide template if customized
             if self.content_generation_manager.project_wide_template:
-                templates_data["project_wide"] = {
-                    "name": "Project Wide Settings",
-                    "content_type": "project_wide",
-                    "platform": "all",
-                    "subtitle_options": self.content_generation_manager.project_wide_template.subtitle.to_dict(),
-                    "overlay_options": self.content_generation_manager.project_wide_template.overlay.to_dict(),
-                    "timing_options": self.content_generation_manager.project_wide_template.timing.to_dict(),
-                    "custom_settings": {k: v.to_dict() for k, v in self.content_generation_manager.project_wide_template.custom_parameters.items()}
-                }
-
-            # Add event-specific templates
+                templates_data["project_wide_custom"] = self._export_practical_template(
+                    self.content_generation_manager.project_wide_template, "project_wide_custom"
+                )
+            
+            # Export event-specific templates (these override content-type defaults)
             for event_id, template in self.content_generation_manager.event_templates.items():
-                templates_data[f"event_{event_id}"] = {
-                    "name": f"Event {event_id} Settings",
-                    "content_type": template.content_type,
-                    "platform": self._get_platform_for_content_type(template.content_type),
-                    "subtitle_options": template.subtitle.to_dict(),
-                    "overlay_options": template.overlay.to_dict(),
-                    "timing_options": template.timing.to_dict(),
-                    "custom_settings": {k: v.to_dict() for k, v in template.custom_parameters.items()}
-                }
+                templates_data[f"event_{event_id}_custom"] = self._export_practical_template(template, f"event_{event_id}_custom")
+        else:
+            # Fallback: export basic layout for content types if no ContentGenerationManager
+            content_types_used = set()
+            for event in events_data:
+                content_types_used.add(event["content_type"])
+            
+            for content_type in content_types_used:
+                templates_data[content_type] = self._export_practical_layout(content_type)
 
         # Ensure content type consistency
         # Map calendar content types to template names
@@ -472,13 +506,12 @@ class ReelForgeProject:
                     "Use video assets for UI demonstrations",
                     "Combine multiple assets when needed for comprehensive content"
                 ],
-                "template_usage": [
-                    "Use template settings to determine visual style constraints",
-                    "FIXED mode parameters must be used exactly as specified",
-                    "GUIDED mode parameters should stay within given constraints",
-                    "FREE mode parameters can be chosen by AI",
-                    "Event-specific templates override content-type templates",
-                    "Project-wide templates provide base settings for all content"
+                "layout_guidance": [
+                    "Use template layout coordinates for text and video positioning",
+                    "Title text should be prominent and readable",
+                    "Subtitle text provides context and calls-to-action",
+                    "PiP video shows product in action",
+                    "Respect platform-specific safe areas and aspect ratios"
                 ]
             }
         }
@@ -495,17 +528,76 @@ class ReelForgeProject:
         }
         return platform_mapping.get(content_type, "instagram")
         
-    def export_ai_data_to_json(self, file_path: str) -> bool:
-        """Export AI generation data to a JSON file using custom encoder"""
+    def export_ai_data_to_json(self, file_path: str, template_editor=None) -> bool:
+        """Export AI generation data to a JSON file"""
         try:
-            ai_data = self.get_ai_generation_data()
+            ai_data = self.get_ai_generation_data(template_editor=template_editor)
+            
+            # Convert any remaining enums to strings for safety
+            converted_data = convert_enums(ai_data)
+            
             with open(file_path, 'w') as f:
-                json.dump(ai_data, f, indent=2, cls=ReelTuneJSONEncoder)
+                json.dump(converted_data, f, indent=2)
             log_info(f"AI generation data exported to {file_path}")
+            
+            # Also export template config to a separate file
+            config_path = file_path.replace('.json', '_config.json')
+            self.export_template_config_to_json(config_path)
+            
             return True
         except Exception as e:
             log_error(f"Failed to export AI generation data: {e}")
+            import traceback
+            traceback.print_exc()
             return False
+            
+    def export_template_config_to_json(self, file_path: str) -> bool:
+        """Export the template config (simple_templates) to a JSON file"""
+        try:
+            config_data = getattr(self, 'simple_templates', {})
+            config_data = convert_enums(config_data)
+            with open(file_path, 'w') as f:
+                json.dump(config_data, f, indent=2)
+            log_info(f"Template config exported to {file_path}")
+            return True
+        except Exception as e:
+            log_error(f"Failed to export template config: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def _find_config_mode_in_data(self, data, path="root"):
+        """Debug helper to find ConfigMode enums in complex data structures"""
+        import enum
+        if isinstance(data, dict):
+            for k, v in data.items():
+                if isinstance(v, enum.Enum) and v.__class__.__name__ == "ConfigMode":
+                    print(f"Found ConfigMode at {path}.{k}: {v}")
+                else:
+                    self._find_config_mode_in_data(v, f"{path}.{k}")
+        elif isinstance(data, list):
+            for i, item in enumerate(data):
+                self._find_config_mode_in_data(item, f"{path}[{i}]")
+                
+    def _debug_find_non_serializable(self, data):
+        """Debug helper to find non-serializable objects"""
+        if isinstance(data, dict):
+            for k, v in data.items():
+                try:
+                    json.dumps({k: v})
+                except Exception as e:
+                    print(f"Non-serializable at key '{k}': {e}")
+                    print(f"Type: {type(v)}")
+                    if hasattr(v, '__dict__'):
+                        print(f"Attributes: {dir(v)}")
+                    self._debug_find_non_serializable(v)
+        elif isinstance(data, list):
+            for i, item in enumerate(data):
+                try:
+                    json.dumps([item])
+                except Exception as e:
+                    print(f"Non-serializable at index {i}: {e}")
+                    self._debug_find_non_serializable(item)
 
     def import_asset(self, file_path: str) -> Optional[str]:
         """Import an asset from file path and return asset ID"""
@@ -714,7 +806,7 @@ class ReelForgeProject:
 
             # Save project data
             with open(target_path, 'w', encoding='utf-8') as f:
-                json.dump(self.to_dict(), f, indent=2)
+                json.dump(convert_enums(self.to_dict()), f, indent=2)
 
             self.project_file_path = target_path
             self._is_modified = False
@@ -764,6 +856,197 @@ class ReelForgeProject:
         except Exception as e:
             log_error(f"Error creating project: {e}")
             return False
+
+    def _export_practical_template(self, template, template_name: str) -> Dict[str, Any]:
+        """Export template as practical layout information for AI"""
+        content_type = getattr(template, 'content_type', 'unknown')
+        
+        # Get standard dimensions for content type
+        dimensions = self._get_standard_dimensions(content_type)
+        
+        # Extract REAL template settings
+        subtitle_config = template.subtitle.to_dict() if hasattr(template, 'subtitle') else {}
+        overlay_config = template.overlay.to_dict() if hasattr(template, 'overlay') else {}
+        timing_config = template.timing.to_dict() if hasattr(template, 'timing') else {}
+        custom_config = {k: v.to_dict() for k, v in template.custom_parameters.items()} if hasattr(template, 'custom_parameters') else {}
+        
+        return {
+            "name": template_name,
+            "content_type": content_type,
+            "platform": self._get_platform_for_content_type(content_type),
+            "dimensions": dimensions,
+            "subtitle_settings": subtitle_config,
+            "overlay_settings": overlay_config,
+            "timing_settings": timing_config,
+            "custom_settings": custom_config,
+            "duration": timing_config.get("duration", {}).get("value", self._get_content_duration(content_type))
+        }
+    
+    def _export_practical_layout(self, content_type: str) -> Dict[str, Any]:
+        """Export practical layout information for any content type"""
+        # Get standard dimensions for content type
+        dimensions = self._get_standard_dimensions(content_type)
+        
+        return {
+            "name": content_type.replace("_", " ").title(),
+            "content_type": content_type,
+            "platform": self._get_platform_for_content_type(content_type),
+            "dimensions": dimensions,
+            "layout": {
+                "title": {
+                    "position": {"x": 50, "y": 100, "width": dimensions["width"] - 100, "height": 80},
+                    "font_size": 32,
+                    "font_weight": "bold",
+                    "color": "#FFFFFF",
+                    "alignment": "center",
+                    "visible": True
+                },
+                "subtitle": {
+                    "position": {"x": 50, "y": dimensions["height"] - 120, "width": dimensions["width"] - 100, "height": 60},
+                    "font_size": 24,
+                    "font_weight": "normal", 
+                    "color": "#FFFFFF",
+                    "alignment": "center",
+                    "visible": True
+                },
+                "pip_video": {
+                    "position": {"x": dimensions["width"] - 220, "y": 50, "width": 200, "height": 150},
+                    "border_radius": 10,
+                    "opacity": 0.9,
+                    "visible": True
+                }
+            },
+            "duration": self._get_content_duration(content_type),
+            "animation": {
+                "intro": "fade_in",
+                "transition": "smooth",
+                "outro": "fade_out"
+            }
+        }
+    
+    def _convert_ui_layout_to_export_format(self, ui_layout_data: Dict[str, Any], content_type: str) -> Dict[str, Any]:
+        """Convert UI template editor layout data to export format"""
+        elements = ui_layout_data.get('elements', {})
+        settings = ui_layout_data.get('settings', {})
+        
+        # Get standard dimensions for content type
+        dimensions = self._get_standard_dimensions(content_type)
+        
+        # Initialize layout with default structure
+        layout = {}
+        
+        # Convert UI elements to layout format
+        for element_id, element_data in elements.items():
+            element_type = element_data.get('type', '')
+            rect = element_data.get('rect', {})
+            
+            if element_type == 'text':
+                # Map element_id directly to layout key
+                if element_id == 'title':
+                    layout_key = 'title'
+                elif element_id == 'subtitle':
+                    layout_key = 'subtitle'
+                else:
+                    # For other text elements, determine based on position
+                    y_position = rect.get('y', 0)
+                    if y_position < dimensions['height'] / 2:
+                        layout_key = 'title'
+                    else:
+                        layout_key = 'subtitle'
+                
+                layout[layout_key] = {
+                    "position": {
+                        "x": rect.get('x', 50),
+                        "y": rect.get('y', 100),
+                        "width": rect.get('width', dimensions['width'] - 100),
+                        "height": rect.get('height', 80)
+                    },
+                    "font_size": element_data.get('size', 24),
+                    "font_weight": "bold" if element_data.get('style', '') == 'bold' else "normal",
+                    "color": element_data.get('color', '#FFFFFF'),
+                    "alignment": "center",
+                    "visible": True
+                }
+                
+            elif element_type == 'pip':
+                layout['pip_video'] = {
+                    "position": {
+                        "x": rect.get('x', dimensions['width'] - 220),
+                        "y": rect.get('y', 50),
+                        "width": rect.get('width', 200),
+                        "height": rect.get('height', 150)
+                    },
+                    "border_radius": element_data.get('corner_radius', 10),
+                    "opacity": 0.9,
+                    "visible": element_data.get('enabled', True)
+                }
+        
+        # If no elements found, provide basic fallback layout
+        if not layout.get('title'):
+            layout['title'] = {
+                "position": {"x": 50, "y": 100, "width": dimensions["width"] - 100, "height": 80},
+                "font_size": 32,
+                "font_weight": "bold",
+                "color": "#FFFFFF",
+                "alignment": "center",
+                "visible": True
+            }
+        
+        if not layout.get('subtitle'):
+            layout['subtitle'] = {
+                "position": {"x": 50, "y": dimensions["height"] - 120, "width": dimensions["width"] - 100, "height": 60},
+                "font_size": 24,
+                "font_weight": "normal",
+                "color": "#FFFFFF",
+                "alignment": "center",
+                "visible": True
+            }
+        
+        if not layout.get('pip_video'):
+            layout['pip_video'] = {
+                "position": {"x": dimensions["width"] - 220, "y": 50, "width": 200, "height": 150},
+                "border_radius": 10,
+                "opacity": 0.9,
+                "visible": True
+            }
+        
+        return {
+            "name": content_type.replace("_", " ").title(),
+            "content_type": content_type,
+            "platform": self._get_platform_for_content_type(content_type),
+            "dimensions": dimensions,
+            "layout": layout,
+            "duration": self._get_content_duration(content_type),
+            "animation": {
+                "intro": "fade_in",
+                "transition": "smooth",
+                "outro": "fade_out"
+            }
+        }
+    
+    def _get_standard_dimensions(self, content_type: str) -> Dict[str, int]:
+        """Get standard dimensions for content types"""
+        dimension_map = {
+            "reel": {"width": 1080, "height": 1920},      # 9:16 vertical
+            "story": {"width": 1080, "height": 1920},     # 9:16 vertical  
+            "post": {"width": 1080, "height": 1080},      # 1:1 square
+            "tutorial": {"width": 1920, "height": 1080},  # 16:9 landscape
+            "teaser": {"width": 1080, "height": 1920},    # 9:16 vertical
+            "yt_short": {"width": 1080, "height": 1920}   # 9:16 vertical
+        }
+        return dimension_map.get(content_type, {"width": 1080, "height": 1080})
+    
+    def _get_content_duration(self, content_type: str) -> str:
+        """Get typical duration for content types"""
+        duration_map = {
+            "reel": "15-30s",
+            "story": "5-15s", 
+            "post": "30-60s",
+            "tutorial": "60-300s",
+            "teaser": "10-15s",
+            "yt_short": "15-60s"
+        }
+        return duration_map.get(content_type, "30s")
 
 
 class ProjectManager:

@@ -76,6 +76,9 @@ class MainWindow(QMainWindow):
         self.plugin_dashboard.setMinimumWidth(350)
         self.plugin_dashboard.setMaximumWidth(500)
         main_splitter.addWidget(self.plugin_dashboard)
+        
+        # Pass template editor reference to plugin dashboard
+        self.plugin_dashboard.set_template_editor(self.content_template_view)
 
         # Set splitter proportions
         main_splitter.setSizes([300, 600, 400])

@@ -24,6 +24,7 @@ class PluginInfoWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.current_plugin: Optional[PluginInfo] = None
+        self.template_editor = None  # Reference to template editor (if any)
         self._setup_ui()
 
     def _setup_ui(self):
@@ -231,6 +232,10 @@ class PluginInfoWidget(QWidget):
         """Set the plugin to display"""
         self.current_plugin = plugin_info
         self._update_display()
+
+    def set_template_editor(self, template_editor):
+        """Set reference to the template editor for real layout export"""
+        self.template_editor = template_editor
 
     def _update_display(self):
         """Update all display elements"""
@@ -481,6 +486,10 @@ class PluginDashboard(QWidget):
             self.global_prompt_edit.clear()
             self._clear_moodboard()
 
+    def set_template_editor(self, template_editor):
+        """Set reference to the template editor for real layout export"""
+        self.template_editor = template_editor
+
     def _on_global_prompt_changed(self):
         """Handle global prompt text change"""
         if self.current_project:
@@ -639,8 +648,9 @@ class PluginDashboard(QWidget):
                 return
 
         try:
-            # Get complete AI generation data
-            ai_data = self.current_project.get_ai_generation_data()
+            # Get complete AI generation data with real template layouts
+            template_editor = getattr(self, 'template_editor', None)
+            ai_data = self.current_project.get_ai_generation_data(template_editor=template_editor)
 
             # Add metadata for AI processing
             ai_data["generation_info"] = {

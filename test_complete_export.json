@@ -1,0 +1,199 @@
+{
+  "plugin": null,
+  "global_prompt": "",
+  "moodboard_path": null,
+  "assets": [],
+  "scheduled_content": [
+    {
+      "date": "2025-07-06",
+      "content_type": "reel",
+      "title": "Reverb Plugin Introduction",
+      "prompt": "Quick intro to the new reverb plugin features",
+      "platforms": [
+        "instagram",
+        "tiktok"
+      ],
+      "template_key": "reel"
+    },
+    {
+      "date": "2025-07-08",
+      "content_type": "reel",
+      "title": "Before & After Demo",
+      "prompt": "Show dramatic difference with reverb on/off",
+      "platforms": [
+        "instagram",
+        "tiktok"
+      ],
+      "template_key": "reel"
+    },
+    {
+      "date": "2025-07-12",
+      "content_type": "tutorial",
+      "title": "Tutorial: Advanced Settings",
+      "prompt": "Deep dive into reverb parameters and controls",
+      "platforms": [
+        "instagram",
+        "tiktok"
+      ],
+      "template_key": "tutorial"
+    }
+  ],
+  "project_info": {
+    "name": "AI Music Plugin Showcase",
+    "format": "1080p"
+  },
+  "generation_info": {
+    "export_date": "2025-07-08T20:06:51.602618",
+    "project_name": "AI Music Plugin Showcase",
+    "version": "1.3.0",
+    "format": "1080p",
+    "total_assets": 0,
+    "total_events": 3,
+    "has_global_prompt": false,
+    "has_moodboard": false
+  },
+  "content_generation": {
+    "templates": {
+      "tutorial": {
+        "name": "Tutorial",
+        "content_type": "tutorial",
+        "platform": "youtube",
+        "dimensions": {
+          "width": 1920,
+          "height": 1080
+        },
+        "layout": {
+          "pip_video": {
+            "position": {
+              "x": 1600,
+              "y": 100,
+              "width": 280,
+              "height": 200
+            },
+            "border_radius": 25,
+            "opacity": 0.9,
+            "visible": true
+          },
+          "title": {
+            "position": {
+              "x": 100,
+              "y": 80,
+              "width": 1720,
+              "height": 160
+            },
+            "font_size": 64,
+            "font_weight": "normal",
+            "color": "#74B9FF",
+            "alignment": "center",
+            "visible": true
+          },
+          "subtitle": {
+            "position": {
+              "x": 100,
+              "y": 900,
+              "width": 1720,
+              "height": 120
+            },
+            "font_size": 36,
+            "font_weight": "normal",
+            "color": "#E17055",
+            "alignment": "center",
+            "visible": true
+          }
+        },
+        "duration": "60-300s",
+        "animation": {
+          "intro": "fade_in",
+          "transition": "smooth",
+          "outro": "fade_out"
+        }
+      },
+      "reel": {
+        "name": "Reel",
+        "content_type": "reel",
+        "platform": "instagram",
+        "dimensions": {
+          "width": 1080,
+          "height": 1920
+        },
+        "layout": {
+          "pip_video": {
+            "position": {
+              "x": 40,
+              "y": 40,
+              "width": 320,
+              "height": 240
+            },
+            "border_radius": 20,
+            "opacity": 0.9,
+            "visible": true
+          },
+          "title": {
+            "position": {
+              "x": 80,
+              "y": 120,
+              "width": 920,
+              "height": 140
+            },
+            "font_size": 52,
+            "font_weight": "normal",
+            "color": "#FF6B35",
+            "alignment": "center",
+            "visible": true
+          },
+          "subtitle": {
+            "position": {
+              "x": 80,
+              "y": 1650,
+              "width": 920,
+              "height": 120
+            },
+            "font_size": 32,
+            "font_weight": "normal",
+            "color": "#4ECDC4",
+            "alignment": "center",
+            "visible": true
+          }
+        },
+        "duration": "15-30s",
+        "animation": {
+          "intro": "fade_in",
+          "transition": "smooth",
+          "outro": "fade_out"
+        }
+      }
+    }
+  },
+  "ai_instructions": {
+    "content_generation_workflow": [
+      "1. Use plugin info to understand the product and its unique features",
+      "2. Apply global_prompt for consistent brand voice and style",
+      "3. Use moodboard for visual style guidance (if provided)",
+      "4. Select appropriate assets from the assets list for each content piece",
+      "5. Generate content based on each scheduled_content item's prompt",
+      "6. Use template_key to match content with appropriate template settings",
+      "7. Ensure platform-specific optimization for each target platform"
+    ],
+    "content_requirements": {
+      "reel": "15-60 seconds, vertical 9:16, engaging hook in first 3 seconds",
+      "story": "15 seconds max, vertical 9:16, quick and engaging",
+      "post": "Static or short video, square 1:1, informative and branded",
+      "teaser": "10-15 seconds, any format, mysterious/exciting",
+      "tutorial": "60-300 seconds, landscape 16:9, educational and clear",
+      "yt_short": "15-60 seconds, vertical 9:16, optimized for YouTube"
+    },
+    "asset_selection_guidance": [
+      "Choose assets that best demonstrate the prompt requirements",
+      "Prefer audio assets for showcasing plugin sound",
+      "Use video assets for UI demonstrations",
+      "Combine multiple assets when needed for comprehensive content"
+    ],
+    "layout_guidance": [
+      "Use template layout coordinates for text and video positioning",
+      "Title text should be prominent and readable",
+      "Subtitle text provides context and calls-to-action",
+      "PiP video shows product in action",
+      "Respect platform-specific safe areas and aspect ratios"
+    ]
+  }
+}

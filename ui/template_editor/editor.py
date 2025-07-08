@@ -209,15 +209,23 @@ class TemplateEditor(QWidget):
             
             # Add type-specific properties
             if element['type'] == 'text':
+                # Handle color conversion properly
+                color = element.get('color', QColor(255, 255, 255))
+                if isinstance(color, QColor):
+                    color_str = color.name()
+                else:
+                    color_str = str(color)
+                
                 element_data.update({
                     'content': element.get('content', ''),
                     'size': element.get('size', 24),
-                    'color': element.get('color', QColor(255, 255, 255)).name(),
+                    'color': color_str,
                     'style': element.get('style', 'normal')
                 })
             elif element['type'] == 'pip':
                 element_data.update({
                     'shape': element.get('shape', 'square'),
+                    'corner_radius': element.get('corner_radius', 10),
                     'color': element.get('color', QColor(100, 150, 200, 128)).name(),
                     'border_color': element.get('border_color', QColor(255, 255, 255)).name()
                 })

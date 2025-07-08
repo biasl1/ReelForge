@@ -70,13 +70,14 @@ class SubtitleTemplate:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
-        result = {}
-        for key, value in asdict(self).items():
-            if isinstance(value, ConfigParameter):
-                result[key] = value.to_dict()
-            else:
-                result[key] = value
-        return result
+        return {
+            "font_size": self.font_size.to_dict(),
+            "font_family": self.font_family.to_dict(),
+            "color": self.color.to_dict(),
+            "position": self.position.to_dict(),
+            "stroke_width": self.stroke_width.to_dict(),
+            "stroke_color": self.stroke_color.to_dict()
+        }
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'SubtitleTemplate':
@@ -95,13 +96,13 @@ class OverlayTemplate:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
-        result = {}
-        for key, value in asdict(self).items():
-            if isinstance(value, ConfigParameter):
-                result[key] = value.to_dict()
-            else:
-                result[key] = value
-        return result
+        return {
+            "background_style": self.background_style.to_dict(),
+            "animation_style": self.animation_style.to_dict(),
+            "overlay_elements": self.overlay_elements.to_dict(),
+            "branding_elements": self.branding_elements.to_dict(),
+            "color_scheme": self.color_scheme.to_dict()
+        }
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'OverlayTemplate':
@@ -120,13 +121,13 @@ class TimingTemplate:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
-        result = {}
-        for key, value in asdict(self).items():
-            if isinstance(value, ConfigParameter):
-                result[key] = value.to_dict()
-            else:
-                result[key] = value
-        return result
+        return {
+            "duration": self.duration.to_dict(),
+            "intro_duration": self.intro_duration.to_dict(),
+            "outro_duration": self.outro_duration.to_dict(),
+            "segment_count": self.segment_count.to_dict(),
+            "transition_style": self.transition_style.to_dict()
+        }
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'TimingTemplate':
