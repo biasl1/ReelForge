@@ -1,0 +1,64 @@
+{
+  "plugin": null,
+  "global_prompt": "",
+  "moodboard_path": null,
+  "assets": [],
+  "scheduled_content": [
+    {
+      "date": "2025-07-06",
+      "content_type": "reel",
+      "title": "Reverb Plugin Introduction",
+      "prompt": "Quick intro to the new reverb plugin features",
+      "platforms": [
+        "instagram",
+        "tiktok"
+      ],
+      "template_key": "reel"
+    },
+    {
+      "date": "2025-07-08",
+      "content_type": "reel",
+      "title": "Before & After Demo",
+      "prompt": "Show dramatic difference with reverb on/off",
+      "platforms": [
+        "instagram",
+        "tiktok"
+      ],
+      "template_key": "reel"
+    },
+    {
+      "date": "2025-07-12",
+      "content_type": "tutorial",
+      "title": "Tutorial: Advanced Settings",
+      "prompt": "Deep dive into reverb parameters and controls",
+      "platforms": [
+        "instagram",
+        "tiktok"
+      ],
+      "template_key": "tutorial"
+    }
+  ],
+  "project_info": {
+    "name": "AI Music Plugin Showcase",
+    "format": "1080p"
+  },
+  "generation_info": {
+    "export_date": "2025-07-08T11:45:45.231891",
+    "project_name": "AI Music Plugin Showcase",
+    "version": "1.3.0",
+    "format": "1080p",
+    "total_assets": 0,
+    "total_events": 3,
+    "has_global_prompt": false,
+    "has_moodboard": false
+  },
+  "content_generation": {
+    "templates": {
+      "reel": {
+        "name": "Reel",
+        "content_type": "reel",
+        "platform": "instagram",
+        "subtitle_options": {
+          "font_size": {
+            "value": "24px",
+            "mode": 

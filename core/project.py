@@ -369,6 +369,61 @@ class ReelForgeProject:
                 "platforms": event.platforms
             })
 
+        # Get content generation templates
+        templates_data = {}
+        if hasattr(self, 'content_generation_manager') and self.content_generation_manager:
+            # Export all content type templates
+            for content_type, template in self.content_generation_manager.content_type_templates.items():
+                templates_data[content_type] = {
+                    "name": template.content_type.replace("_", " ").title(),
+                    "content_type": template.content_type,
+                    "platform": self._get_platform_for_content_type(template.content_type),
+                    "subtitle_options": template.subtitle.to_dict(),
+                    "overlay_options": template.overlay.to_dict(),
+                    "timing_options": template.timing.to_dict(),
+                    "custom_settings": {k: v.to_dict() for k, v in template.custom_parameters.items()}
+                }
+
+            # Add project-wide template if it exists
+            if self.content_generation_manager.project_wide_template:
+                templates_data["project_wide"] = {
+                    "name": "Project Wide Settings",
+                    "content_type": "project_wide",
+                    "platform": "all",
+                    "subtitle_options": self.content_generation_manager.project_wide_template.subtitle.to_dict(),
+                    "overlay_options": self.content_generation_manager.project_wide_template.overlay.to_dict(),
+                    "timing_options": self.content_generation_manager.project_wide_template.timing.to_dict(),
+                    "custom_settings": {k: v.to_dict() for k, v in self.content_generation_manager.project_wide_template.custom_parameters.items()}
+                }
+
+            # Add event-specific templates
+            for event_id, template in self.content_generation_manager.event_templates.items():
+                templates_data[f"event_{event_id}"] = {
+                    "name": f"Event {event_id} Settings",
+                    "content_type": template.content_type,
+                    "platform": self._get_platform_for_content_type(template.content_type),
+                    "subtitle_options": template.subtitle.to_dict(),
+                    "overlay_options": template.overlay.to_dict(),
+                    "timing_options": template.timing.to_dict(),
+                    "custom_settings": {k: v.to_dict() for k, v in template.custom_parameters.items()}
+                }
+
+        # Ensure content type consistency
+        # Map calendar content types to template names
+        content_type_mapping = {
+            "reel": "reel",
+            "story": "story", 
+            "post": "post",
+            "tutorial": "tutorial",
+            "teaser": "teaser",
+            "yt_short": "yt_short"
+        }
+        
+        # Update events data with consistent content types
+        for event in events_data:
+            original_type = event["content_type"]
+            event["template_key"] = content_type_mapping.get(original_type, original_type)
+
         return {
             "plugin": plugin_data,
             "global_prompt": self.global_prompt,
@@ -378,8 +433,66 @@ class ReelForgeProject:
             "project_info": {
                 "name": self.metadata.name,
                 "format": self.metadata.format
+            },
+            "generation_info": {
+                "export_date": datetime.now().isoformat(),
+                "project_name": self.metadata.name,
+                "version": "1.3.0",
+                "format": self.metadata.format,
+                "total_assets": len(assets_data),
+                "total_events": len(events_data),
+                "has_global_prompt": bool(self.global_prompt),
+                "has_moodboard": bool(self.moodboard_path)
+            },
+            "content_generation": {
+                "templates": templates_data
+            },
+            "ai_instructions": {
+                "content_generation_workflow": [
+                    "1. Use plugin info to understand the product and its unique features",
+                    "2. Apply global_prompt for consistent brand voice and style",
+                    "3. Use moodboard for visual style guidance (if provided)",
+                    "4. Select appropriate assets from the assets list for each content piece",
+                    "5. Generate content based on each scheduled_content item's prompt",
+                    "6. Use template_key to match content with appropriate template settings",
+                    "7. Ensure platform-specific optimization for each target platform"
+                ],
+                "content_requirements": {
+                    "reel": "15-60 seconds, vertical 9:16, engaging hook in first 3 seconds",
+                    "story": "15 seconds max, vertical 9:16, quick and engaging",
+                    "post": "Static or short video, square 1:1, informative and branded",
+                    "teaser": "10-15 seconds, any format, mysterious/exciting",
+                    "tutorial": "60-300 seconds, landscape 16:9, educational and clear",
+                    "yt_short": "15-60 seconds, vertical 9:16, optimized for YouTube"
+                },
+                "asset_selection_guidance": [
+                    "Choose assets that best demonstrate the prompt requirements",
+                    "Prefer audio assets for showcasing plugin sound",
+                    "Use video assets for UI demonstrations",
+                    "Combine multiple assets when needed for comprehensive content"
+                ],
+                "template_usage": [
+                    "Use template settings to determine visual style constraints",
+                    "FIXED mode parameters must be used exactly as specified",
+                    "GUIDED mode parameters should stay within given constraints",
+                    "FREE mode parameters can be chosen by AI",
+                    "Event-specific templates override content-type templates",
+                    "Project-wide templates provide base settings for all content"
+                ]
             }
         }
+
+    def _get_platform_for_content_type(self, content_type: str) -> str:
+        """Get primary platform for a content type"""
+        platform_mapping = {
+            "reel": "instagram",
+            "story": "instagram", 
+            "post": "instagram",
+            "tutorial": "youtube",
+            "teaser": "instagram",
+            "yt_short": "youtube"
+        }
+        return platform_mapping.get(content_type, "instagram")
 
     def import_asset(self, file_path: str) -> Optional[str]:
         """Import an asset from file path and return asset ID"""
