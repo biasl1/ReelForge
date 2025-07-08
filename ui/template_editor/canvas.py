@@ -11,6 +11,36 @@ from .utils import (
 )
 
 
+def restore_qt_objects(obj, context_key=None):
+    """Convert lists back to Qt objects when loading from JSON"""
+    if isinstance(obj, dict):
+        return {k: restore_qt_objects(v, k) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        if len(obj) == 4 and all(isinstance(x, (int, float)) for x in obj):
+            # Determine what type based on context
+            if context_key == 'rect':
+                # Convert [x, y, width, height] back to QRect
+                return QRect(int(obj[0]), int(obj[1]), int(obj[2]), int(obj[3]))
+            elif context_key in ['color', 'border_color']:
+                # Convert [r, g, b, a] back to QColor
+                return QColor(int(obj[0]), int(obj[1]), int(obj[2]), int(obj[3]))
+            else:
+                # Check if values look like coordinates (positive, reasonable size)
+                if all(x >= 0 for x in obj) and obj[2] > 0 and obj[3] > 0 and obj[2] < 10000 and obj[3] < 10000:
+                    # Likely a rect
+                    return QRect(int(obj[0]), int(obj[1]), int(obj[2]), int(obj[3]))
+                else:
+                    # Likely a color
+                    return QColor(int(obj[0]), int(obj[1]), int(obj[2]), int(obj[3]))
+        elif len(obj) == 2 and all(isinstance(x, (int, float)) for x in obj):
+            # Convert [x, y] back to QPoint
+            return QPoint(int(obj[0]), int(obj[1]))
+        else:
+            return [restore_qt_objects(i) for i in obj]
+    else:
+        return obj
+
+
 class TemplateCanvas(QWidget):
     """
     Interactive canvas for template editing with element manipulation.
@@ -229,8 +259,12 @@ class TemplateCanvas(QWidget):
     
     def _load_content_state(self):
         """Load state for the current content type."""
+        print(f"🔄 Loading content state for: {self.content_type}")
+        print(f"   Available states: {list(self.content_states.keys())}")
+        
         if self.content_type not in self.content_states:
             # Initialize if not exists
+            print(f"   No state found, initializing defaults")
             self.content_states[self.content_type] = {
                 'elements': {},
                 'content_frame': QRect(50, 50, 300, 500),
@@ -238,15 +272,18 @@ class TemplateCanvas(QWidget):
             }
         
         state = self.content_states[self.content_type]
+        print(f"   State has {len(state.get('elements', {}))} elements")
         
         # If elements are empty, set up defaults for this content type
         if not state['elements']:
+            print(f"   Elements empty, setting up defaults - THIS OVERWRITES SAVED DATA!")
             self._setup_content_type_elements(self.content_type)
             state = self.content_states[self.content_type]  # Refresh state
         
         # Restore elements (deep copy to avoid reference issues)
         import copy
         self.elements = copy.deepcopy(state['elements'])
+        print(f"   Loaded {len(self.elements)} elements: {list(self.elements.keys())}")
         
         # Restore frame and settings
         self.content_frame = QRect(state['content_frame'])
@@ -359,10 +396,17 @@ class TemplateCanvas(QWidget):
     
     def get_element_config(self) -> dict:
         """Get current element configuration."""
+        import copy
         return {
             'content_type': self.content_type,
             'constrain_to_frame': self.constrain_to_frame,
-            'elements': {k: dict(v) for k, v in self.elements.items()}
+            'elements': copy.deepcopy(dict(self.elements)),
+            'content_frame': {
+                'x': self.content_frame.x(),
+                'y': self.content_frame.y(),
+                'width': self.content_frame.width(),
+                'height': self.content_frame.height()
+            }
         }
     
     def set_element_config(self, config: dict):
@@ -371,9 +415,19 @@ class TemplateCanvas(QWidget):
             self.content_type = config['content_type']
         if 'constrain_to_frame' in config:
             self.constrain_to_frame = config['constrain_to_frame']
+        if 'content_frame' in config:
+            # Restore the exact content frame from saved data
+            frame_data = config['content_frame']
+            self.content_frame = QRect(
+                frame_data['x'], frame_data['y'], 
+                frame_data['width'], frame_data['height']
+            )
         if 'elements' in config:
-            self.elements.update(config['elements'])
-        self._need_frame_check = True
+            # Convert any lists back to Qt objects before setting elements
+            restored_elements = restore_qt_objects(config['elements'])
+            self.elements.update(restored_elements)
+        # DO NOT set _need_frame_check = True during load - this causes position shifts!
+        # Only update the display without triggering frame recalculation
         self.update()
     
     def paintEvent(self, event):
@@ -383,14 +437,9 @@ class TemplateCanvas(QWidget):
         
         width, height = self.width(), self.height()
         
-        # Always center content frame and elements
-        frame = self.content_frame
-        dx = (width - frame.width()) // 2 - frame.x()
-        dy = (height - frame.height()) // 2 - frame.y()
-        for element in self.elements.values():
-            rect = element['rect']
-            element['rect'] = QRect(rect.x() + dx, rect.y() + dy, rect.width(), rect.height())
-        self.content_frame.moveTo((width - frame.width()) // 2, (height - frame.height()) // 2)
+        # Center content frame for display only
+        centered_frame_x = (width - self.content_frame.width()) // 2
+        centered_frame_y = (height - self.content_frame.height()) // 2
         
         # Background
         painter.fillRect(0, 0, width, height, QColor(30, 30, 30))
@@ -533,6 +582,10 @@ class TemplateCanvas(QWidget):
     def _draw_pip_element(self, painter, element_id, element):
         """Draw picture-in-picture element with optional rounded corners and plugin aspect ratio."""
         rect = element['rect']
+        # Ensure rect is a QRect object (convert from list if needed)
+        if isinstance(rect, list) and len(rect) == 4:
+            rect = QRect(int(rect[0]), int(rect[1]), int(rect[2]), int(rect[3]))
+        
         corner_radius = element.get('corner_radius', 0)
         enabled = element.get('enabled', True)
         
@@ -583,6 +636,10 @@ class TemplateCanvas(QWidget):
     def _draw_text_element(self, painter, element_id, element):
         """Draw text overlay element."""
         rect = element['rect']
+        # Ensure rect is a QRect object (convert from list if needed)
+        if isinstance(rect, list) and len(rect) == 4:
+            rect = QRect(int(rect[0]), int(rect[1]), int(rect[2]), int(rect[3]))
+        
         enabled = element.get('enabled', True)
         
         # Apply opacity for disabled elements
@@ -596,6 +653,9 @@ class TemplateCanvas(QWidget):
         
         # Text
         color = element.get('color', QColor(255, 255, 255))
+        # Ensure color is a QColor object (convert from list if needed)
+        if isinstance(color, list) and len(color) == 4:
+            color = QColor(int(color[0]), int(color[1]), int(color[2]), int(color[3]))
         size = element.get('size', 24)
         style = element.get('style', 'normal')
         content = element.get('content', 'Text')
@@ -772,11 +832,15 @@ class TemplateCanvas(QWidget):
         if self.dragging_element:
             # Move element
             canvas_point = QPoint(int(event.position().x()), int(event.position().y()))
-            
+            # Convert to original coordinate space
             if self.last_mouse_pos:
                 delta = canvas_point - self.last_mouse_pos
                 element = self.elements[self.dragging_element]
                 old_rect = element['rect']
+                # Ensure old_rect is a QRect object (convert from list if needed)
+                if isinstance(old_rect, list) and len(old_rect) == 4:
+                    old_rect = QRect(int(old_rect[0]), int(old_rect[1]), int(old_rect[2]), int(old_rect[3]))
+                
                 new_rect = QRect(old_rect.x() + delta.x(), old_rect.y() + delta.y(),
                                old_rect.width(), old_rect.height())
                 
@@ -794,6 +858,7 @@ class TemplateCanvas(QWidget):
                 element['rect'] = new_rect
                 self.element_moved.emit(self.dragging_element, new_rect)
             
+            # Update last mouse position in original coordinate space
             self.last_mouse_pos = canvas_point
             self.update()
         
@@ -803,6 +868,10 @@ class TemplateCanvas(QWidget):
             
             element = self.elements[self.resizing_element]
             old_rect = element['rect']
+            # Ensure old_rect is a QRect object (convert from list if needed)
+            if isinstance(old_rect, list) and len(old_rect) == 4:
+                old_rect = QRect(int(old_rect[0]), int(old_rect[1]), int(old_rect[2]), int(old_rect[3]))
+            
             new_rect = self._calculate_resize(old_rect, canvas_point, self.resize_handle)
             
             # Apply constraints if enabled
@@ -843,7 +912,6 @@ class TemplateCanvas(QWidget):
                 return self.selected_element, "resize"
         
         # Check for elements (in reverse order for top-to-bottom selection)
-        # NOTE: Allow selection of disabled elements so users can re-enable them!
         for element_id, element in reversed(list(self.elements.items())):
             if element['rect'].contains(point):
                 return element_id, "move"

@@ -247,18 +247,42 @@ class MainWindow(QMainWindow):
     def _save_project(self):
         """Save current project"""
         if not self.current_project:
+            print("❌ No current project to save")
             return
         
-        # Save template editor settings before saving project
-        self.current_project.save_template_editor_settings(self.content_template_view)
+        print(f"🔄 Saving project: {self.current_project.project_name}")
+        print(f"   Project file path: {self.current_project.project_file_path}")
+        print(f"   Project is modified: {self.current_project.is_modified}")
+        
+        try:
+            # Save template editor settings before saving project
+            print("💾 Saving template editor settings...")
+            self.current_project.save_template_editor_settings(self.content_template_view)
+            print("✅ Template editor settings saved")
 
-        if self.current_project.save():
-            self.status_bar.showMessage("Project saved", 2000)
-        else:
+            print("💾 Saving project file...")
+            success = self.current_project.save()
+            print(f"   Save result: {success}")
+            
+            if success:
+                print("✅ Project saved successfully")
+                self.status_bar.showMessage("Project saved", 2000)
+                self._update_window_title()  # Update title to remove * if modified
+            else:
+                print("❌ Project save failed")
+                QMessageBox.critical(
+                    self,
+                    "Save Error",
+                    "Failed to save the project. Check the console for details."
+                )
+        except Exception as e:
+            print(f"❌ Exception during save: {e}")
+            import traceback
+            traceback.print_exc()
             QMessageBox.critical(
                 self,
-                "Save Error",
-                "Failed to save the project"
+                "Save Error", 
+                f"Exception occurred while saving: {str(e)}"
             )
 
     def _save_project_as(self):
@@ -575,7 +599,7 @@ class MainWindow(QMainWindow):
         
     def _on_template_changed(self):
         """Handle template parameter changes"""
-        print(f"Template changed signal received.")
+        # Reduced logging to avoid console spam
         if self.current_project:
             self.current_project.mark_modified()
             self._update_status_bar()

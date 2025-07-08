@@ -16,7 +16,7 @@ from core.content_generation import ReelTuneJSONEncoder
 import enum
 
 def convert_enums(obj):
-    """Recursively convert all Enum objects to their string values for JSON serialization"""
+    """Recursively convert all Enum objects and Qt objects to their serializable values for JSON serialization"""
     if isinstance(obj, dict):
         return {k: convert_enums(v) for k, v in obj.items()}
     elif isinstance(obj, list):
@@ -27,6 +27,21 @@ def convert_enums(obj):
         return {convert_enums(i) for i in obj}
     elif isinstance(obj, enum.Enum):
         return obj.value
+    elif hasattr(obj, '__class__') and 'PyQt6' in str(obj.__class__):
+        # Handle Qt objects that might not be JSON serializable
+        if hasattr(obj, 'toRect'):  # QRect
+            rect = obj.toRect()
+            return [rect.x(), rect.y(), rect.width(), rect.height()]
+        elif hasattr(obj, 'x') and hasattr(obj, 'y'):  # QPoint, QSize, etc.
+            if hasattr(obj, 'width') and hasattr(obj, 'height'):  # QRect, QSize
+                return [obj.x(), obj.y(), obj.width(), obj.height()]
+            else:  # QPoint
+                return [obj.x(), obj.y()]
+        elif hasattr(obj, 'red') and hasattr(obj, 'green') and hasattr(obj, 'blue'):  # QColor
+            return [obj.red(), obj.green(), obj.blue(), obj.alpha()]
+        else:
+            # For other Qt objects, try to convert to string
+            return str(obj)
     else:
         return obj
 
@@ -807,6 +822,10 @@ class ReelForgeProject:
             if not target_path:
                 raise ValueError("No file path specified")
 
+            # Convert string to Path if needed
+            if isinstance(target_path, str):
+                target_path = Path(target_path)
+
             # Ensure .rforge extension
             if target_path.suffix.lower() != '.rforge':
                 target_path = target_path.with_suffix('.rforge')
@@ -814,37 +833,58 @@ class ReelForgeProject:
             # Create directory if needed
             target_path.parent.mkdir(parents=True, exist_ok=True)
 
+            print(f"💾 Saving project to: {target_path}")
+            print(f"   Project data keys: {list(self.to_dict().keys())}")
+
             # Save project data
             with open(target_path, 'w', encoding='utf-8') as f:
-                json.dump(convert_enums(self.to_dict()), f, indent=2)
+                project_data = convert_enums(self.to_dict())
+                json.dump(project_data, f, indent=2, ensure_ascii=False)
 
             self.project_file_path = target_path
             self._is_modified = False
 
+            print(f"✅ Project saved successfully to: {target_path}")
             return True
 
         except Exception as e:
             log_error(f"Error saving project: {e}")
+            print(f"❌ Save failed: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     @classmethod
-    def load(cls, file_path: Path) -> Optional['ReelForgeProject']:
+    def load(cls, file_path) -> Optional['ReelForgeProject']:
         """Load project from file"""
         try:
+            # Convert string to Path if needed
+            if isinstance(file_path, str):
+                file_path = Path(file_path)
+
+            print(f"📂 Loading project from: {file_path}")
+            
             if not file_path.exists():
+                print(f"❌ File does not exist: {file_path}")
                 return None
 
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
+            print(f"📊 Loaded project data keys: {list(data.keys())}")
+
             project = cls.from_dict(data)
             project.project_file_path = file_path
             project._is_modified = False
 
+            print(f"✅ Project loaded successfully: {project.project_name}")
             return project
 
         except Exception as e:
             log_error(f"Error loading project: {e}")
+            print(f"❌ Load failed: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def create_new(self, name: str, location: Path,
@@ -1063,48 +1103,87 @@ class ReelForgeProject:
         if not template_editor:
             return
             
-        # Save all content type configurations
+        # Save all content type configurations WITHOUT switching content types in UI
         template_settings = {}
         
-        # Get current content type
+        # Get current content type to preserve UI state
         current_type = template_editor.get_content_type()
         
-        # Save settings for each content type that has been configured
-        content_types = ["reel", "story", "post", "tutorial", "teaser", "yt_short"]
+        # First, ensure current state is saved to content_states
+        template_editor.canvas._save_current_state()
+        
+        # Get configurations for all content types that have been configured
+        content_types = ['reel', 'story', 'post', 'tutorial', 'teaser', 'yt_short']
         
         for content_type in content_types:
-            # Switch to content type to get its settings
-            template_editor.set_content_type(content_type)
-            config = template_editor.get_template_config()
-            
-            if config and config.get("canvas_config"):
-                template_settings[content_type] = config
-        
-        # Restore original content type
-        template_editor.set_content_type(current_type)
+            # Check if this content type has been configured
+            if hasattr(template_editor.canvas, 'content_states') and content_type in template_editor.canvas.content_states:
+                state = template_editor.canvas.content_states[content_type]
+                
+                # Only save if there are elements configured
+                if state.get('elements'):
+                    # Temporarily switch canvas internal state (no UI updates)
+                    original_elements = template_editor.canvas.elements
+                    original_frame = template_editor.canvas.content_frame
+                    original_constrain = template_editor.canvas.constrain_to_frame
+                    original_content_type = template_editor.canvas.content_type
+                    
+                    try:
+                        # Set canvas to this content type's state (internal only)
+                        template_editor.canvas.elements = state['elements']
+                        template_editor.canvas.content_frame = state['content_frame']
+                        template_editor.canvas.constrain_to_frame = state['constrain_to_frame']
+                        template_editor.canvas.content_type = content_type
+                        
+                        # Get config using proper API (this handles deep copy and serialization)
+                        config = template_editor.get_template_config()
+                        
+                        if config and config.get('canvas_config'):
+                            template_settings[content_type] = config
+                    
+                    finally:
+                        # Restore original canvas state
+                        template_editor.canvas.elements = original_elements
+                        template_editor.canvas.content_frame = original_frame
+                        template_editor.canvas.constrain_to_frame = original_constrain
+                        template_editor.canvas.content_type = original_content_type
         
         # Save to project
         self.template_editor_settings = template_settings
         self._is_modified = True
-
+        
     def load_template_editor_settings(self, template_editor):
         """Load template editor settings from project"""
-        if not template_editor or not hasattr(self, "template_editor_settings"):
+        if not template_editor or not hasattr(self, 'template_editor_settings'):
             return
             
-        template_settings = getattr(self, "template_editor_settings", {})
+        template_settings = getattr(self, 'template_editor_settings', {})
+        if not template_settings:
+            return
+            
+        print(f"🔄 Loading template editor settings for {len(template_settings)} content types...")
         
-        # Get current content type
+        # Get current content type to restore later
         current_type = template_editor.get_content_type()
         
-        # Load settings for each content type
+        # Load each content type's settings by calling the proper API
         for content_type, config in template_settings.items():
-            template_editor.set_content_type(content_type)
-            template_editor.set_template_config(config)
+            if config and config.get('canvas_config'):
+                print(f"📂 Loading settings for content type: {content_type}")
+                
+                # Switch to this content type to load its settings
+                template_editor.set_content_type(content_type)
+                
+                # Set the configuration for this content type
+                template_editor.set_template_config(config)
+                
+                print(f"✅ Loaded settings for {content_type}")
         
-        # Restore original content type
+        # Restore the original content type
+        print(f"🔄 Restoring content type to: {current_type}")
         template_editor.set_content_type(current_type)
-
+        
+        print(f"✅ Template editor settings loaded successfully")
 
 
 class ProjectManager:
@@ -1199,50 +1278,3 @@ class ProjectManager:
                 "description": "Custom project settings"
             }
         }
-
-    def save_template_editor_settings(self, template_editor):
-        """Save template editor settings to project"""
-        if not template_editor:
-            return
-            
-        # Save all content type configurations
-        template_settings = {}
-        
-        # Get current content type
-        current_type = template_editor.get_content_type()
-        
-        # Save settings for each content type that has been configured
-        content_types = ['reel', 'story', 'post', 'tutorial', 'teaser', 'yt_short']
-        
-        for content_type in content_types:
-            # Switch to content type to get its settings
-            template_editor.set_content_type(content_type)
-            config = template_editor.get_template_config()
-            
-            if config and config.get('canvas_config'):
-                template_settings[content_type] = config
-        
-        # Restore original content type
-        template_editor.set_content_type(current_type)
-        
-        # Save to project
-        self.template_editor_settings = template_settings
-        self._is_modified = True
-        
-    def load_template_editor_settings(self, template_editor):
-        """Load template editor settings from project"""
-        if not template_editor or not hasattr(self, 'template_editor_settings'):
-            return
-            
-        template_settings = getattr(self, 'template_editor_settings', {})
-        
-        # Get current content type
-        current_type = template_editor.get_content_type()
-        
-        # Load settings for each content type
-        for content_type, config in template_settings.items():
-            template_editor.set_content_type(content_type)
-            template_editor.set_template_config(config)
-        
-        # Restore original content type
-        template_editor.set_content_type(current_type)
