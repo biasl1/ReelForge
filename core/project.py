@@ -406,27 +406,65 @@ class ReelForgeProject:
         templates_data = {}
         
         # First priority: Get REAL layout data from UI template editor
-        if template_editor and hasattr(template_editor, 'export_template_data'):
-            content_types_used = set()
-            for event in events_data:
-                content_types_used.add(event["content_type"])
+        if template_editor:
+            # Get current content type to restore later
+            original_content_type = template_editor.get_content_type()
             
-            # Export actual UI layout data for each content type
-            for content_type in content_types_used:
-                # Get the current content type from template editor
-                current_type = template_editor.get_content_type()
-                
-                # Only set content type if it's different to avoid resetting elements
-                if current_type != content_type:
+            # Save current state before gathering data
+            template_editor.canvas._save_current_state()
+            
+            # Get all content types that have been configured
+            content_types_to_export = set()
+            
+            # Add content types from events
+            for event in events_data:
+                content_types_to_export.add(event["content_type"])
+            
+            # Add content types that have actual configuration in template editor
+            if hasattr(template_editor.canvas, 'content_states'):
+                for content_type, state in template_editor.canvas.content_states.items():
+                    # Check if this content type has any elements configured
+                    if template_editor.canvas.is_video_content_type(content_type):
+                        frames = state.get('frames', {})
+                        has_elements = any(frame.get('elements') for frame in frames.values())
+                        if has_elements:
+                            content_types_to_export.add(content_type)
+                    else:
+                        elements = state.get('elements', {})
+                        if elements:
+                            content_types_to_export.add(content_type)
+            
+            # If no content types configured yet, use common defaults
+            if not content_types_to_export:
+                content_types_to_export = {'reel', 'story', 'post'}
+            
+            print(f"🔍 Exporting templates for content types: {content_types_to_export}")
+            
+            # Export layout data for each content type
+            for content_type in content_types_to_export:
+                try:
+                    # Switch to this content type
                     template_editor.set_content_type(content_type)
-                    real_layout_data = template_editor.export_template_data()
-                    # Restore original content type
-                    template_editor.set_content_type(current_type)
-                else:
-                    real_layout_data = template_editor.export_template_data()
-                
-                # Convert to expected format
-                templates_data[content_type] = self._convert_ui_layout_to_export_format(real_layout_data, content_type)
+                    
+                    # Get template configuration using the editor's API
+                    config = template_editor.get_template_config()
+                    
+                    if config and config.get('canvas_config'):
+                        # Convert to export format
+                        templates_data[content_type] = self._convert_ui_layout_to_export_format(config, content_type)
+                        print(f"✅ Exported template for {content_type}")
+                    else:
+                        # Fall back to basic layout
+                        templates_data[content_type] = self._export_practical_layout(content_type)
+                        print(f"⚠️ Used fallback layout for {content_type}")
+                        
+                except Exception as e:
+                    print(f"❌ Error exporting {content_type}: {e}")
+                    # Use fallback
+                    templates_data[content_type] = self._export_practical_layout(content_type)
+            
+            # Restore original content type
+            template_editor.set_content_type(original_content_type)
         
         # Second priority: Export from ContentGenerationManager if it exists
         elif hasattr(self, 'content_generation_manager') and self.content_generation_manager:
@@ -546,10 +584,72 @@ class ReelForgeProject:
     def export_ai_data_to_json(self, file_path: str, template_editor=None) -> bool:
         """Export AI generation data to a JSON file"""
         try:
+            log_info("Starting AI generation data export...")
             ai_data = self.get_ai_generation_data(template_editor=template_editor)
+            log_info("AI generation data retrieved successfully")
+            
+            # Inspect and fix templates data structure before conversion
+            if 'content_generation' in ai_data and 'templates' in ai_data['content_generation']:
+                templates = ai_data['content_generation']['templates']
+                log_info(f"Inspecting templates data: {len(templates)} templates found")
+                
+                # Check each content type template
+                for content_type, template_data in list(templates.items()):
+                    if not isinstance(template_data, dict):
+                        log_error(f"Template data for {content_type} is not a dict! Type: {type(template_data)}")
+                        # Remove corrupted template
+                        del templates[content_type]
+                        continue
+                    
+                    # For video content, check frames structure
+                    if template_data.get('is_video_content') and 'frames' in template_data:
+                        frames = template_data['frames']
+                        if not isinstance(frames, dict):
+                            log_error(f"Frames for {content_type} is not a dict! Type: {type(frames)}")
+                            # Try to fix frames if it's a list
+                            if isinstance(frames, list):
+                                log_error(f"Converting frames list to dict for {content_type}")
+                                frames_dict = {}
+                                for i, item in enumerate(frames):
+                                    frames_dict[f"frame_{i}"] = item
+                                template_data['frames'] = frames_dict
             
             # Convert any remaining enums to strings for safety
+            log_info("Converting data for JSON serialization...")
             converted_data = convert_enums(ai_data)
+            log_info("Data conversion completed")
+            
+            # Final check for dictionary structure integrity
+            def validate_dict_structure(obj, path="root"):
+                """Validate that objects that should be dicts are actually dicts"""
+                if isinstance(obj, dict):
+                    for key, value in obj.items():
+                        validate_dict_structure(value, f"{path}.{key}")
+                elif isinstance(obj, list):
+                    for i, item in enumerate(obj):
+                        validate_dict_structure(item, f"{path}[{i}]")
+                
+                # Only check specific critical paths that must be dicts
+                critical_dict_paths = [
+                    '.frames',
+                    '.elements',
+                    'canvas_config',
+                    'settings'
+                ]
+                
+                # Check if this is a critical path that must be a dict
+                is_critical_path = False
+                for critical_path in critical_dict_paths:
+                    if path.endswith(critical_path):
+                        is_critical_path = True
+                        break
+                
+                # For critical paths, ensure we have a dictionary
+                if is_critical_path and not isinstance(obj, dict) and obj is not None:
+                    log_error(f"CRITICAL ERROR: Expected dict at {path} but got {type(obj)}")
+            
+            validate_dict_structure(converted_data)
+            log_info("Validated data structure integrity")
             
             with open(file_path, 'w') as f:
                 json.dump(converted_data, f, indent=2)
@@ -562,8 +662,23 @@ class ReelForgeProject:
             return True
         except Exception as e:
             log_error(f"Failed to export AI generation data: {e}")
+            log_error(f"Error type: {type(e)}")
             import traceback
-            traceback.print_exc()
+            error_traceback = traceback.format_exc()
+            log_error(f"Full traceback: {error_traceback}")
+            
+            # Additional debugging for the specific list/get error
+            if "'list' object has no attribute 'get'" in str(e):
+                log_error("DETECTED: 'list' object has no attribute 'get' error!")
+                log_error("This indicates that somewhere in the export process, a list is being treated as a dict")
+                log_error("Check the frame data structures and element data structures for corruption")
+                
+                # Try to pinpoint where in the stack trace this occurred
+                trace_lines = error_traceback.split('\n')
+                for line in trace_lines:
+                    if 'get' in line and '.py' in line:
+                        log_error(f"Potential error location: {line.strip()}")
+            
             return False
             
     def export_template_config_to_json(self, file_path: str) -> bool:
@@ -975,20 +1090,224 @@ class ReelForgeProject:
         }
     
     def _convert_ui_layout_to_export_format(self, ui_layout_data: Dict[str, Any], content_type: str) -> Dict[str, Any]:
-        """Convert UI template editor layout data to export format"""
-        elements = ui_layout_data.get('elements', {})
-        settings = ui_layout_data.get('settings', {})
+        """Convert UI template editor layout data to export format with frame support"""
+        # Ensure ui_layout_data is a dict
+        if not isinstance(ui_layout_data, dict):
+            log_error(f"ERROR: ui_layout_data is not a dict, it's a {type(ui_layout_data)}")
+            ui_layout_data = {}
+            
+        canvas_config = ui_layout_data.get('canvas_config', {})
+        
+        # Ensure canvas_config is a dict
+        if not isinstance(canvas_config, dict):
+            log_error(f"ERROR: canvas_config is not a dict, it's a {type(canvas_config)}")
+            canvas_config = {}
+            
+        elements = canvas_config.get('elements', {})
+        settings = canvas_config.get('settings', {})
         
         # Get standard dimensions for content type
         dimensions = self._get_standard_dimensions(content_type)
         
-        # Initialize layout with default structure
+        # Check if this is a video content type with frames
+        frames_data = canvas_config.get('frames', {})
+        
+        # Ensure frames_data is a dict, not a list
+        if isinstance(frames_data, list):
+            log_error(f"ERROR: frames_data is a list, converting to dict")
+            frames_dict = {}
+            for i, item in enumerate(frames_data):
+                frames_dict[str(i)] = {'elements': {}, 'frame_description': f'Recovered frame {i}'}
+            frames_data = frames_dict
+        elif not isinstance(frames_data, dict):
+            log_error(f"ERROR: frames_data is not a dict, it's a {type(frames_data)}")
+            frames_data = {}
+            
+        is_video_content = content_type in ['reel', 'story', 'tutorial']
+        
+        if is_video_content and frames_data:
+            # For video content types, export each frame as a separate section
+            frame_sections = {}
+            
+            for frame_index, frame_data in frames_data.items():
+                # Defensive programming: handle case where frame_data might be corrupted
+                if not isinstance(frame_data, dict):
+                    log_error(f"Frame data corruption detected! Frame {frame_index} is {type(frame_data)}, expected dict. Value: {frame_data}")
+                    # If it's a list, try to convert it to a dictionary
+                    if isinstance(frame_data, list):
+                        try:
+                            log_error(f"Attempting to convert list frame data to dictionary structure")
+                            # If list contains QRect values converted by convert_enums
+                            if len(frame_data) >= 4 and all(isinstance(x, (int, float)) for x in frame_data[:4]):
+                                new_frame_data = {
+                                    'elements': {},
+                                    'content_frame': {'x': frame_data[0], 'y': frame_data[1], 
+                                                     'width': frame_data[2], 'height': frame_data[3]},
+                                    'constrain_to_frame': False,
+                                    'frame_description': f'Recovered frame {frame_index}'
+                                }
+                                frame_data = new_frame_data
+                            else:
+                                # Create a default structure
+                                frame_data = {
+                                    'elements': {},
+                                    'content_frame': {'x': 50, 'y': 50, 'width': 300, 'height': 500},
+                                    'constrain_to_frame': False,
+                                    'frame_description': f'Corrupted frame {frame_index} - using defaults'
+                                }
+                        except Exception as e:
+                            log_error(f"Failed to convert list frame data: {e}")
+                            # Create default frame data structure
+                            frame_data = {
+                                'elements': {},
+                                'content_frame': {'x': 50, 'y': 50, 'width': 300, 'height': 500},
+                                'constrain_to_frame': False,
+                                'frame_description': f'Corrupted frame {frame_index} - using defaults'
+                            }
+                    else:
+                        # Create default frame data structure for non-list, non-dict types
+                        frame_data = {
+                            'elements': {},
+                            'content_frame': {'x': 50, 'y': 50, 'width': 300, 'height': 500},
+                            'constrain_to_frame': False,
+                            'frame_description': f'Corrupted frame {frame_index} - using defaults'
+                        }
+                
+                # Get elements safely - ensure we get a dictionary even if it's originally a list
+                frame_elements = frame_data.get('elements', {})
+                if not isinstance(frame_elements, dict):
+                    log_error(f"Frame elements is not a dict! Type: {type(frame_elements)}")
+                    if isinstance(frame_elements, list):
+                        # Try to convert list to dict
+                        elements_dict = {}
+                        for i, item in enumerate(frame_elements):
+                            if isinstance(item, tuple) and len(item) == 2:
+                                elements_dict[item[0]] = item[1]
+                            else:
+                                elements_dict[f"element_{i}"] = item
+                        frame_elements = elements_dict
+                    else:
+                        frame_elements = {}
+                
+                frame_description = frame_data.get('frame_description', f'Frame {frame_index} layout')
+                
+                # Convert frame elements to layout format
+                frame_layout = self._convert_elements_to_layout(frame_elements, dimensions)
+                
+                frame_sections[f"frame_{frame_index}"] = {
+                    "name": f"{content_type.title()} Frame {int(frame_index) + 1}",
+                    "frame_index": int(frame_index),
+                    "frame_description": frame_description,
+                    "content_type": content_type,
+                    "platform": self._get_platform_for_content_type(content_type),
+                    "dimensions": dimensions,
+                    "layout": frame_layout,
+                    "duration": self._get_content_duration(content_type),
+                    "animation": {
+                        "intro": "fade_in",
+                        "transition": "smooth",
+                        "outro": "fade_out"
+                    }
+                }
+            
+            # Return a structure that contains all frames
+            return {
+                "content_type": content_type,
+                "name": content_type.replace("_", " ").title(),
+                "is_video_content": True,
+                "total_frames": len(frames_data),
+                "frames": frame_sections,
+                "platform": self._get_platform_for_content_type(content_type),
+                "dimensions": dimensions,
+                "duration": self._get_content_duration(content_type)
+            }
+        else:
+            # For static content types, export single layout
+            layout = self._convert_elements_to_layout(elements, dimensions)
+            
+            return {
+                "name": content_type.replace("_", " ").title(),
+                "content_type": content_type,
+                "is_video_content": False,
+                "platform": self._get_platform_for_content_type(content_type),
+                "dimensions": dimensions,
+                "layout": layout,
+                "duration": self._get_content_duration(content_type),
+                "animation": {
+                    "intro": "fade_in",
+                    "transition": "smooth",
+                    "outro": "fade_out"
+                }
+            }
+    
+    def _convert_elements_to_layout(self, elements: Dict[str, Any], dimensions: Dict[str, int]) -> Dict[str, Any]:
+        """Convert elements dictionary to layout format"""
         layout = {}
+        
+        # Ensure elements is a dict
+        if not isinstance(elements, dict):
+            log_error(f"ERROR: elements is not a dict, it's a {type(elements)}")
+            if isinstance(elements, list):
+                log_error(f"Converting list to dict. Elements: {elements}")
+                # Try to convert list to dict if possible
+                elements_dict = {}
+                for i, item in enumerate(elements):
+                    if isinstance(item, tuple) and len(item) == 2:
+                        elements_dict[item[0]] = item[1]
+                    else:
+                        elements_dict[f"element_{i}"] = item
+                elements = elements_dict
+            else:
+                elements = {}
         
         # Convert UI elements to layout format
         for element_id, element_data in elements.items():
+            # Defensive programming: handle case where element_data might be corrupted
+            if not isinstance(element_data, dict):
+                log_error(f"Element data corruption detected! Element {element_id} is {type(element_data)}, expected dict. Value: {element_data}")
+                # Try to convert to dict if it's a list with positions
+                if isinstance(element_data, list) and len(element_data) >= 4:
+                    log_error(f"Attempting to convert list to element data dict")
+                    element_data = {
+                        'type': 'text',
+                        'rect': {'x': element_data[0], 'y': element_data[1], 
+                                'width': element_data[2], 'height': element_data[3]},
+                        'content': f'Recovered element {element_id}'
+                    }
+                else:
+                    continue  # Skip corrupted element
+            
             element_type = element_data.get('type', '')
             rect = element_data.get('rect', {})
+            
+            # Convert QRect to dictionary if needed
+            if hasattr(rect, 'x'):  # QRect object
+                rect_dict = {
+                    'x': rect.x(),
+                    'y': rect.y(), 
+                    'width': rect.width(),
+                    'height': rect.height()
+                }
+            elif isinstance(rect, list) and len(rect) >= 4:
+                # Handle case where rect is a list [x, y, width, height] from convert_enums
+                log_info(f"Converting rect list to dict: {rect}")
+                rect_dict = {
+                    'x': rect[0],
+                    'y': rect[1],
+                    'width': rect[2],
+                    'height': rect[3]
+                }
+            elif not isinstance(rect, dict):
+                log_error(f"Invalid rect format: {type(rect)}, value: {rect}")
+                # Provide a default rect
+                rect_dict = {
+                    'x': 50,
+                    'y': 50, 
+                    'width': 300,
+                    'height': 100
+                }
+            else:
+                rect_dict = rect  # Already a dictionary
             
             if element_type == 'text':
                 # Map element_id directly to layout key
@@ -998,22 +1317,29 @@ class ReelForgeProject:
                     layout_key = 'subtitle'
                 else:
                     # For other text elements, determine based on position
-                    y_position = rect.get('y', 0)
+                    y_position = rect_dict.get('y', 0)
                     if y_position < dimensions['height'] / 2:
                         layout_key = 'title'
                     else:
                         layout_key = 'subtitle'
                 
+                # Convert QColor to string if needed
+                color = element_data.get('color', '#FFFFFF')
+                if hasattr(color, 'name'):  # QColor object
+                    color_str = color.name()
+                else:
+                    color_str = str(color)
+                
                 layout[layout_key] = {
                     "position": {
-                        "x": rect.get('x', 50),
-                        "y": rect.get('y', 100),
-                        "width": rect.get('width', dimensions['width'] - 100),
-                        "height": rect.get('height', 80)
+                        "x": rect_dict.get('x', 50),
+                        "y": rect_dict.get('y', 100),
+                        "width": rect_dict.get('width', dimensions['width'] - 100),
+                        "height": rect_dict.get('height', 80)
                     },
                     "font_size": element_data.get('size', 24),
                     "font_weight": "bold" if element_data.get('style', '') == 'bold' else "normal",
-                    "color": element_data.get('color', '#FFFFFF'),
+                    "color": color_str,
                     "alignment": "center",
                     "visible": True
                 }
@@ -1021,10 +1347,10 @@ class ReelForgeProject:
             elif element_type == 'pip':
                 layout['pip_video'] = {
                     "position": {
-                        "x": rect.get('x', dimensions['width'] - 220),
-                        "y": rect.get('y', 50),
-                        "width": rect.get('width', 200),
-                        "height": rect.get('height', 150)
+                        "x": rect_dict.get('x', dimensions['width'] - 220),
+                        "y": rect_dict.get('y', 50),
+                        "width": rect_dict.get('width', 200),
+                        "height": rect_dict.get('height', 150)
                     },
                     "border_radius": element_data.get('corner_radius', 10),
                     "opacity": 0.9,
@@ -1060,19 +1386,7 @@ class ReelForgeProject:
                 "visible": True
             }
         
-        return {
-            "name": content_type.replace("_", " ").title(),
-            "content_type": content_type,
-            "platform": self._get_platform_for_content_type(content_type),
-            "dimensions": dimensions,
-            "layout": layout,
-            "duration": self._get_content_duration(content_type),
-            "animation": {
-                "intro": "fade_in",
-                "transition": "smooth",
-                "outro": "fade_out"
-            }
-        }
+        return layout
     
     def _get_standard_dimensions(self, content_type: str) -> Dict[str, int]:
         """Get standard dimensions for content types"""
@@ -1097,122 +1411,101 @@ class ReelForgeProject:
             "yt_short": "15-60s"
         }
         return duration_map.get(content_type, "30s")
-
     def save_template_editor_settings(self, template_editor):
-        """Save template editor settings to project"""
-        if not template_editor:
-            return
-            
-        # Save all content type configurations WITHOUT switching content types in UI
-        template_settings = {}
-        
-        # Get current content type to preserve UI state
-        current_type = template_editor.get_content_type()
-        
-        # First, ensure current state is saved to content_states
-        template_editor.canvas._save_current_state()
-        
-        # Get configurations for all content types that have been configured
-        content_types = ['reel', 'story', 'post', 'tutorial', 'teaser', 'yt_short']
-        
-        for content_type in content_types:
-            # Check if this content type has been configured
-            if hasattr(template_editor.canvas, 'content_states') and content_type in template_editor.canvas.content_states:
-                state = template_editor.canvas.content_states[content_type]
-                
-                # Check if this is a video content type (has frames)
-                is_video = template_editor.canvas.is_video_content_type(content_type)
-                
-                if is_video:
-                    # For video content types, check if any frame has elements
-                    frames = state.get('frames', {})
-                    has_elements = any(frame.get('elements') for frame in frames.values())
-                    
-                    if has_elements:
-                        # Temporarily switch canvas to this content type
-                        original_content_type = template_editor.canvas.content_type
-                        original_frame = template_editor.canvas.current_frame
-                        
-                        try:
-                            # Switch to this content type
-                            template_editor.canvas.content_type = content_type
-                            
-                            # Get config using proper API (handles all frame data)
-                            config = template_editor.get_template_config()
-                            
-                            if config and (config.get('canvas_config') or config.get('frames_config')):
-                                template_settings[content_type] = config
-                        
-                        finally:
-                            # Restore original state
-                            template_editor.canvas.content_type = original_content_type
-                            template_editor.canvas.current_frame = original_frame
-                else:
-                    # For static content types, use the old method
-                    if state.get('elements'):
-                        # Temporarily switch canvas internal state (no UI updates)
-                        original_elements = template_editor.canvas.elements
-                        original_frame = template_editor.canvas.content_frame
-                        original_constrain = template_editor.canvas.constrain_to_frame
-                        original_content_type = template_editor.canvas.content_type
-                        
-                        try:
-                            # Set canvas to this content type's state (internal only)
-                            template_editor.canvas.elements = state['elements']
-                            template_editor.canvas.content_frame = state['content_frame']
-                            template_editor.canvas.constrain_to_frame = state['constrain_to_frame']
-                            template_editor.canvas.content_type = content_type
-                            
-                            # Get config using proper API (this handles deep copy and serialization)
-                            config = template_editor.get_template_config()
-                            
-                            if config and config.get('canvas_config'):
-                                template_settings[content_type] = config
-                        
-                        finally:
-                            # Restore original canvas state
-                            template_editor.canvas.elements = original_elements
-                            template_editor.canvas.content_frame = original_frame
-                            template_editor.canvas.constrain_to_frame = original_constrain
-                            template_editor.canvas.content_type = original_content_type
-        
-        # Save to project
-        self.template_editor_settings = template_settings
-        self._is_modified = True
-        
-    def load_template_editor_settings(self, template_editor):
-        """Load template editor settings from project"""
-        if not template_editor or not hasattr(self, 'template_editor_settings'):
-            return
-            
-        template_settings = getattr(self, 'template_editor_settings', {})
-        if not template_settings:
-            return
-            
-        print(f"🔄 Loading template editor settings for {len(template_settings)} content types...")
+        """Save template editor settings with proper content type isolation"""
+        settings = {}
         
         # Get current content type to restore later
-        current_type = template_editor.get_content_type()
+        current_content_type = template_editor.get_content_type()
         
-        # Load each content type's settings by calling the proper API
-        for content_type, config in template_settings.items():
-            if config and config.get('canvas_config'):
-                print(f"📂 Loading settings for content type: {content_type}")
+        # Save each content type's data separately
+        for content_type in ['reel', 'story', 'tutorial', 'post', 'teaser']:
+            print(f"💾 Saving {content_type} settings...")
+            
+            # Switch to this content type to get its data
+            template_editor.set_content_type(content_type)
+            
+            # Save current frame before getting data
+            template_editor.canvas.save_current_frame()
+            
+            # Get frame count for this content type
+            frame_count = template_editor.canvas.get_content_type_frame_count(content_type)
+            
+            # Initialize content type data
+            settings[content_type.upper()] = {
+                'frame_count': frame_count,
+                'frames': {}
+            }
+            
+            # Save each frame's data
+            for frame_idx in range(frame_count):
+                # Switch to this frame
+                template_editor.frame_timeline.set_current_frame(frame_idx)
                 
-                # Switch to this content type to load its settings
-                template_editor.set_content_type(content_type)
+                # Get frame data from canvas
+                frame_data = template_editor.canvas.get_frame_data(frame_idx, content_type)
                 
-                # Set the configuration for this content type
-                template_editor.set_template_config(config)
-                
-                print(f"✅ Loaded settings for {content_type}")
+                if frame_data:
+                    settings[content_type.upper()]['frames'][str(frame_idx)] = {
+                        'elements': frame_data.get('elements', {}),
+                        'content_frame': frame_data.get('content_frame'),
+                        'constrain_to_frame': frame_data.get('constrain_to_frame', False),
+                        'frame_description': frame_data.get('frame_description', '')
+                    }
+                    print(f"  💾 Frame {frame_idx}: '{frame_data.get('frame_description', '')}'")
         
-        # Restore the original content type
-        print(f"🔄 Restoring content type to: {current_type}")
-        template_editor.set_content_type(current_type)
+        # Restore original content type
+        template_editor.set_content_type(current_content_type)
         
-        print(f"✅ Template editor settings loaded successfully")
+        # Save settings to project
+        self.template_editor_settings = settings
+        print(f"✅ Saved template editor settings for {len(settings)} content types")
+        return True
 
+    def load_template_editor_settings(self, template_editor):
+        """Load template editor settings with proper content type isolation"""
+        if not hasattr(self, 'template_editor_settings') or not self.template_editor_settings:
+            print("⚠️ No template editor settings to load")
+            return False
+        
+        settings = self.template_editor_settings
+        print(f"📂 Loading template editor settings for {len(settings)} content types...")
+        
+        # Get current content type to restore later
+        current_content_type = template_editor.get_content_type()
+        
+        # Load each content type's data
+        for content_type_key, content_data in settings.items():
+            content_type = content_type_key.lower()
+            print(f"📂 Loading {content_type} settings...")
+            
+            # Switch to this content type
+            template_editor.set_content_type(content_type)
+            
+            # Clear existing frames first
+            template_editor.canvas.clear_all_frames_for_content_type(content_type)
+            
+            # Set frame count
+            frame_count = content_data.get('frame_count', 0)
+            template_editor.canvas.set_frame_count_for_content_type(content_type, frame_count)
+            
+            # Load each frame's data
+            frames_data = content_data.get('frames', {})
+            for frame_idx_str, frame_data in frames_data.items():
+                frame_idx = int(frame_idx_str)
+                
+                # Set frame data in canvas
+                template_editor.canvas.set_frame_data(frame_idx, content_type, frame_data)
+                print(f"  📂 Frame {frame_idx}: '{frame_data.get('frame_description', '')}'")
+            
+            # Update timeline frame count
+            template_editor.frame_timeline.set_frame_count(frame_count)
+        
+        # Restore original content type
+        template_editor.set_content_type(current_content_type)
+        
+        print("✅ Template editor settings loaded successfully")
+        return True
 
 class ProjectManager:
     """Manages recent projects and templates"""

@@ -1,6 +1,7 @@
 """
 Interactive canvas for template editing with drag and element manipulation.
 """
+import copy
 from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import Qt, pyqtSignal, QRect, QSize, QPointF, QPoint
 from PyQt6.QtGui import QColor, QPainter, QPen, QFont, QBrush, QWheelEvent, QMouseEvent
@@ -89,12 +90,12 @@ class TemplateCanvas(QWidget):
             self.reset_positions_requested.connect(self.reset_positions)
     
     def _initialize_content_states(self):
-        """Initialize separate states for each content type with frame support - CRITICAL for independence!"""
-        # Define content types with their INDEPENDENT frame counts
+        """Initialize separate states for each content type with frame support - RESPECTS USER CHOICE!"""
+        # Define content types with their DEFAULT frame counts (can be changed by user)
         content_type_configs = {
-            'reel': {'frames': 1, 'is_video': True},      # Reels are usually single frame
-            'story': {'frames': 5, 'is_video': True},     # Stories can have multiple frames  
-            'tutorial': {'frames': 8, 'is_video': True},  # Tutorials have many steps
+            'reel': {'frames': 3, 'is_video': True},      # Default 3 frames, user can change
+            'story': {'frames': 3, 'is_video': True},     # Default 3 frames, user can change
+            'tutorial': {'frames': 3, 'is_video': True},  # Default 3 frames, user can change
             'post': {'frames': 1, 'is_video': False},     # Posts are static
             'teaser': {'frames': 1, 'is_video': False}    # Teasers are static
         }
@@ -107,10 +108,32 @@ class TemplateCanvas(QWidget):
                 # Video content types have INDEPENDENT frame counts with unique configurations
                 frames = {}
                 for i in range(frame_count):
+                    # Generate unique descriptive name for each frame
+                    frame_description = f"Frame {i+1} for {content_type.title()}"
+                    
+                    # For specialized content types, add more specific descriptions
+                    if content_type == 'story':
+                        if i == 0:
+                            frame_description = f"Story intro - opening hook"
+                        elif i == frame_count - 1:
+                            frame_description = f"Story conclusion - call to action" 
+                        else:
+                            frame_description = f"Story part {i+1} - narrative progression"
+                    elif content_type == 'tutorial':
+                        if i == 0:
+                            frame_description = f"Tutorial intro - what you'll learn"
+                        elif i == frame_count - 1:
+                            frame_description = f"Tutorial conclusion - summary"
+                        else:
+                            frame_description = f"Tutorial step {i} - instruction phase"
+                    elif content_type == 'reel':
+                        frame_description = f"Reel main content - key visual hook"
+                    
                     frames[i] = {
                         'elements': {},
                         'content_frame': QRect(50, 50, 300, 500),
-                        'constrain_to_frame': False
+                        'constrain_to_frame': False,
+                        'frame_description': frame_description
                     }
                 
                 self.content_states[content_type] = {
@@ -318,22 +341,21 @@ class TemplateCanvas(QWidget):
         print(f"   Available states: {list(self.content_states.keys())}")
         
         if self.content_type not in self.content_states:
-            # Initialize if not exists
-            print(f"   No state found, initializing defaults")
+            # Initialize if not exists - only for truly new content types
+            print(f"   No state found, initializing with defaults")
             self.content_states[self.content_type] = {
                 'elements': {},
                 'content_frame': QRect(50, 50, 300, 500),
                 'constrain_to_frame': False
             }
-        
-        state = self.content_states[self.content_type]
-        print(f"   State has {len(state.get('elements', {}))} elements")
-        
-        # If elements are empty, set up defaults for this content type
-        if not state['elements']:
-            print(f"   Elements empty, setting up defaults")
+            # Set up initial default elements for new content type
             self._setup_content_type_elements(self.content_type)
-            state = self.content_states[self.content_type]  # Refresh state
+
+        state = self.content_states[self.content_type]
+        print(f"   State has {len(state.get('elements', {}))} elements (respecting saved state)")
+
+        # Always load the saved state, even if elements are empty
+        # Don't call _setup_content_type_elements() for existing states!
         
         # Restore elements (deep copy to avoid reference issues)
         import copy
@@ -496,16 +518,47 @@ class TemplateCanvas(QWidget):
         
         # Handle frame data for video content types
         if self.is_video_content_type() and 'frames' in config:
-            # Restore frame-based data
+            # Restore frame-based data for ALL saved frames
             if self.content_type not in self.content_states:
                 self.content_states[self.content_type] = {}
             
             state = self.content_states[self.content_type]
-            state['frames'] = config['frames']
-            state['current_frame'] = config.get('current_frame', 0)
-            state['frame_count'] = config.get('frame_count', 3)
+            
+            # CRITICAL: Convert string keys back to integers and preserve ALL frames
+            frames_data = config['frames']
+            print(f"� Loading {len(frames_data)} frames for {self.content_type} (user saved)")
+            
+            # CRITICAL: Only convert Qt objects, don't filter frames
+            converted_frames = {}
+            for key, value in frames_data.items():
+                # Convert string keys like '0', '1', '2' back to integers 0, 1, 2
+                int_key = int(key) if isinstance(key, str) and key.isdigit() else key
+                
+                # Convert Qt objects for each frame independently
+                restored_frame_data = restore_qt_objects(value)
+                converted_frames[int_key] = restored_frame_data
+                print(f"✅ Loaded frame {int_key} for {self.content_type}")
+            
+            # RESPECT USER CHOICE: Load ALL frames that were saved
+            if 'frames' not in state:
+                state['frames'] = {}
+            
+            # Update with ALL loaded frames
+            state['frames'] = converted_frames
+            
+            # Set current frame and frame count based on what was actually saved
+            requested_frame = config.get('current_frame', 0)
+            saved_frame_count = len(converted_frames)
+            
+            if requested_frame >= saved_frame_count:
+                requested_frame = 0
+            
+            state['current_frame'] = requested_frame
+            state['frame_count'] = saved_frame_count  # Use the actual saved frame count
             
             self.current_frame = state['current_frame']
+            
+            print(f"🔧 Loaded {len(converted_frames)} frames for {self.content_type}")
             
             # Load the current frame's elements
             self._load_current_frame_state()
@@ -1200,13 +1253,25 @@ class TemplateCanvas(QWidget):
         
         state = self.content_states.get(self.content_type, {})
         frames = state.get('frames', {})
-        current_frame = state.get('current_frame', 0)
-        return frames.get(current_frame, {})
+        
+        # Check if the frame actually exists in the frames dict
+        # Don't return a default empty dict for non-existent frames
+        if self.current_frame in frames:
+            return frames[self.current_frame]
+        else:
+            # Frame doesn't exist - return None to indicate this
+            return None
     
     def set_current_frame(self, frame_index):
         """Switch to a specific frame for video content types - INDEPENDENT elements per frame"""
         if not self.is_video_content_type():
             return  # No frames for static content
+        
+        # Validate frame index bounds
+        max_frames = self.get_content_type_frame_count()
+        if frame_index < 0 or frame_index >= max_frames:
+            print(f"❌ Invalid frame {frame_index} for {self.content_type} (max: {max_frames-1})")
+            return  # Don't switch to invalid frame
         
         print(f"🎬 Switching to frame {frame_index} for {self.content_type}")
         
@@ -1237,13 +1302,28 @@ class TemplateCanvas(QWidget):
         
         # Deep copy current elements to preserve independence
         import copy
+        
+        # CRITICAL: Use instance frame_description if it exists, otherwise preserve existing
+        final_description = getattr(self, 'frame_description', None)
+        if not final_description:
+            # No instance description, check if frame already has one
+            if current_frame in frames:
+                existing_description = frames[current_frame].get('frame_description')
+                if existing_description:
+                    final_description = existing_description
+                else:
+                    final_description = f"{self.content_type.title()} frame {current_frame+1}"
+            else:
+                final_description = f"{self.content_type.title()} frame {current_frame+1}"
+            
         frames[current_frame] = {
             'elements': copy.deepcopy(self.elements),
             'content_frame': QRect(self.content_frame),
-            'constrain_to_frame': self.constrain_to_frame
+            'constrain_to_frame': self.constrain_to_frame,
+            'frame_description': final_description  # Use description
         }
         
-        print(f"💾 Saved frame {current_frame} with {len(self.elements)} elements")
+        # Frame save complete
     
     def _load_current_frame_state(self):
         """Load elements from current frame - MAINTAINS INDEPENDENCE"""
@@ -1252,41 +1332,101 @@ class TemplateCanvas(QWidget):
             self._load_content_state()
             return
         
-        frame_data = self.get_current_frame_data()
+        # Validate frame bounds before loading
+        max_frames = self.get_content_type_frame_count()
+        print(f"🔍 Max frames for {self.content_type}: {max_frames}")
         
-        if not frame_data or not frame_data.get('elements'):
-            # If frame has no elements, set up defaults for this frame
-            print(f"🆕 Setting up defaults for frame {self.current_frame}")
+        if self.current_frame < 0 or self.current_frame >= max_frames:
+            print(f"❌ Cannot load frame {self.current_frame} for {self.content_type} (max: {max_frames-1})")
+            # Reset to valid frame 0
+            old_frame = self.current_frame
+            self.current_frame = 0
+            if self.content_type in self.content_states:
+                self.content_states[self.content_type]['current_frame'] = 0
+            print(f"🔄 Reset from frame {old_frame} to frame 0")
+        
+        frame_data = self.get_current_frame_data()
+        print(f"🔍 frame_data = {frame_data}")
+        print(f"🔍 frame_data is None: {frame_data is None}")
+        
+        # Debug: Check state consistency
+        state = self.content_states.get(self.content_type, {})
+        frames = state.get('frames', {})
+        print(f"🔍 Available frames in state: {list(frames.keys())}")
+        print(f"🔍 Looking for frame: {self.current_frame}")
+        if self.current_frame in frames:
+            print(f"🔍 Frame {self.current_frame} data in state: {frames[self.current_frame]}")
+        else:
+            print(f"🔍 Frame {self.current_frame} NOT FOUND in state")
+        
+        if not frame_data:
+            # Only set up defaults if NO frame data exists at all for a VALID frame
+            print(f"🆕 No frame data exists - setting up defaults for frame {self.current_frame}")
             self._setup_frame_defaults()
         else:
-            # Load frame's independent element configuration
+            # Load frame's independent element configuration (even if elements are empty)
             import copy
-            self.elements = copy.deepcopy(frame_data['elements'])
-            self.content_frame = QRect(frame_data.get('content_frame', QRect(50, 50, 300, 500)))
-            self.constrain_to_frame = frame_data.get('constrain_to_frame', False)
+            elements = frame_data.get('elements', {})
+            print(f"🔍 Loading {len(elements)} elements from saved state")
             
-            print(f"📂 Loaded frame {self.current_frame} with {len(self.elements)} elements")
+            # Convert element rectangles from lists back to QRect objects
+            for element_id, element_data in elements.items():
+                if 'rect' in element_data:
+                    rect_data = element_data['rect']
+                    if isinstance(rect_data, list) and len(rect_data) == 4:
+                        # Convert from JSON list format [x, y, width, height] to QRect
+                        element_data['rect'] = QRect(rect_data[0], rect_data[1], rect_data[2], rect_data[3])
+                        print(f"🔧 Converted {element_id} rect from list to QRect")
+                
+                # Convert colors from lists back to QColor objects
+                for color_key in ['color', 'border_color']:
+                    if color_key in element_data:
+                        color_data = element_data[color_key]
+                        if isinstance(color_data, list) and len(color_data) == 4:
+                            # Convert from JSON list format [r, g, b, a] to QColor
+                            element_data[color_key] = QColor(color_data[0], color_data[1], color_data[2], color_data[3])
+                            print(f"🔧 Converted {element_id} {color_key} from list to QColor")
+            
+            self.elements = copy.deepcopy(elements)
+            # Handle content_frame - could be QRect or list from JSON
+            content_frame_data = frame_data.get('content_frame', QRect(50, 50, 300, 500))
+            if isinstance(content_frame_data, list) and len(content_frame_data) == 4:
+                # Convert from JSON list format [x, y, width, height] to QRect
+                self.content_frame = QRect(content_frame_data[0], content_frame_data[1], content_frame_data[2], content_frame_data[3])
+            elif isinstance(content_frame_data, QRect):
+                self.content_frame = QRect(content_frame_data)
+            else:
+                self.content_frame = QRect(50, 50, 300, 500)  # Default fallback
+            self.constrain_to_frame = frame_data.get('constrain_to_frame', False)
+            self.frame_description = frame_data.get('frame_description', f'Frame {self.current_frame} layout')
+            
+            print(f"📂 Loaded frame {self.current_frame} with {len(self.elements)} elements (saved state)")
+            
+            # Important: Even if there are no elements, this is still a valid saved state
+            # Don't call _setup_frame_defaults() here - respect the saved empty state!
     
     def _setup_frame_defaults(self):
-        """Set up default elements for a new frame - COMPLETELY INDEPENDENT from other frames"""
-        import random
+        """Set up default elements for a new frame - with CONSISTENT positions"""
+        print(f"🆕 Setting up CONSISTENT defaults for frame {self.current_frame}")
         
-        # Create UNIQUE positions for THIS frame only - NOT copying from anywhere!
+        # Create CONSISTENT positions for THIS frame only - slight variations per frame but NOT random
         frame_bounds = self.content_frame
         if frame_bounds.width() == 0:
             frame_bounds = QRect(50, 50, 300, 500)  # Default if not set
         
-        # Generate RANDOM positions within the frame for THIS frame ONLY
+        # Generate CONSISTENT positions within the frame for THIS frame
         margin = 20
         available_width = frame_bounds.width() - 2 * margin
         available_height = frame_bounds.height() - 2 * margin
         
         self.elements = {}  # Start completely fresh
         
-        # Create PiP with RANDOM position for THIS frame
-        pip_size = random.randint(80, 120)
-        pip_x = frame_bounds.x() + margin + random.randint(0, max(0, available_width - pip_size))
-        pip_y = frame_bounds.y() + margin + random.randint(0, max(0, available_height - pip_size))
+        # Create PiP with CONSISTENT position for THIS frame (slight offset per frame)
+        pip_size = 100  # Fixed size
+        pip_offset_x = (self.current_frame * 15) % 50  # Small consistent offset per frame
+        pip_offset_y = (self.current_frame * 20) % 40
+        pip_x = frame_bounds.x() + margin + pip_offset_x
+        pip_y = frame_bounds.y() + margin + pip_offset_y
         
         self.elements['pip'] = {
             'type': 'pip',
@@ -1302,60 +1442,79 @@ class TemplateCanvas(QWidget):
             'border_width': 2
         }
         
-        # Create title with RANDOM position for THIS frame
-        title_width = random.randint(150, min(250, available_width))
-        title_height = random.randint(40, 80)
-        title_x = frame_bounds.x() + margin + random.randint(0, max(0, available_width - title_width))
-        title_y = frame_bounds.y() + margin + random.randint(0, max(0, available_height // 2 - title_height))
+        # Create title with CONSISTENT position for THIS frame
+        title_width = 200  # Fixed width
+        title_height = 60   # Fixed height
+        title_offset_x = (self.current_frame * 10) % 30
+        title_offset_y = (self.current_frame * 12) % 25
+        title_x = frame_bounds.x() + margin + title_offset_x
+        title_y = frame_bounds.y() + pip_size + margin * 2 + title_offset_y
         
         self.elements['title'] = {
             'type': 'text',
             'rect': QRect(title_x, title_y, title_width, title_height),
-            'content': f'{self.content_type.title()} Title (Frame {self.current_frame})',
+            'content': f'{self.content_type.title()} Title (Frame {self.current_frame + 1})',
             'size': 24,
             'color': QColor(255, 255, 255),
             'style': 'normal',
             'enabled': True
         }
         
-        # Create subtitle with RANDOM position for THIS frame
-        subtitle_width = random.randint(120, min(200, available_width))
-        subtitle_height = random.randint(30, 50)
-        subtitle_x = frame_bounds.x() + margin + random.randint(0, max(0, available_width - subtitle_width))
-        subtitle_y = frame_bounds.y() + available_height // 2 + random.randint(0, max(0, available_height // 2 - subtitle_height))
+        # Create subtitle with CONSISTENT position for THIS frame
+        subtitle_width = 180  # Fixed width
+        subtitle_height = 40  # Fixed height
+        subtitle_offset_x = (self.current_frame * 8) % 25
+        subtitle_offset_y = (self.current_frame * 15) % 20
+        subtitle_x = frame_bounds.x() + margin + subtitle_offset_x
+        subtitle_y = frame_bounds.bottom() - margin - subtitle_height - subtitle_offset_y
         
         self.elements['subtitle'] = {
             'type': 'text',
             'rect': QRect(subtitle_x, subtitle_y, subtitle_width, subtitle_height),
-            'content': f'Subtitle Frame {self.current_frame}',
+            'content': f'Subtitle for Frame {self.current_frame + 1}',
             'size': 18,
             'color': QColor(255, 255, 255),
             'style': 'normal',
             'enabled': True
         }
         
-        print(f"🎲 Created RANDOM positions for frame {self.current_frame}:")
+        # Set frame description for this frame if not already set
+        frame_data = self.get_current_frame_data()
+        if not frame_data.get('frame_description'):
+            # Generate more meaningful description based on frame index and content type
+            if self.current_frame == 0:
+                self.frame_description = f"Opening frame for {self.content_type} - main visual hook"
+            elif self.current_frame == self.get_content_type_frame_count() - 1:
+                self.frame_description = f"Final frame for {self.content_type} - conclusion/CTA"
+            else:
+                self.frame_description = f"{self.content_type.title()} frame {self.current_frame+1} - content progression"
+        else:
+            # Use existing description
+            self.frame_description = frame_data.get('frame_description')
+        
+        print(f"📐 Created CONSISTENT positions for frame {self.current_frame}:")
         print(f"   PiP: {pip_x},{pip_y} ({pip_size}x{pip_size})")
         print(f"   Title: {title_x},{title_y} ({title_width}x{title_height})")
         print(f"   Subtitle: {subtitle_x},{subtitle_y} ({subtitle_width}x{subtitle_height})")
         
-        # Save the UNIQUE positions to this frame immediately
+        # Save the CONSISTENT positions to this frame immediately
         self._save_current_frame_state()
     
     def get_content_type_frame_count(self, content_type=None):
-        """Get the frame count for a specific content type."""
+        """Get the frame count for a specific content type - RESPECT USER CHOICE."""
         ct = content_type or self.content_type
         
-        # Define frame counts per content type
-        frame_counts = {
-            'reel': 1,      # Reels are usually single frame
-            'story': 5,     # Stories can have multiple frames
-            'tutorial': 8,  # Tutorials have many steps
-            'post': 1,      # Posts are static
-            'teaser': 1     # Teasers are static
-        }
+        # Get the actual frame count from the saved state, not predefined limits
+        if ct in self.content_states:
+            state = self.content_states[ct]
+            if 'frames' in state:
+                return len(state['frames'])
+            else:
+                return state.get('frame_count', 1)  # For static content
         
-        return frame_counts.get(ct, 3)  # Default to 3 if not found
+        # Default for new content types
+        return 3
+    
     
     def get_max_frames_for_content_type(self, content_type=None):
         """Get the maximum allowed frames for a content type."""
@@ -1369,8 +1528,50 @@ class TemplateCanvas(QWidget):
             'post': 1,      # Posts are always 1 frame
             'teaser': 1     # Teasers are always 1 frame
         }
-        
+
         return max_frames.get(ct, 10)  # Default max to 10
+    
+    def set_content_type_frame_count(self, content_type, frame_count):
+        """Set the frame count for a content type - CRITICAL FOR SYNC."""
+        print(f"🎬 Canvas setting frame count for {content_type} to {frame_count}")
+        
+        # Ensure content type exists
+        if content_type not in self.content_states:
+            self.content_states[content_type] = {'frames': {}, 'current_frame': 0}
+        
+        # Update frame count and resize frames dict
+        state = self.content_states[content_type]
+        
+        # Initialize frames if needed
+        if 'frames' not in state:
+            state['frames'] = {}
+        
+        # Adjust frame count
+        current_frames = state['frames']
+        
+        # Remove extra frames (handle both int and str keys for cleanup)
+        frames_to_remove = []
+        for key in list(current_frames.keys()):
+            try:
+                if int(key) >= frame_count:
+                    frames_to_remove.append(key)
+            except (ValueError, TypeError):
+                # Invalid key, remove it
+                frames_to_remove.append(key)
+        
+        for frame_key in frames_to_remove:
+            del current_frames[frame_key]
+        
+        # Add missing frames (they'll be created when accessed) - USE INTEGER KEYS
+        for i in range(frame_count):
+            if i not in current_frames:
+                current_frames[i] = {}
+        
+        # Update current frame if needed
+        if state['current_frame'] >= frame_count:
+            state['current_frame'] = frame_count - 1
+        
+        print(f"✅ Canvas frame count updated: {content_type} now has {frame_count} frames")
     
     def add_frame(self):
         """Add a new frame to video content types (respecting max limits)"""
@@ -1422,3 +1623,107 @@ class TemplateCanvas(QWidget):
                 self.set_current_frame(0)
             
             print(f"➖ Removed frame {frame_index} for {self.content_type}")
+    
+    def set_frame_description(self, frame_index: int, description: str):
+        """Set description for a specific frame - KEEPS FRAMES INDEPENDENT."""
+        if not self.is_video_content_type():
+            return  # No frames for static content
+        
+        state = self.content_states.get(self.content_type, {})
+        if 'frames' not in state:
+            state['frames'] = {}
+        frames = state['frames']
+        
+        # Ensure we have an entry for this frame
+        if frame_index not in frames:
+            frames[frame_index] = {
+                'elements': {},
+                'content_frame': QRect(50, 50, 300, 500),
+                'constrain_to_frame': False,
+                'frame_description': description  # Use provided description
+            }
+        else:
+            # Update ONLY this frame's description - DON'T affect other frames
+            frames[frame_index]['frame_description'] = description
+        
+        # CRITICAL: Also update the canvas instance description if this is the current frame
+        if frame_index == self.current_frame:
+            self.frame_description = description
+        
+        # Ensure the content_states are updated
+        self.content_states[self.content_type] = state
+            
+        print(f"📝 Updated description for {self.content_type} frame {frame_index+1}: {description}")
+        print(f"📝 Content states now has {len(frames)} frames for {self.content_type}")
+        
+        # Save the state to ensure persistence
+        self._save_current_frame_state()
+    
+    def get_frame_description(self, frame_index: int = None) -> str:
+        """Get description for a specific frame or current frame."""
+        if not self.is_video_content_type():
+            return f"{self.content_type.title()} static layout"
+        
+        if frame_index is None:
+            frame_index = self.current_frame
+        
+        state = self.content_states.get(self.content_type, {})
+        frames = state.get('frames', {})
+        
+        if frame_index in frames:
+            # Get existing description or generate a meaningful default
+            description = frames[frame_index].get('frame_description')
+            if not description:
+                if frame_index == 0:
+                    description = f"Opening frame for {self.content_type}"
+                elif frame_index == self.get_content_type_frame_count() - 1:
+                    description = f"Final frame for {self.content_type}"
+                else:
+                    description = f"{self.content_type.title()} frame {frame_index+1}"
+                
+                # Store this generated description
+                frames[frame_index]['frame_description'] = description
+            
+            return description
+        
+        return f'{self.content_type.title()} frame {frame_index+1}'
+    
+    def clear_all_frames_for_content_type(self, content_type):
+        """Clear all frames for a specific content type"""
+        if content_type in self.content_states:
+            if 'frames' in self.content_states[content_type]:
+                self.content_states[content_type]['frames'] = {}
+            print(f"🗑️ Cleared all frames for {content_type}")
+    
+    def set_frame_count_for_content_type(self, content_type, frame_count):
+        """Set frame count for a specific content type"""
+        state = self.content_states.setdefault(content_type, {})
+        state['frames'] = {}
+        
+        # Create frame entries
+        for i in range(frame_count):
+            state['frames'][i] = {
+                'elements': {},
+                'content_frame': QRect(50, 50, 300, 500),
+                'constrain_to_frame': False,
+                'frame_description': f'{content_type.title()} frame {i+1}'
+            }
+        
+        print(f"🎬 Set frame count for {content_type} to {frame_count}")
+    
+    def get_frame_data(self, frame_idx, content_type):
+        """Get frame data for a specific frame and content type"""
+        state = self.content_states.get(content_type, {})
+        frames = state.get('frames', {})
+        return frames.get(frame_idx, None)
+    
+    def set_frame_data(self, frame_idx, content_type, frame_data):
+        """Set frame data for a specific frame and content type"""
+        state = self.content_states.setdefault(content_type, {})
+        frames = state.setdefault('frames', {})
+        frames[frame_idx] = frame_data.copy()
+        print(f"📥 Set frame data for {content_type} frame {frame_idx}")
+    
+    def save_current_frame(self):
+        """Public wrapper for saving current frame state"""
+        self._save_current_frame_state()

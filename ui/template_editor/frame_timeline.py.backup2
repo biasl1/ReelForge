@@ -5,7 +5,7 @@ Allows multiple independent frames/windows with separate element configurations.
 
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QFrame, 
-    QScrollArea, QLabel, QSpinBox, QToolButton, QLineEdit
+    QScrollArea, QLabel, QSpinBox, QToolButton
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QPainter, QColor, QPen, QBrush
@@ -142,6 +142,7 @@ class FrameTimeline(QWidget):
         frame_desc_label.setStyleSheet("font-weight: bold;")
         frame_info_layout.addWidget(frame_desc_label)
         
+        from PyQt6.QtWidgets import QLineEdit
         self.frame_description_edit = QLineEdit()
         self.frame_description_edit.setPlaceholderText("Enter frame description...")
         self.frame_description_edit.setMinimumWidth(300)
@@ -519,85 +520,3 @@ class FrameTimeline(QWidget):
         # DO NOT force predefined frame counts - keep whatever the user has set
         # The timeline already has the correct number of frames that the user wants
         pass
-
-    def sync_descriptions_with_canvas(self):
-        """Sync timeline frame descriptions with canvas - FIXES LOADING ISSUES."""
-        if not hasattr(self, 'canvas') or not self.canvas:
-            return
-            
-        if not self.canvas.is_video_content_type(self.content_type):
-            return
-            
-        print(f"🔄 Syncing timeline descriptions with canvas for {self.content_type}")
-        
-        # Get canvas frame descriptions
-        canvas_state = self.canvas.content_states.get(self.content_type, {})
-        canvas_frames = canvas_state.get('frames', {})
-        
-        # Update timeline frames with canvas descriptions
-        for i, timeline_frame in enumerate(self.frames):
-            if i in canvas_frames:
-                canvas_desc = canvas_frames[i].get('frame_description', '')
-                if canvas_desc:
-                    timeline_frame['frame_description'] = canvas_desc
-                    # Also update content type data
-                    if (self.content_type in self.content_type_data and 
-                        'frames' in self.content_type_data[self.content_type] and
-                        i < len(self.content_type_data[self.content_type]['frames'])):
-                        self.content_type_data[self.content_type]['frames'][i]['frame_description'] = canvas_desc
-                    
-                    print(f"✅ Synced frame {i} description: '{canvas_desc}'")
-        
-        # Update UI if we're on the current frame
-        self._update_description_display()
-        
-        print(f"🔄 Timeline-canvas sync complete for {self.content_type}")
-
-    def _update_description_display(self):
-        """Update the description edit field with current frame's description."""
-        if (hasattr(self, 'frame_description_edit') and 
-            self.current_frame < len(self.frames)):
-            current_desc = self.frames[self.current_frame].get('frame_description', '')
-            self.frame_description_edit.blockSignals(True)
-            self.frame_description_edit.setText(current_desc)
-            self.frame_description_edit.blockSignals(False)
-    
-    def set_frame_count(self, frame_count):
-        """Set the total number of frames for current content type"""
-        # Update internal frames list
-        current_count = len(self.frames)
-        
-        if frame_count > current_count:
-            # Add new frames
-            for i in range(current_count, frame_count):
-                self.frames.append({
-                    'frame_description': f'{self.content_type.title()} frame {i + 1}'
-                })
-        elif frame_count < current_count:
-            # Remove extra frames
-            self.frames = self.frames[:frame_count]
-            
-            # Adjust current frame if needed
-            if self.current_frame >= frame_count:
-                self.current_frame = max(0, frame_count - 1)
-        
-        # Update content type data
-        if self.content_type not in self.content_type_data:
-            self.content_type_data[self.content_type] = {}
-        
-        self.content_type_data[self.content_type]['frames'] = list(range(frame_count))
-        self.content_type_data[self.content_type]['current_frame'] = self.current_frame
-        
-        # Update UI
-        self._update_frame_ui()
-        
-        print(f"📏 Timeline set frame count to {frame_count} for {self.content_type}")
-    
-    def _update_frame_ui(self):
-        """Update the frame UI display"""
-        # Update frame count label
-        if hasattr(self, 'frame_count_spin'):
-            self.frame_count_spin.setValue(len(self.frames))
-        
-        print(f"🔄 Updated frame UI for {self.content_type}: {len(self.frames)} frames")
-
