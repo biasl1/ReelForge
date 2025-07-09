@@ -65,6 +65,10 @@ class TemplateEditor(QWidget):
         # Frame timeline (initially hidden)
         self.frame_timeline = FrameTimeline()
         self.frame_timeline.setVisible(False)  # Hidden for non-video content
+        
+        # CRITICAL: Connect the frame timeline to the canvas
+        self.frame_timeline.set_canvas(self.canvas)
+        
         layout.addWidget(self.frame_timeline)
     
     def _connect_signals(self):
@@ -84,6 +88,8 @@ class TemplateEditor(QWidget):
         # Frame timeline signals
         self.frame_timeline.frame_changed.connect(self._handle_frame_change)
         self.frame_timeline.frames_modified.connect(self._handle_frames_modified)
+        # Connect frame description changes to canvas
+        self.frame_timeline.frame_description_changed.connect(self._handle_frame_description_change)
         
         # Internal updates
         self.canvas.element_moved.connect(self._emit_template_changed)
@@ -153,6 +159,11 @@ class TemplateEditor(QWidget):
         
         self.canvas.update()
         self._emit_template_changed()
+        
+    def _handle_frame_description_change(self, frame_index: int, description: str):
+        """Update the canvas with the new frame description from the timeline UI."""
+        self.canvas.set_frame_description(frame_index, description)
+        self._emit_template_changed()
     
     def _emit_template_changed(self):
         """Emit template changed signal with current configuration."""
@@ -191,19 +202,27 @@ class TemplateEditor(QWidget):
         if self._is_video_content_type() and 'frames_config' in config:
             frames_config = config['frames_config']
             
-            # Restore timeline configuration
+            # Restore timeline configuration directly - RESPECT USER CHOICE
             if 'timeline_config' in frames_config:
-                self.frame_timeline.set_all_frames_config(frames_config['timeline_config'])
+                timeline_config = frames_config['timeline_config']
+                print(f"🔄 Restoring {len(timeline_config)} frames for timeline")
+                self.frame_timeline.set_all_frames_config(timeline_config)
             
             # Restore frames data
             if 'frames_data' in frames_config:
                 self.frames_data[self.current_content_type] = frames_config['frames_data']
             
-            # Restore current frame
+            # Restore current frame (but validate it)
             if 'current_frame' in frames_config:
                 current_frame = frames_config['current_frame']
+                max_frames = self.canvas.get_content_type_frame_count()
+                if current_frame >= max_frames:
+                    current_frame = 0
                 self.frame_timeline.set_current_frame(current_frame)
                 self._load_frame_elements(current_frame)
+        elif self._is_video_content_type():
+            # Ensure timeline has correct frame count even if no config to restore
+            self.frame_timeline.set_content_type(self.current_content_type)
     
     def set_content_type(self, content_type: str):
         """Set the content type."""
@@ -223,8 +242,8 @@ class TemplateEditor(QWidget):
         self.frame_timeline.setVisible(is_video)
         
         if is_video:
-            # Set the correct frame count for this content type
-            self.frame_timeline.set_content_type_frames(content_type)
+            # CRITICAL: Reset timeline to clean state for new content type
+            self._reset_timeline_for_content_type(content_type)
             
             # Tell canvas to switch to this content type (it handles its own frame independence)
             current_frame = 0  # Always start with frame 0 for new content type
@@ -363,3 +382,33 @@ class TemplateEditor(QWidget):
             self._save_current_frame_elements()
         
         return self.get_template_config()
+    
+    def _reset_timeline_for_content_type(self, content_type: str):
+        # CRITICAL: Tell timeline to switch to this content type first
+        self.frame_timeline.set_content_type(content_type)
+        """Reset timeline with fresh frame data for the content type - ENSURES INDEPENDENCE."""
+        # Get the canvas frame count for this content type
+        canvas_frame_count = self.canvas.get_content_type_frame_count()
+        
+        # Create fresh timeline frames with content-type-specific descriptions
+        timeline_frames = []
+        for i in range(canvas_frame_count):
+            # Get the frame description from canvas for THIS content type
+            frame_description = self.canvas.get_frame_description(i)
+            
+            timeline_frame = {
+                'elements': {},
+                'duration': 1.0,
+                'transition': 'none',
+                'frame_description': frame_description  # Content-type-specific description
+            }
+            timeline_frames.append(timeline_frame)
+        
+        # Set the timeline frames (this clears old data and sets new data)
+        self.frame_timeline.set_all_frames_config(timeline_frames)
+        
+        # Reset to frame 0
+        self.frame_timeline.set_current_frame(0)
+        
+        # Connect canvas to timeline AFTER reset
+        self.frame_timeline.set_canvas(self.canvas)

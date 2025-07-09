@@ -37,6 +37,16 @@ ReelTune is a modern PyQt6-based desktop application designed for professional c
 - **Marketing Content**: Extract descriptions, features, and selling points
 - **Technical Specifications**: Plugin parameters, categories, and capabilities
 
+### 🎨 Template Editor
+- **Multi-Content Type Support**: Independent template design for Reels, Stories, Tutorials, Posts, and Teasers
+- **Frame-Based Editing**: Video content types (Reels, Stories, Tutorials) support multiple independent frames
+- **Independent Frame Management**: Each content type maintains its own frame count and descriptions
+- **Element Positioning**: Drag-and-drop element positioning with constraint modes
+- **Real-Time Preview**: Interactive canvas with visual element manipulation
+- **Frame Timeline**: Dedicated timeline for managing video content frames
+- **Persistent Configuration**: Save/load preserves exact frame counts and element positions
+- **AI Export Ready**: Template data structured for AI content generation with frame-specific descriptions
+
 ## 🛠️ Technical Architecture
 
 ### Core Modules
@@ -51,6 +61,10 @@ ReelTune is a modern PyQt6-based desktop application designed for professional c
 - **`ui/enhanced_asset_panel.py`** - Professional asset panel with thumbnails and categorization
 - **`ui/timeline/canvas.py`** - Timeline rendering and event management
 - **`ui/timeline/controls.py`** - Timeline controls (duration fixed to 4 weeks)
+- **`ui/template_editor/editor.py`** - Main template editor with canvas, controls, and frame timeline integration
+- **`ui/template_editor/canvas.py`** - Interactive template canvas with element manipulation and frame state management
+- **`ui/template_editor/frame_timeline.py`** - Frame timeline for video content types with independent frame management
+- **`ui/template_editor/controls.py`** - Template controls panel for element properties and content type switching
 - **`ui/startup_dialog.py`** - Project creation/opening dialog
 - **`ui/menu.py`** - Menu bar management
 - **`ui/style_utils.py`** - Dark theme styling
