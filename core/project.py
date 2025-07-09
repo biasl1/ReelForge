@@ -1120,33 +1120,61 @@ class ReelForgeProject:
             if hasattr(template_editor.canvas, 'content_states') and content_type in template_editor.canvas.content_states:
                 state = template_editor.canvas.content_states[content_type]
                 
-                # Only save if there are elements configured
-                if state.get('elements'):
-                    # Temporarily switch canvas internal state (no UI updates)
-                    original_elements = template_editor.canvas.elements
-                    original_frame = template_editor.canvas.content_frame
-                    original_constrain = template_editor.canvas.constrain_to_frame
-                    original_content_type = template_editor.canvas.content_type
+                # Check if this is a video content type (has frames)
+                is_video = template_editor.canvas.is_video_content_type(content_type)
+                
+                if is_video:
+                    # For video content types, check if any frame has elements
+                    frames = state.get('frames', {})
+                    has_elements = any(frame.get('elements') for frame in frames.values())
                     
-                    try:
-                        # Set canvas to this content type's state (internal only)
-                        template_editor.canvas.elements = state['elements']
-                        template_editor.canvas.content_frame = state['content_frame']
-                        template_editor.canvas.constrain_to_frame = state['constrain_to_frame']
-                        template_editor.canvas.content_type = content_type
+                    if has_elements:
+                        # Temporarily switch canvas to this content type
+                        original_content_type = template_editor.canvas.content_type
+                        original_frame = template_editor.canvas.current_frame
                         
-                        # Get config using proper API (this handles deep copy and serialization)
-                        config = template_editor.get_template_config()
+                        try:
+                            # Switch to this content type
+                            template_editor.canvas.content_type = content_type
+                            
+                            # Get config using proper API (handles all frame data)
+                            config = template_editor.get_template_config()
+                            
+                            if config and (config.get('canvas_config') or config.get('frames_config')):
+                                template_settings[content_type] = config
                         
-                        if config and config.get('canvas_config'):
-                            template_settings[content_type] = config
-                    
-                    finally:
-                        # Restore original canvas state
-                        template_editor.canvas.elements = original_elements
-                        template_editor.canvas.content_frame = original_frame
-                        template_editor.canvas.constrain_to_frame = original_constrain
-                        template_editor.canvas.content_type = original_content_type
+                        finally:
+                            # Restore original state
+                            template_editor.canvas.content_type = original_content_type
+                            template_editor.canvas.current_frame = original_frame
+                else:
+                    # For static content types, use the old method
+                    if state.get('elements'):
+                        # Temporarily switch canvas internal state (no UI updates)
+                        original_elements = template_editor.canvas.elements
+                        original_frame = template_editor.canvas.content_frame
+                        original_constrain = template_editor.canvas.constrain_to_frame
+                        original_content_type = template_editor.canvas.content_type
+                        
+                        try:
+                            # Set canvas to this content type's state (internal only)
+                            template_editor.canvas.elements = state['elements']
+                            template_editor.canvas.content_frame = state['content_frame']
+                            template_editor.canvas.constrain_to_frame = state['constrain_to_frame']
+                            template_editor.canvas.content_type = content_type
+                            
+                            # Get config using proper API (this handles deep copy and serialization)
+                            config = template_editor.get_template_config()
+                            
+                            if config and config.get('canvas_config'):
+                                template_settings[content_type] = config
+                        
+                        finally:
+                            # Restore original canvas state
+                            template_editor.canvas.elements = original_elements
+                            template_editor.canvas.content_frame = original_frame
+                            template_editor.canvas.constrain_to_frame = original_constrain
+                            template_editor.canvas.content_type = original_content_type
         
         # Save to project
         self.template_editor_settings = template_settings

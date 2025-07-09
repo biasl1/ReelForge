@@ -62,8 +62,9 @@ class TemplateCanvas(QWidget):
         self.content_frame = QRect(50, 50, 300, 500)
         self._need_frame_check = False
         
-        # Content-specific state storage - CRITICAL for independence!
-        self.content_states = {}  # Store elements, frame, etc. per content type
+        # Frame-based state storage - CRITICAL for independence!
+        self.content_states = {}  # Store per content type
+        self.current_frame = 0  # Current frame index for video content types
         self._initialize_content_states()
         
         # Constraint settings
@@ -71,7 +72,7 @@ class TemplateCanvas(QWidget):
         self.snap_to_grid = False
         self.grid_size = 10
         
-        # Elements and selection
+        # Elements and selection (for current frame)
         self.elements = {}
         self.selected_element = None
         self.dragging_element = None
@@ -88,15 +89,43 @@ class TemplateCanvas(QWidget):
             self.reset_positions_requested.connect(self.reset_positions)
     
     def _initialize_content_states(self):
-        """Initialize separate states for each content type - CRITICAL for independence!"""
+        """Initialize separate states for each content type with frame support - CRITICAL for independence!"""
         content_types = ['reel', 'story', 'post', 'teaser', 'tutorial']
         for content_type in content_types:
-            self.content_states[content_type] = {
-                'elements': {},
-                'content_frame': QRect(50, 50, 300, 500),
-                'constrain_to_frame': False
-                # REMOVE 'zoom', 'pan'
-            }
+            # Check if this is a video content type that needs frames
+            is_video = content_type in ['reel', 'story', 'tutorial']
+            
+            if is_video:
+                # Video content types have multiple frames
+                self.content_states[content_type] = {
+                    'frames': {
+                        0: {  # Default first frame
+                            'elements': {},
+                            'content_frame': QRect(50, 50, 300, 500),
+                            'constrain_to_frame': False
+                        },
+                        1: {  # Default second frame
+                            'elements': {},
+                            'content_frame': QRect(50, 50, 300, 500),
+                            'constrain_to_frame': False
+                        },
+                        2: {  # Default third frame
+                            'elements': {},
+                            'content_frame': QRect(50, 50, 300, 500),
+                            'constrain_to_frame': False
+                        }
+                    },
+                    'current_frame': 0,
+                    'frame_count': 3
+                }
+            else:
+                # Static content types (like 'post') have single state
+                self.content_states[content_type] = {
+                    'elements': {},
+                    'content_frame': QRect(50, 50, 300, 500),
+                    'constrain_to_frame': False
+                }
+            # REMOVE 'zoom', 'pan'
     
     def _setup_default_elements(self):
         """Setup default elements for the current content type."""
@@ -229,36 +258,59 @@ class TemplateCanvas(QWidget):
                 self.elements[element_id] = element
     
     def set_content_type(self, content_type: str):
-        """Set the content type and switch to its independent state."""
+        """Set the content type and switch to its independent state with frame support."""
         new_content_type = content_type.lower()
         
         # If switching to a different content type, save current state first
         if new_content_type != self.content_type:
-            self._save_current_state()
+            if self.is_video_content_type(self.content_type):
+                self._save_current_frame_state()
+            else:
+                self._save_current_state()
         
         # Switch to new content type
         self.content_type = new_content_type
         
-        # Load the state for the new content type
-        self._load_content_state()
+        # Reset current frame for video content types
+        if self.is_video_content_type():
+            if self.content_type in self.content_states:
+                self.current_frame = self.content_states[self.content_type].get('current_frame', 0)
+            else:
+                self.current_frame = 0
+        
+        # Load the state for the new content type (and current frame if video)
+        if self.is_video_content_type():
+            self._load_current_frame_state()
+        else:
+            self._load_content_state()
         
         self._need_frame_check = True
         self.update()
     
     def _save_current_state(self):
         """Save current canvas state for the current content type."""
-        if self.content_type in self.content_states:
-            state = self.content_states[self.content_type]
-            
-            # Deep copy elements to avoid reference issues
-            import copy
-            state['elements'] = copy.deepcopy(self.elements)
-            state['content_frame'] = QRect(self.content_frame)
-            state['constrain_to_frame'] = self.constrain_to_frame
-            # REMOVE zoom/pan
+        if self.is_video_content_type():
+            # For video content, save to current frame
+            self._save_current_frame_state()
+        else:
+            # For static content, save normally
+            if self.content_type in self.content_states:
+                state = self.content_states[self.content_type]
+                
+                # Deep copy elements to avoid reference issues
+                import copy
+                state['elements'] = copy.deepcopy(self.elements)
+                state['content_frame'] = QRect(self.content_frame)
+                state['constrain_to_frame'] = self.constrain_to_frame
+                # REMOVE zoom/pan
     
     def _load_content_state(self):
-        """Load state for the current content type."""
+        """Load state for the current content type (non-video only)."""
+        if self.is_video_content_type():
+            # For video content, load from current frame
+            self._load_current_frame_state()
+            return
+        
         print(f"🔄 Loading content state for: {self.content_type}")
         print(f"   Available states: {list(self.content_states.keys())}")
         
@@ -276,7 +328,7 @@ class TemplateCanvas(QWidget):
         
         # If elements are empty, set up defaults for this content type
         if not state['elements']:
-            print(f"   Elements empty, setting up defaults - THIS OVERWRITES SAVED DATA!")
+            print(f"   Elements empty, setting up defaults")
             self._setup_content_type_elements(self.content_type)
             state = self.content_states[self.content_type]  # Refresh state
         
@@ -395,9 +447,16 @@ class TemplateCanvas(QWidget):
         self.update()
     
     def get_element_config(self) -> dict:
-        """Get current element configuration."""
+        """Get current element configuration with frame support."""
         import copy
-        return {
+        
+        # Save current state before getting config
+        if self.is_video_content_type():
+            self._save_current_frame_state()
+        else:
+            self._save_current_state()
+        
+        config = {
             'content_type': self.content_type,
             'constrain_to_frame': self.constrain_to_frame,
             'elements': copy.deepcopy(dict(self.elements)),
@@ -408,9 +467,18 @@ class TemplateCanvas(QWidget):
                 'height': self.content_frame.height()
             }
         }
+        
+        # Add frame data for video content types
+        if self.is_video_content_type():
+            state = self.content_states.get(self.content_type, {})
+            config['frames'] = copy.deepcopy(state.get('frames', {}))
+            config['current_frame'] = state.get('current_frame', 0)
+            config['frame_count'] = state.get('frame_count', 3)
+        
+        return config
     
     def set_element_config(self, config: dict):
-        """Set element configuration."""
+        """Set element configuration with frame support."""
         if 'content_type' in config:
             self.content_type = config['content_type']
         if 'constrain_to_frame' in config:
@@ -422,10 +490,28 @@ class TemplateCanvas(QWidget):
                 frame_data['x'], frame_data['y'], 
                 frame_data['width'], frame_data['height']
             )
-        if 'elements' in config:
+        
+        # Handle frame data for video content types
+        if self.is_video_content_type() and 'frames' in config:
+            # Restore frame-based data
+            if self.content_type not in self.content_states:
+                self.content_states[self.content_type] = {}
+            
+            state = self.content_states[self.content_type]
+            state['frames'] = config['frames']
+            state['current_frame'] = config.get('current_frame', 0)
+            state['frame_count'] = config.get('frame_count', 3)
+            
+            self.current_frame = state['current_frame']
+            
+            # Load the current frame's elements
+            self._load_current_frame_state()
+        elif 'elements' in config:
+            # For static content or direct element setting
             # Convert any lists back to Qt objects before setting elements
             restored_elements = restore_qt_objects(config['elements'])
             self.elements.update(restored_elements)
+        
         # DO NOT set _need_frame_check = True during load - this causes position shifts!
         # Only update the display without triggering frame recalculation
         self.update()
@@ -1098,3 +1184,202 @@ class TemplateCanvas(QWidget):
         # Update display
         self.update()
         print(f"Reset element positions for {self.content_type}")
+    
+    def is_video_content_type(self, content_type=None):
+        """Check if content type supports frames"""
+        ct = content_type or self.content_type
+        return ct in ['reel', 'story', 'tutorial']
+    
+    def get_current_frame_data(self):
+        """Get current frame data for video content types"""
+        if not self.is_video_content_type():
+            return self.content_states.get(self.content_type, {})
+        
+        state = self.content_states.get(self.content_type, {})
+        frames = state.get('frames', {})
+        current_frame = state.get('current_frame', 0)
+        return frames.get(current_frame, {})
+    
+    def set_current_frame(self, frame_index):
+        """Switch to a specific frame for video content types - INDEPENDENT elements per frame"""
+        if not self.is_video_content_type():
+            return  # No frames for static content
+        
+        print(f"🎬 Switching to frame {frame_index} for {self.content_type}")
+        
+        # Save current frame state before switching
+        self._save_current_frame_state()
+        
+        # Update current frame index
+        if self.content_type in self.content_states:
+            self.content_states[self.content_type]['current_frame'] = frame_index
+            self.current_frame = frame_index
+        
+        # Load the new frame's state
+        self._load_current_frame_state()
+        
+        # Update the display
+        self.update()
+    
+    def _save_current_frame_state(self):
+        """Save current elements to the current frame - PRESERVES INDEPENDENCE"""
+        if not self.is_video_content_type():
+            # For static content, save normally
+            self._save_current_state()
+            return
+        
+        state = self.content_states.get(self.content_type, {})
+        frames = state.get('frames', {})
+        current_frame = state.get('current_frame', 0)
+        
+        # Deep copy current elements to preserve independence
+        import copy
+        frames[current_frame] = {
+            'elements': copy.deepcopy(self.elements),
+            'content_frame': QRect(self.content_frame),
+            'constrain_to_frame': self.constrain_to_frame
+        }
+        
+        print(f"💾 Saved frame {current_frame} with {len(self.elements)} elements")
+    
+    def _load_current_frame_state(self):
+        """Load elements from current frame - MAINTAINS INDEPENDENCE"""
+        if not self.is_video_content_type():
+            # For static content, load normally
+            self._load_content_state()
+            return
+        
+        frame_data = self.get_current_frame_data()
+        
+        if not frame_data or not frame_data.get('elements'):
+            # If frame has no elements, set up defaults for this frame
+            print(f"🆕 Setting up defaults for frame {self.current_frame}")
+            self._setup_frame_defaults()
+        else:
+            # Load frame's independent element configuration
+            import copy
+            self.elements = copy.deepcopy(frame_data['elements'])
+            self.content_frame = QRect(frame_data.get('content_frame', QRect(50, 50, 300, 500)))
+            self.constrain_to_frame = frame_data.get('constrain_to_frame', False)
+            
+            print(f"📂 Loaded frame {self.current_frame} with {len(self.elements)} elements")
+    
+    def _setup_frame_defaults(self):
+        """Set up default elements for a new frame - COMPLETELY INDEPENDENT from other frames"""
+        import random
+        
+        # Create UNIQUE positions for THIS frame only - NOT copying from anywhere!
+        frame_bounds = self.content_frame
+        if frame_bounds.width() == 0:
+            frame_bounds = QRect(50, 50, 300, 500)  # Default if not set
+        
+        # Generate RANDOM positions within the frame for THIS frame ONLY
+        margin = 20
+        available_width = frame_bounds.width() - 2 * margin
+        available_height = frame_bounds.height() - 2 * margin
+        
+        self.elements = {}  # Start completely fresh
+        
+        # Create PiP with RANDOM position for THIS frame
+        pip_size = random.randint(80, 120)
+        pip_x = frame_bounds.x() + margin + random.randint(0, max(0, available_width - pip_size))
+        pip_y = frame_bounds.y() + margin + random.randint(0, max(0, available_height - pip_size))
+        
+        self.elements['pip'] = {
+            'type': 'pip',
+            'rect': QRect(pip_x, pip_y, pip_size, pip_size),
+            'enabled': True,
+            'use_plugin_aspect_ratio': False,
+            'plugin_aspect_ratio': 1.75,
+            'plugin_file_path': '',
+            'corner_radius': 0,
+            'shape': 'rectangle',
+            'color': QColor(100, 150, 200, 128),
+            'border_color': QColor(255, 255, 255),
+            'border_width': 2
+        }
+        
+        # Create title with RANDOM position for THIS frame
+        title_width = random.randint(150, min(250, available_width))
+        title_height = random.randint(40, 80)
+        title_x = frame_bounds.x() + margin + random.randint(0, max(0, available_width - title_width))
+        title_y = frame_bounds.y() + margin + random.randint(0, max(0, available_height // 2 - title_height))
+        
+        self.elements['title'] = {
+            'type': 'text',
+            'rect': QRect(title_x, title_y, title_width, title_height),
+            'content': f'{self.content_type.title()} Title (Frame {self.current_frame})',
+            'size': 24,
+            'color': QColor(255, 255, 255),
+            'style': 'normal',
+            'enabled': True
+        }
+        
+        # Create subtitle with RANDOM position for THIS frame
+        subtitle_width = random.randint(120, min(200, available_width))
+        subtitle_height = random.randint(30, 50)
+        subtitle_x = frame_bounds.x() + margin + random.randint(0, max(0, available_width - subtitle_width))
+        subtitle_y = frame_bounds.y() + available_height // 2 + random.randint(0, max(0, available_height // 2 - subtitle_height))
+        
+        self.elements['subtitle'] = {
+            'type': 'text',
+            'rect': QRect(subtitle_x, subtitle_y, subtitle_width, subtitle_height),
+            'content': f'Subtitle Frame {self.current_frame}',
+            'size': 18,
+            'color': QColor(255, 255, 255),
+            'style': 'normal',
+            'enabled': True
+        }
+        
+        print(f"🎲 Created RANDOM positions for frame {self.current_frame}:")
+        print(f"   PiP: {pip_x},{pip_y} ({pip_size}x{pip_size})")
+        print(f"   Title: {title_x},{title_y} ({title_width}x{title_height})")
+        print(f"   Subtitle: {subtitle_x},{subtitle_y} ({subtitle_width}x{subtitle_height})")
+        
+        # Save the UNIQUE positions to this frame immediately
+        self._save_current_frame_state()
+    
+    def add_frame(self):
+        """Add a new frame to video content types"""
+        if not self.is_video_content_type():
+            return
+        
+        state = self.content_states.get(self.content_type, {})
+        frames = state.get('frames', {})
+        frame_count = state.get('frame_count', 3)
+        
+        # Add new frame with default elements
+        new_frame_index = frame_count
+        frames[new_frame_index] = {
+            'elements': {},
+            'content_frame': QRect(50, 50, 300, 500),
+            'constrain_to_frame': False
+        }
+        
+        # Update frame count
+        state['frame_count'] = frame_count + 1
+        
+        print(f"➕ Added frame {new_frame_index} for {self.content_type}")
+        return new_frame_index
+    
+    def remove_frame(self, frame_index):
+        """Remove a frame from video content types"""
+        if not self.is_video_content_type():
+            return
+        
+        state = self.content_states.get(self.content_type, {})
+        frames = state.get('frames', {})
+        frame_count = state.get('frame_count', 3)
+        
+        if frame_count <= 1:
+            return  # Don't remove the last frame
+        
+        if frame_index in frames:
+            del frames[frame_index]
+            state['frame_count'] = frame_count - 1
+            
+            # If we deleted the current frame, switch to frame 0
+            if state.get('current_frame', 0) == frame_index:
+                self.set_current_frame(0)
+            
+            print(f"➖ Removed frame {frame_index} for {self.content_type}")
