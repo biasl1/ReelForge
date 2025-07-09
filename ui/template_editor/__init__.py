@@ -49,7 +49,4 @@ __all__ = [
 ]
 
 # For backward compatibility with existing code
-from .compat import BackwardCompatibleTemplateEditor
-SimpleTemplateEditor = BackwardCompatibleTemplateEditor
-AITemplateEditor = BackwardCompatibleTemplateEditor
 VisualTemplateEditor = TemplateCanvas
