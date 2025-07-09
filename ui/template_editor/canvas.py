@@ -90,34 +90,36 @@ class TemplateCanvas(QWidget):
     
     def _initialize_content_states(self):
         """Initialize separate states for each content type with frame support - CRITICAL for independence!"""
-        content_types = ['reel', 'story', 'post', 'teaser', 'tutorial']
-        for content_type in content_types:
-            # Check if this is a video content type that needs frames
-            is_video = content_type in ['reel', 'story', 'tutorial']
+        # Define content types with their INDEPENDENT frame counts
+        content_type_configs = {
+            'reel': {'frames': 1, 'is_video': True},      # Reels are usually single frame
+            'story': {'frames': 5, 'is_video': True},     # Stories can have multiple frames  
+            'tutorial': {'frames': 8, 'is_video': True},  # Tutorials have many steps
+            'post': {'frames': 1, 'is_video': False},     # Posts are static
+            'teaser': {'frames': 1, 'is_video': False}    # Teasers are static
+        }
+        
+        for content_type, config in content_type_configs.items():
+            is_video = config['is_video']
+            frame_count = config['frames']
             
             if is_video:
-                # Video content types have multiple frames
+                # Video content types have INDEPENDENT frame counts with unique configurations
+                frames = {}
+                for i in range(frame_count):
+                    frames[i] = {
+                        'elements': {},
+                        'content_frame': QRect(50, 50, 300, 500),
+                        'constrain_to_frame': False
+                    }
+                
                 self.content_states[content_type] = {
-                    'frames': {
-                        0: {  # Default first frame
-                            'elements': {},
-                            'content_frame': QRect(50, 50, 300, 500),
-                            'constrain_to_frame': False
-                        },
-                        1: {  # Default second frame
-                            'elements': {},
-                            'content_frame': QRect(50, 50, 300, 500),
-                            'constrain_to_frame': False
-                        },
-                        2: {  # Default third frame
-                            'elements': {},
-                            'content_frame': QRect(50, 50, 300, 500),
-                            'constrain_to_frame': False
-                        }
-                    },
+                    'frames': frames,
                     'current_frame': 0,
-                    'frame_count': 3
+                    'frame_count': frame_count
                 }
+                
+                print(f"🎬 Initialized {content_type} with {frame_count} frames")
             else:
                 # Static content types (like 'post') have single state
                 self.content_states[content_type] = {
@@ -125,7 +127,8 @@ class TemplateCanvas(QWidget):
                     'content_frame': QRect(50, 50, 300, 500),
                     'constrain_to_frame': False
                 }
-            # REMOVE 'zoom', 'pan'
+                
+                print(f"📄 Initialized {content_type} as static content")
     
     def _setup_default_elements(self):
         """Setup default elements for the current content type."""
@@ -1339,14 +1342,50 @@ class TemplateCanvas(QWidget):
         # Save the UNIQUE positions to this frame immediately
         self._save_current_frame_state()
     
+    def get_content_type_frame_count(self, content_type=None):
+        """Get the frame count for a specific content type."""
+        ct = content_type or self.content_type
+        
+        # Define frame counts per content type
+        frame_counts = {
+            'reel': 1,      # Reels are usually single frame
+            'story': 5,     # Stories can have multiple frames
+            'tutorial': 8,  # Tutorials have many steps
+            'post': 1,      # Posts are static
+            'teaser': 1     # Teasers are static
+        }
+        
+        return frame_counts.get(ct, 3)  # Default to 3 if not found
+    
+    def get_max_frames_for_content_type(self, content_type=None):
+        """Get the maximum allowed frames for a content type."""
+        ct = content_type or self.content_type
+        
+        # Define maximum frame limits
+        max_frames = {
+            'reel': 3,      # Reels can have up to 3 frames
+            'story': 10,    # Stories can have up to 10 frames
+            'tutorial': 15, # Tutorials can have up to 15 steps
+            'post': 1,      # Posts are always 1 frame
+            'teaser': 1     # Teasers are always 1 frame
+        }
+        
+        return max_frames.get(ct, 10)  # Default max to 10
+    
     def add_frame(self):
-        """Add a new frame to video content types"""
+        """Add a new frame to video content types (respecting max limits)"""
         if not self.is_video_content_type():
-            return
+            return None
         
         state = self.content_states.get(self.content_type, {})
         frames = state.get('frames', {})
-        frame_count = state.get('frame_count', 3)
+        frame_count = state.get('frame_count', 1)
+        max_frames = self.get_max_frames_for_content_type()
+        
+        # Check if we can add more frames
+        if frame_count >= max_frames:
+            print(f"⚠️ Cannot add frame: {self.content_type} is limited to {max_frames} frames")
+            return None
         
         # Add new frame with default elements
         new_frame_index = frame_count
@@ -1359,7 +1398,7 @@ class TemplateCanvas(QWidget):
         # Update frame count
         state['frame_count'] = frame_count + 1
         
-        print(f"➕ Added frame {new_frame_index} for {self.content_type}")
+        print(f"➕ Added frame {new_frame_index} for {self.content_type} ({frame_count + 1}/{max_frames} frames)")
         return new_frame_index
     
     def remove_frame(self, frame_index):

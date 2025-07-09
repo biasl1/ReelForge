@@ -223,11 +223,11 @@ class TemplateEditor(QWidget):
         self.frame_timeline.setVisible(is_video)
         
         if is_video:
-            # Initialize frames for this content type if needed
-            if content_type not in self.frames_data:
-                self.frames_data[content_type] = {}
+            # Set the correct frame count for this content type
+            self.frame_timeline.set_content_type_frames(content_type)
             
-            # Load current frame elements
+            # Tell canvas to switch to this content type (it handles its own frame independence)
+            current_frame = 0  # Always start with frame 0 for new content type
             current_frame = self.frame_timeline.get_current_frame()
             self._load_frame_elements(current_frame)
         
@@ -276,8 +276,8 @@ class TemplateEditor(QWidget):
             frame_count = self.frame_timeline.get_frame_count()
             current_frames = self.frames_data.get(self.current_content_type, {})
             
-            # Remove frames that no longer exist
-            frames_to_remove = [f for f in current_frames.keys() if f >= frame_count]
+            # Remove frames that no longer exist (convert frame keys to int for comparison)
+            frames_to_remove = [f for f in current_frames.keys() if int(f) >= frame_count]
             for frame_idx in frames_to_remove:
                 del current_frames[frame_idx]
             

@@ -316,7 +316,54 @@ class FrameTimeline(QWidget):
         
         self.frame_count_spin.setValue(len(self.frames))
         self._update_current_frame_label()
-        
+    
     def is_video_content_type(self, content_type: str) -> bool:
         """Check if content type supports frames."""
         return content_type in ['story', 'reel', 'tutorial']
+    
+    def set_content_type_frames(self, content_type: str):
+        """Set the number of frames based on content type."""
+        # Define frame counts per content type - MUST match canvas.py
+        frame_counts = {
+            'reel': 1,      # Reels are usually single frame
+            'story': 5,     # Stories can have multiple frames  
+            'tutorial': 8,  # Tutorials have many steps
+            'post': 1,      # Posts are static
+            'teaser': 1     # Teasers are static
+        }
+        
+        target_frame_count = frame_counts.get(content_type, 3)
+        current_frame_count = len(self.frames)
+        
+        if target_frame_count == current_frame_count:
+            return  # Already correct
+        
+        # Clear existing frames and buttons
+        self.frames.clear()
+        for button in self.frame_buttons:
+            button.setParent(None)
+            button.deleteLater()
+        self.frame_buttons.clear()
+        
+        # Create new frames for this content type
+        for i in range(target_frame_count):
+            frame_config = {
+                'elements': {},
+                'duration': 1.0,
+                'transition': 'none'
+            }
+            self.frames.append(frame_config)
+            self._create_frame_button(i)
+        
+        # Update UI - no need to call _update_frame_display since buttons are already created
+        
+        # Reset to first frame
+        self.current_frame = 0
+        if self.frame_buttons:
+            self.frame_buttons[0].setChecked(True)
+            self._update_current_frame_label()
+        
+        # Update frame count spinner
+        self.frame_count_spin.setValue(target_frame_count)
+        
+        print(f"🎬 Timeline updated for {content_type}: {target_frame_count} frames")
