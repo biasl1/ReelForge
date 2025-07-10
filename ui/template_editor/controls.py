@@ -148,9 +148,7 @@ class TemplateControls(QWidget):
         
         element_type = element_data.get('type', 'unknown')
         
-        # Add common properties
-        self._add_position_controls(element_data)
-        self._add_size_controls(element_data)
+        # Only add simplified controls - no complex positioning
         
         # Add type-specific properties
         if element_type == 'text':
@@ -158,13 +156,13 @@ class TemplateControls(QWidget):
         elif element_type == 'pip':
             self._add_pip_properties(element_data)
         
-        # Enable/disable checkbox
-        enabled_checkbox = QCheckBox("Enabled")
+        # Enable/disable checkbox (always show this for all elements)
+        enabled_checkbox = QCheckBox("Visible")
         enabled_checkbox.setChecked(element_data.get('enabled', True))
         enabled_checkbox.toggled.connect(
             lambda checked: self.element_property_changed.emit(element_id, 'enabled', checked)
         )
-        self.properties_layout.addRow("Visible:", enabled_checkbox)
+        self.properties_layout.addRow("", enabled_checkbox)  # No label, just the checkbox
         
         self.no_selection_label.hide()
         self.properties_widget.show()
@@ -218,7 +216,7 @@ class TemplateControls(QWidget):
         self.properties_layout.addRow("Height:", height_spin)
     
     def _add_text_properties(self, element_data: dict):
-        """Add text-specific properties."""
+        """Add simplified text-specific properties."""
         # Content
         content_edit = QLineEdit()
         content_edit.setText(element_data.get('content', ''))
@@ -243,32 +241,37 @@ class TemplateControls(QWidget):
         color_btn.clicked.connect(lambda: self._choose_color(color_btn))
         self.properties_layout.addRow("Color:", color_btn)
         
-        # Style
-        style_combo = QComboBox()
-        style_combo.addItems(["normal", "bold"])
-        style_combo.setCurrentText(element_data.get('style', 'normal'))
-        style_combo.currentTextChanged.connect(
-            lambda text: self.element_property_changed.emit(self.current_element, 'style', text)
+        # Simplified Position (Top/Middle/Bottom)
+        position_combo = QComboBox()
+        position_combo.addItems(["Top", "Middle", "Bottom"])
+        
+        # Determine current position based on Y coordinate
+        rect = element_data.get('rect')
+        current_position = "Middle"  # default
+        if rect:
+            y_pos = rect.y()
+            # Rough approximation based on content dimensions
+            if y_pos < 200:
+                current_position = "Top"
+            elif y_pos > 400:
+                current_position = "Bottom"
+        
+        position_combo.setCurrentText(current_position)
+        position_combo.currentTextChanged.connect(
+            lambda text: self.element_property_changed.emit(self.current_element, 'position_preset', text)
         )
-        self.properties_layout.addRow("Style:", style_combo)
+        self.properties_layout.addRow("Position:", position_combo)
     
     def _add_pip_properties(self, element_data: dict):
-        """Add PiP-specific properties."""
-        # Shape
-        shape_combo = QComboBox()
-        shape_combo.addItems(["square", "rectangle"])
-        shape_combo.setCurrentText(element_data.get('shape', 'square'))
-        shape_combo.currentTextChanged.connect(
-            lambda text: self.element_property_changed.emit(self.current_element, 'shape', text)
-        )
-        self.properties_layout.addRow("Shape:", shape_combo)
+        """Add simplified PiP-specific properties - always centered with 16:9 aspect ratio."""
         
-        # Corner Radius Section
-        style_label = QLabel("🎨 Visual Style")
-        style_label.setStyleSheet("font-weight: bold; color: #ff6b35; margin-top: 10px;")
-        self.properties_layout.addRow(style_label)
+        # Info label explaining the simplified PiP behavior
+        info_label = QLabel("📹 Plugin video preview (always centered, 16:9 aspect ratio)")
+        info_label.setStyleSheet("color: #666; font-style: italic; margin-bottom: 10px;")
+        info_label.setWordWrap(True)
+        self.properties_layout.addRow(info_label)
         
-        # Corner radius slider
+        # Corner radius slider (kept for visual customization)
         corner_radius = element_data.get('corner_radius', 0)
         corner_slider = QSlider(Qt.Orientation.Horizontal)
         corner_slider.setRange(0, 50)

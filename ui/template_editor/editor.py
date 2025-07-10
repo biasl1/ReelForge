@@ -103,6 +103,9 @@ class TemplateEditor(QWidget):
         self.canvas.set_content_type("reel")
         self.controls.set_content_type("reel")
         
+        # Ensure default elements are created
+        self.canvas.reset_positions()
+        
         # Set initial constraint mode
         self.canvas.set_constraint_mode(False)  # Free placement by default
         self.controls.set_constraint_mode(False)
@@ -153,12 +156,41 @@ class TemplateEditor(QWidget):
                 rect.setWidth(value)
             elif rect_prop == 'height':
                 rect.setHeight(value)
+        elif property_name == 'position_preset':
+            # Handle simplified position presets (Top/Middle/Bottom)
+            self._apply_position_preset(element_id, value)
         else:
             # Direct property update
             element[property_name] = value
         
         self.canvas.update()
         self._emit_template_changed()
+    
+    def _apply_position_preset(self, element_id: str, position: str):
+        """Apply position preset to an element."""
+        if element_id not in self.canvas.elements:
+            return
+            
+        element = self.canvas.elements[element_id]
+        rect = element['rect']
+        
+        # Get canvas dimensions to calculate positions
+        canvas_rect = self.canvas.rect()
+        canvas_width = canvas_rect.width()
+        canvas_height = canvas_rect.height()
+        
+        # Center horizontally, position vertically based on preset
+        element_width = rect.width()
+        x = (canvas_width - element_width) // 2
+        
+        if position == "Top":
+            y = 50  # 50px from top
+        elif position == "Bottom":
+            y = canvas_height - rect.height() - 50  # 50px from bottom
+        else:  # Middle
+            y = (canvas_height - rect.height()) // 2
+        
+        rect.moveTo(x, y)
         
     def _handle_frame_description_change(self, frame_index: int, description: str):
         """Update the canvas with the new frame description from the timeline UI."""

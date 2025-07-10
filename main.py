@@ -105,7 +105,9 @@ def main():
             sys.exit(0)
 
     except Exception as e:
+        import traceback
         log_error(f"Fatal error: {e}")
+        log_error(f"Full traceback: {traceback.format_exc()}")
         sys.exit(1)
 
 

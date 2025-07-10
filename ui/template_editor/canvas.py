@@ -374,90 +374,152 @@ class TemplateCanvas(QWidget):
         # Get dimensions for this content type
         dims = get_content_dimensions(content_type)
         
-        # Set up default content frame (based on content type aspect ratio)
+        # Calculate canvas center and scale factor
+        canvas_center_x = self.width() / 2
+        canvas_center_y = self.height() / 2
+        
+        # Set up default content frame (centered and properly sized)
         if dims['aspect_ratio'] == 1.0:  # Square (post)
-            frame_rect = QRect(50, 50, 400, 400)
+            frame_size = min(self.width(), self.height()) * 0.8
+            frame_rect = QRect(int(canvas_center_x - frame_size/2), int(canvas_center_y - frame_size/2), 
+                             int(frame_size), int(frame_size))
         elif dims['aspect_ratio'] > 1.0:  # Landscape (tutorial, teaser)
-            frame_rect = QRect(50, 50, 500, 300)
-        else:  # Portrait (reel, story)
-            frame_rect = QRect(50, 50, 300, 500)
+            frame_width = self.width() * 0.8
+            frame_height = frame_width / dims['aspect_ratio']
+            frame_rect = QRect(int(canvas_center_x - frame_width/2), int(canvas_center_y - frame_height/2),
+                             int(frame_width), int(frame_height))
+        else:  # Portrait (reel, story) - 9:16 aspect ratio
+            frame_height = self.height() * 0.8
+            frame_width = frame_height * dims['aspect_ratio']  # This gives us 9:16 proportion
+            frame_rect = QRect(int(canvas_center_x - frame_width/2), int(canvas_center_y - frame_height/2),
+                             int(frame_width), int(frame_height))
+        
+        # Calculate font scale factor: current display width vs REAL width (1080 for portrait)
+        real_width = 1080 if dims['aspect_ratio'] < 1.0 else 1920  # Real pixel width
+        font_scale = frame_rect.width() / real_width
         
         elements = {}
         
-        # Add PiP element (standardized position)
+        # PiP: Always centered, standard width with margin, 16:9 aspect ratio
+        margin = 20  # Tiny margin
+        pip_width = frame_rect.width() - (2 * margin)  # Full width minus margins
+        pip_height = int(pip_width * 9 / 16)  # 16:9 aspect ratio (height = width * 9/16)
+        pip_x = frame_rect.center().x() - pip_width // 2
+        pip_y = frame_rect.center().y() - pip_height // 2
+        
         elements['pip'] = {
             'type': 'pip',
-            'rect': QRect(50, 50, 100, 100),
-            'enabled': True,
-            'use_plugin_aspect_ratio': False,  # Toggle for using .adsp aspect ratio
-            'plugin_aspect_ratio': 1.75,      # Default plugin aspect ratio (700x400)
-            'plugin_file_path': '',           # Path to .adsp file
-            'corner_radius': 0,               # Corner roundness (0-50)
-            'shape': 'rectangle',             # 'square' or 'rectangle'
+            'rect': QRect(pip_x, pip_y, pip_width, pip_height),
+            'enabled': False,  # Hidden by default
+            'aspect_ratio': 16/9,  # Always 16:9
+            'corner_radius': 0,    # Corner roundness (0-50)
             'color': QColor(100, 150, 200, 128),
             'border_color': QColor(255, 255, 255),
-            'border_width': 2
+            'border_width': 2,
+            'locked': True  # Cannot be moved, resized, or repositioned
         }
         
-        # Add text overlays (content-type specific)
+        # Set REAL font sizes (what user will see in the input - these are the actual sizes for 1080x1920)
+        title_size = 30      # Real 30pt font size
+        subtitle_size = 20   # Real 20pt font size
+        
+        # Text elements with proper positioning within frame boundaries
+        text_margin = 10  # Small margin from frame edges
+        text_width = frame_rect.width() - (2 * text_margin)
+        title_height = int(title_size * 1.5)    # Height based on font size
+        subtitle_height = int(subtitle_size * 1.5)
+        
         if content_type in ['reel', 'story']:
-            # Portrait layout
+            # Portrait layout - TOP and BOTTOM positioning
+            
+            # Title at TOP (10% down from frame top)
+            title_x = frame_rect.left() + text_margin
+            title_y = frame_rect.top() + int(frame_rect.height() * 0.1)
+            
             elements['title'] = {
                 'type': 'text',
-                'rect': QRect(50, 80, 200, 60),
+                'rect': QRect(title_x, title_y, text_width, title_height),
                 'content': f'{content_type.title()} Title',
-                'size': 24,
+                'size': title_size,
                 'color': QColor(255, 255, 255),
                 'style': 'normal',
-                'enabled': True
+                'enabled': True,
+                'position_preset': 'top'
             }
+            
+            # Subtitle at BOTTOM (90% down from frame top, minus subtitle height)
+            subtitle_x = frame_rect.left() + text_margin
+            subtitle_y = frame_rect.top() + int(frame_rect.height() * 0.9) - subtitle_height
+            
             elements['subtitle'] = {
                 'type': 'text', 
-                'rect': QRect(50, 450, 200, 40),
+                'rect': QRect(subtitle_x, subtitle_y, text_width, subtitle_height),
                 'content': 'Subtitle',
-                'size': 18,
+                'size': subtitle_size,
                 'color': QColor(255, 255, 255),
                 'style': 'normal',
-                'enabled': True
+                'enabled': True,
+                'position_preset': 'bottom'
             }
+            
         elif content_type == 'post':
-            # Square layout
+            # Square layout - TOP and BOTTOM
+            title_x = frame_rect.left() + text_margin
+            title_y = frame_rect.top() + text_margin
+            
             elements['title'] = {
                 'type': 'text',
-                'rect': QRect(50, 50, 300, 60),
+                'rect': QRect(title_x, title_y, text_width, title_height),
                 'content': 'Post Title',
-                'size': 24,
+                'size': title_size,
                 'color': QColor(255, 255, 255),
                 'style': 'normal',
-                'enabled': True
+                'enabled': True,
+                'position_preset': 'top'
             }
+            
+            subtitle_x = frame_rect.left() + text_margin
+            subtitle_y = frame_rect.bottom() - text_margin - subtitle_height
+            
             elements['subtitle'] = {
                 'type': 'text',
-                'rect': QRect(50, 350, 300, 40),
+                'rect': QRect(subtitle_x, subtitle_y, text_width, subtitle_height),
                 'content': 'Post Subtitle',
-                'size': 18,
+                'size': subtitle_size,
                 'color': QColor(255, 255, 255),
                 'style': 'normal',
-                'enabled': True
+                'enabled': True,
+                'position_preset': 'bottom'
             }
+            
         else:  # tutorial, teaser - landscape
+            # Landscape layout - TOP and BOTTOM
+            title_x = frame_rect.left() + text_margin
+            title_y = frame_rect.top() + text_margin
+            
             elements['title'] = {
                 'type': 'text',
-                'rect': QRect(50, 50, 400, 60),
+                'rect': QRect(title_x, title_y, text_width, title_height),
                 'content': f'{content_type.title()} Title',
-                'size': 24,
+                'size': title_size,
                 'color': QColor(255, 255, 255),
                 'style': 'normal',
-                'enabled': True
+                'enabled': True,
+                'position_preset': 'top'
             }
+            
+            subtitle_x = frame_rect.left() + text_margin
+            subtitle_y = frame_rect.bottom() - text_margin - subtitle_height
+            
             elements['subtitle'] = {
                 'type': 'text',
-                'rect': QRect(50, 250, 400, 40),
+                'rect': QRect(subtitle_x, subtitle_y, text_width, subtitle_height),
                 'content': f'{content_type.title()} Subtitle',
-                'size': 18,
+                'size': subtitle_size,
                 'color': QColor(255, 255, 255),
                 'style': 'normal',
-                'enabled': True
+                'enabled': True,
+                'position_preset': 'bottom'
             }
         
         # Save to content state
@@ -771,9 +833,13 @@ class TemplateCanvas(QWidget):
         # Reset opacity
         painter.setOpacity(1.0)
         
-        # Selection handles
+        # Selection handles - PiP elements show locked state
         if element_id == self.selected_element:
-            self._draw_selection_handles(painter, rect)
+            self._draw_locked_selection(painter, rect)
+        
+        # Draw locked selection indicator if locked
+        if element.get('locked', False):
+            self._draw_locked_selection(painter, rect)
     
     def _draw_text_element(self, painter, element_id, element):
         """Draw text overlay element."""
@@ -798,12 +864,22 @@ class TemplateCanvas(QWidget):
         # Ensure color is a QColor object (convert from list if needed)
         if isinstance(color, list) and len(color) == 4:
             color = QColor(int(color[0]), int(color[1]), int(color[2]), int(color[3]))
-        size = element.get('size', 24)
+        
+        # Get the real font size and scale it for display
+        real_size = element.get('size', 24)  # This is the real size (what user entered)
+        
+        # Calculate display scale: current frame width vs real width (1080 for portrait)
+        from .utils.dimensions import get_content_dimensions
+        dims = get_content_dimensions(self.content_type)
+        real_width = 1080 if dims['aspect_ratio'] < 1.0 else 1920
+        display_scale = self.content_frame.width() / real_width
+        display_size = max(6, int(real_size * display_scale))  # Scale down for display
+        
         style = element.get('style', 'normal')
         content = element.get('content', 'Text')
         
         painter.setPen(color)
-        font = QFont("Arial", size)
+        font = QFont("Arial", display_size)  # Use scaled size for display
         if style == 'bold':
             font.setWeight(QFont.Weight.Bold)
         painter.setFont(font)
@@ -889,12 +965,21 @@ class TemplateCanvas(QWidget):
         """Position elements relative to content frame."""
         frame = self.content_frame
         
-        # Position PiP
+        # Position PiP (always centered with 16:9 aspect ratio)
         if 'pip' in self.elements:
-            pip_size = min(100, frame.width() // 4, frame.height() // 4)
-            self.elements['pip']['rect'] = QRect(
-                frame.x() + 20, frame.y() + 20, pip_size, pip_size
-            )
+            # Calculate 16:9 PiP size that fits nicely in the frame
+            max_width = frame.width() // 3  # Take up 1/3 of frame width max
+            max_height = frame.height() // 3  # Take up 1/3 of frame height max
+            
+            # Use 16:9 aspect ratio
+            pip_width = min(max_width, int(max_height * 16 / 9))
+            pip_height = int(pip_width * 9 / 16)
+            
+            # Center in the frame
+            center_x = frame.x() + (frame.width() - pip_width) // 2
+            center_y = frame.y() + (frame.height() - pip_height) // 2
+            
+            self.elements['pip']['rect'] = QRect(center_x, center_y, pip_width, pip_height)
         
         # Position text elements
         positions = {
@@ -955,14 +1040,22 @@ class TemplateCanvas(QWidget):
                 element_id, interaction_type = selected
                 self.selected_element = element_id
                 
-                if interaction_type == "resize":
+                # Check if this is a PiP element (which should be locked)
+                element = self.elements[element_id]
+                is_pip = element.get('type') == 'pip'
+                
+                if is_pip:
+                    # PiP elements can only be selected, not moved or resized
+                    self.element_selected.emit(element_id)
+                elif interaction_type == "resize":
                     self.resizing_element = element_id
                     self.resize_handle = self._get_resize_handle(canvas_point, self.elements[element_id]['rect'])
                 elif interaction_type == "move":
                     self.dragging_element = element_id
                     self.last_mouse_pos = canvas_point
                 
-                self.element_selected.emit(element_id)
+                if not is_pip:
+                    self.element_selected.emit(element_id)
             else:
                 self.selected_element = None
                 self.canvas_clicked.emit(QPointF(event.position().x(), event.position().y()))
@@ -1546,12 +1639,9 @@ class TemplateCanvas(QWidget):
         if 'frames' not in state:
             state['frames'] = {}
         
-        # Adjust frame count
-        current_frames = state['frames']
-        
         # Remove extra frames (handle both int and str keys for cleanup)
         frames_to_remove = []
-        for key in list(current_frames.keys()):
+        for key in list(state['frames'].keys()):
             try:
                 if int(key) >= frame_count:
                     frames_to_remove.append(key)
@@ -1560,12 +1650,12 @@ class TemplateCanvas(QWidget):
                 frames_to_remove.append(key)
         
         for frame_key in frames_to_remove:
-            del current_frames[frame_key]
+            del state['frames'][frame_key]
         
         # Add missing frames (they'll be created when accessed) - USE INTEGER KEYS
         for i in range(frame_count):
-            if i not in current_frames:
-                current_frames[i] = {}
+            if i not in state['frames']:
+                state['frames'][i] = {}
         
         # Update current frame if needed
         if state['current_frame'] >= frame_count:
@@ -1727,3 +1817,22 @@ class TemplateCanvas(QWidget):
     def save_current_frame(self):
         """Public wrapper for saving current frame state"""
         self._save_current_frame_state()
+
+    def _draw_locked_selection(self, painter, rect):
+        """Draw locked selection indicator for PiP elements."""
+        # Draw orange border to indicate locked state
+        painter.setPen(QPen(QColor(255, 165, 0), 3))  # Orange border
+        painter.setBrush(QBrush())  # No fill
+        painter.drawRect(rect)
+        
+        # Draw lock icon in top-right corner
+        lock_size = 16
+        lock_rect = QRect(rect.right() - lock_size - 5, rect.top() + 5, lock_size, lock_size)
+        painter.setBrush(QBrush(QColor(255, 165, 0)))
+        painter.setPen(QPen(QColor(255, 255, 255), 1))
+        painter.drawEllipse(lock_rect)
+        
+        # Draw lock symbol
+        painter.setPen(QPen(QColor(255, 255, 255), 2))
+        center = lock_rect.center()
+        painter.drawText(lock_rect, Qt.AlignmentFlag.AlignCenter, "🔒")

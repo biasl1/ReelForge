@@ -515,71 +515,14 @@ class ReelForgeProject:
         return {
             "plugin": plugin_data,
             "global_prompt": self.global_prompt,
-            "moodboard_path": self.moodboard_path,
             "assets": assets_data,
             "scheduled_content": events_data,
-            "project_info": {
-                "name": self.metadata.name,
-                "format": self.metadata.format
-            },
-            "generation_info": {
-                "export_date": datetime.now().isoformat(),
-                "project_name": self.metadata.name,
-                "version": "1.3.0",
-                "format": self.metadata.format,
-                "total_assets": len(assets_data),
-                "total_events": len(events_data),
-                "has_global_prompt": bool(self.global_prompt),
-                "has_moodboard": bool(self.moodboard_path)
-            },
             "content_generation": {
                 "templates": templates_data
-            },
-            "ai_instructions": {
-                "content_generation_workflow": [
-                    "1. Use plugin info to understand the product and its unique features",
-                    "2. Apply global_prompt for consistent brand voice and style",
-                    "3. Use moodboard for visual style guidance (if provided)",
-                    "4. Select appropriate assets from the assets list for each content piece",
-                    "5. Generate content based on each scheduled_content item's prompt",
-                    "6. Use template_key to match content with appropriate template settings",
-                    "7. Ensure platform-specific optimization for each target platform"
-                ],
-                "content_requirements": {
-                    "reel": "15-60 seconds, vertical 9:16, engaging hook in first 3 seconds",
-                    "story": "15 seconds max, vertical 9:16, quick and engaging",
-                    "post": "Static or short video, square 1:1, informative and branded",
-                    "teaser": "10-15 seconds, any format, mysterious/exciting",
-                    "tutorial": "60-300 seconds, landscape 16:9, educational and clear",
-                    "yt_short": "15-60 seconds, vertical 9:16, optimized for YouTube"
-                },
-                "asset_selection_guidance": [
-                    "Choose assets that best demonstrate the prompt requirements",
-                    "Prefer audio assets for showcasing plugin sound",
-                    "Use video assets for UI demonstrations",
-                    "Combine multiple assets when needed for comprehensive content"
-                ],
-                "layout_guidance": [
-                    "Use template layout coordinates for text and video positioning",
-                    "Title text should be prominent and readable",
-                    "Subtitle text provides context and calls-to-action",
-                    "PiP video shows product in action",
-                    "Respect platform-specific safe areas and aspect ratios"
-                ]
             }
         }
 
-    def _get_platform_for_content_type(self, content_type: str) -> str:
-        """Get primary platform for a content type"""
-        platform_mapping = {
-            "reel": "instagram",
-            "story": "instagram", 
-            "post": "instagram",
-            "tutorial": "youtube",
-            "teaser": "instagram",
-            "yt_short": "youtube"
-        }
-        return platform_mapping.get(content_type, "instagram")
+
         
     def export_ai_data_to_json(self, file_path: str, template_editor=None) -> bool:
         """Export AI generation data to a JSON file"""
@@ -1048,49 +991,19 @@ class ReelForgeProject:
         }
     
     def _export_practical_layout(self, content_type: str) -> Dict[str, Any]:
-        """Export practical layout information for any content type"""
-        # Get standard dimensions for content type
-        dimensions = self._get_standard_dimensions(content_type)
-        
+        """Export SIMPLIFIED practical layout information for any content type"""
         return {
-            "name": content_type.replace("_", " ").title(),
             "content_type": content_type,
-            "platform": self._get_platform_for_content_type(content_type),
-            "dimensions": dimensions,
+            "is_video_content": content_type in ['reel', 'story', 'tutorial'],
             "layout": {
-                "title": {
-                    "position": {"x": 50, "y": 100, "width": dimensions["width"] - 100, "height": 80},
-                    "font_size": 32,
-                    "font_weight": "bold",
-                    "color": "#FFFFFF",
-                    "alignment": "center",
-                    "visible": True
-                },
-                "subtitle": {
-                    "position": {"x": 50, "y": dimensions["height"] - 120, "width": dimensions["width"] - 100, "height": 60},
-                    "font_size": 24,
-                    "font_weight": "normal", 
-                    "color": "#FFFFFF",
-                    "alignment": "center",
-                    "visible": True
-                },
-                "pip_video": {
-                    "position": {"x": dimensions["width"] - 220, "y": 50, "width": 200, "height": 150},
-                    "border_radius": 10,
-                    "opacity": 0.9,
-                    "visible": True
-                }
-            },
-            "duration": self._get_content_duration(content_type),
-            "animation": {
-                "intro": "fade_in",
-                "transition": "smooth",
-                "outro": "fade_out"
+                "title": {"position": {"y": 100}},      # Default title position
+                "subtitle": {"position": {"y": 400}},   # Default subtitle position
+                "pip_video": {"visible": True}          # Default PiP visibility
             }
         }
     
     def _convert_ui_layout_to_export_format(self, ui_layout_data: Dict[str, Any], content_type: str) -> Dict[str, Any]:
-        """Convert UI template editor layout data to export format with frame support"""
+        """Convert UI template editor layout data to SIMPLIFIED export format with only essential fields"""
         # Ensure ui_layout_data is a dict
         if not isinstance(ui_layout_data, dict):
             log_error(f"ERROR: ui_layout_data is not a dict, it's a {type(ui_layout_data)}")
@@ -1103,12 +1016,6 @@ class ReelForgeProject:
             log_error(f"ERROR: canvas_config is not a dict, it's a {type(canvas_config)}")
             canvas_config = {}
             
-        elements = canvas_config.get('elements', {})
-        settings = canvas_config.get('settings', {})
-        
-        # Get standard dimensions for content type
-        dimensions = self._get_standard_dimensions(content_type)
-        
         # Check if this is a video content type with frames
         frames_data = canvas_config.get('frames', {})
         
@@ -1126,291 +1033,67 @@ class ReelForgeProject:
         is_video_content = content_type in ['reel', 'story', 'tutorial']
         
         if is_video_content and frames_data:
-            # For video content types, export each frame as a separate section
+            # For video content types, export SIMPLIFIED frame structure
             frame_sections = {}
             
             for frame_index, frame_data in frames_data.items():
-                # Defensive programming: handle case where frame_data might be corrupted
+                # Ensure frame_data is a dict
                 if not isinstance(frame_data, dict):
-                    log_error(f"Frame data corruption detected! Frame {frame_index} is {type(frame_data)}, expected dict. Value: {frame_data}")
-                    # If it's a list, try to convert it to a dictionary
-                    if isinstance(frame_data, list):
-                        try:
-                            log_error(f"Attempting to convert list frame data to dictionary structure")
-                            # If list contains QRect values converted by convert_enums
-                            if len(frame_data) >= 4 and all(isinstance(x, (int, float)) for x in frame_data[:4]):
-                                new_frame_data = {
-                                    'elements': {},
-                                    'content_frame': {'x': frame_data[0], 'y': frame_data[1], 
-                                                     'width': frame_data[2], 'height': frame_data[3]},
-                                    'constrain_to_frame': False,
-                                    'frame_description': f'Recovered frame {frame_index}'
-                                }
-                                frame_data = new_frame_data
-                            else:
-                                # Create a default structure
-                                frame_data = {
-                                    'elements': {},
-                                    'content_frame': {'x': 50, 'y': 50, 'width': 300, 'height': 500},
-                                    'constrain_to_frame': False,
-                                    'frame_description': f'Corrupted frame {frame_index} - using defaults'
-                                }
-                        except Exception as e:
-                            log_error(f"Failed to convert list frame data: {e}")
-                            # Create default frame data structure
-                            frame_data = {
-                                'elements': {},
-                                'content_frame': {'x': 50, 'y': 50, 'width': 300, 'height': 500},
-                                'constrain_to_frame': False,
-                                'frame_description': f'Corrupted frame {frame_index} - using defaults'
-                            }
-                    else:
-                        # Create default frame data structure for non-list, non-dict types
-                        frame_data = {
-                            'elements': {},
-                            'content_frame': {'x': 50, 'y': 50, 'width': 300, 'height': 500},
-                            'constrain_to_frame': False,
-                            'frame_description': f'Corrupted frame {frame_index} - using defaults'
-                        }
+                    log_error(f"Frame data corruption detected! Frame {frame_index} is {type(frame_data)}, expected dict")
+                    frame_data = {
+                        'elements': {},
+                        'frame_description': f'Recovered frame {frame_index}'
+                    }
                 
-                # Get elements safely - ensure we get a dictionary even if it's originally a list
+                # Get elements safely
                 frame_elements = frame_data.get('elements', {})
                 if not isinstance(frame_elements, dict):
                     log_error(f"Frame elements is not a dict! Type: {type(frame_elements)}")
-                    if isinstance(frame_elements, list):
-                        # Try to convert list to dict
-                        elements_dict = {}
-                        for i, item in enumerate(frame_elements):
-                            if isinstance(item, tuple) and len(item) == 2:
-                                elements_dict[item[0]] = item[1]
-                            else:
-                                elements_dict[f"element_{i}"] = item
-                        frame_elements = elements_dict
-                    else:
-                        frame_elements = {}
+                    frame_elements = {}
                 
-                frame_description = frame_data.get('frame_description', f'Frame {frame_index} layout')
+                frame_description = frame_data.get('frame_description', f'Frame {frame_index}')
                 
-                # Convert frame elements to layout format
-                frame_layout = self._convert_elements_to_layout(frame_elements, dimensions)
+                # Extract ONLY the essential layout info that AI actually uses
+                title_y = self._extract_title_y_position(frame_elements)
+                subtitle_y = self._extract_subtitle_y_position(frame_elements)
+                pip_visible = self._extract_pip_visibility(frame_elements)
                 
                 frame_sections[f"frame_{frame_index}"] = {
-                    "name": f"{content_type.title()} Frame {int(frame_index) + 1}",
-                    "frame_index": int(frame_index),
                     "frame_description": frame_description,
-                    "content_type": content_type,
-                    "platform": self._get_platform_for_content_type(content_type),
-                    "dimensions": dimensions,
-                    "layout": frame_layout,
-                    "duration": self._get_content_duration(content_type),
-                    "animation": {
-                        "intro": "fade_in",
-                        "transition": "smooth",
-                        "outro": "fade_out"
+                    "layout": {
+                        "title": {"position": {"y": title_y}},
+                        "subtitle": {"position": {"y": subtitle_y}},
+                        "pip_video": {"visible": pip_visible}
                     }
                 }
             
-            # Return a structure that contains all frames
+            # Return SIMPLIFIED structure with only essential fields
             return {
                 "content_type": content_type,
-                "name": content_type.replace("_", " ").title(),
                 "is_video_content": True,
                 "total_frames": len(frames_data),
-                "frames": frame_sections,
-                "platform": self._get_platform_for_content_type(content_type),
-                "dimensions": dimensions,
-                "duration": self._get_content_duration(content_type)
+                "frames": frame_sections
             }
         else:
-            # For static content types, export single layout
-            layout = self._convert_elements_to_layout(elements, dimensions)
+            # For static content types, export SIMPLIFIED single layout
+            elements = canvas_config.get('elements', {})
+            title_y = self._extract_title_y_position(elements)
+            subtitle_y = self._extract_subtitle_y_position(elements)
+            pip_visible = self._extract_pip_visibility(elements)
             
             return {
-                "name": content_type.replace("_", " ").title(),
                 "content_type": content_type,
                 "is_video_content": False,
-                "platform": self._get_platform_for_content_type(content_type),
-                "dimensions": dimensions,
-                "layout": layout,
-                "duration": self._get_content_duration(content_type),
-                "animation": {
-                    "intro": "fade_in",
-                    "transition": "smooth",
-                    "outro": "fade_out"
+                "layout": {
+                    "title": {"position": {"y": title_y}},
+                    "subtitle": {"position": {"y": subtitle_y}},
+                    "pip_video": {"visible": pip_visible}
                 }
             }
     
-    def _convert_elements_to_layout(self, elements: Dict[str, Any], dimensions: Dict[str, int]) -> Dict[str, Any]:
-        """Convert elements dictionary to layout format"""
-        layout = {}
-        
-        # Ensure elements is a dict
-        if not isinstance(elements, dict):
-            log_error(f"ERROR: elements is not a dict, it's a {type(elements)}")
-            if isinstance(elements, list):
-                log_error(f"Converting list to dict. Elements: {elements}")
-                # Try to convert list to dict if possible
-                elements_dict = {}
-                for i, item in enumerate(elements):
-                    if isinstance(item, tuple) and len(item) == 2:
-                        elements_dict[item[0]] = item[1]
-                    else:
-                        elements_dict[f"element_{i}"] = item
-                elements = elements_dict
-            else:
-                elements = {}
-        
-        # Convert UI elements to layout format
-        for element_id, element_data in elements.items():
-            # Defensive programming: handle case where element_data might be corrupted
-            if not isinstance(element_data, dict):
-                log_error(f"Element data corruption detected! Element {element_id} is {type(element_data)}, expected dict. Value: {element_data}")
-                # Try to convert to dict if it's a list with positions
-                if isinstance(element_data, list) and len(element_data) >= 4:
-                    log_error(f"Attempting to convert list to element data dict")
-                    element_data = {
-                        'type': 'text',
-                        'rect': {'x': element_data[0], 'y': element_data[1], 
-                                'width': element_data[2], 'height': element_data[3]},
-                        'content': f'Recovered element {element_id}'
-                    }
-                else:
-                    continue  # Skip corrupted element
-            
-            element_type = element_data.get('type', '')
-            rect = element_data.get('rect', {})
-            
-            # Convert QRect to dictionary if needed
-            if hasattr(rect, 'x'):  # QRect object
-                rect_dict = {
-                    'x': rect.x(),
-                    'y': rect.y(), 
-                    'width': rect.width(),
-                    'height': rect.height()
-                }
-            elif isinstance(rect, list) and len(rect) >= 4:
-                # Handle case where rect is a list [x, y, width, height] from convert_enums
-                log_info(f"Converting rect list to dict: {rect}")
-                rect_dict = {
-                    'x': rect[0],
-                    'y': rect[1],
-                    'width': rect[2],
-                    'height': rect[3]
-                }
-            elif not isinstance(rect, dict):
-                log_error(f"Invalid rect format: {type(rect)}, value: {rect}")
-                # Provide a default rect
-                rect_dict = {
-                    'x': 50,
-                    'y': 50, 
-                    'width': 300,
-                    'height': 100
-                }
-            else:
-                rect_dict = rect  # Already a dictionary
-            
-            if element_type == 'text':
-                # Map element_id directly to layout key
-                if element_id == 'title':
-                    layout_key = 'title'
-                elif element_id == 'subtitle':
-                    layout_key = 'subtitle'
-                else:
-                    # For other text elements, determine based on position
-                    y_position = rect_dict.get('y', 0)
-                    if y_position < dimensions['height'] / 2:
-                        layout_key = 'title'
-                    else:
-                        layout_key = 'subtitle'
-                
-                # Convert QColor to string if needed
-                color = element_data.get('color', '#FFFFFF')
-                if hasattr(color, 'name'):  # QColor object
-                    color_str = color.name()
-                else:
-                    color_str = str(color)
-                
-                layout[layout_key] = {
-                    "position": {
-                        "x": rect_dict.get('x', 50),
-                        "y": rect_dict.get('y', 100),
-                        "width": rect_dict.get('width', dimensions['width'] - 100),
-                        "height": rect_dict.get('height', 80)
-                    },
-                    "font_size": element_data.get('size', 24),
-                    "font_weight": "bold" if element_data.get('style', '') == 'bold' else "normal",
-                    "color": color_str,
-                    "alignment": "center",
-                    "visible": True
-                }
-                
-            elif element_type == 'pip':
-                layout['pip_video'] = {
-                    "position": {
-                        "x": rect_dict.get('x', dimensions['width'] - 220),
-                        "y": rect_dict.get('y', 50),
-                        "width": rect_dict.get('width', 200),
-                        "height": rect_dict.get('height', 150)
-                    },
-                    "border_radius": element_data.get('corner_radius', 10),
-                    "opacity": 0.9,
-                    "visible": element_data.get('enabled', True)
-                }
-        
-        # If no elements found, provide basic fallback layout
-        if not layout.get('title'):
-            layout['title'] = {
-                "position": {"x": 50, "y": 100, "width": dimensions["width"] - 100, "height": 80},
-                "font_size": 32,
-                "font_weight": "bold",
-                "color": "#FFFFFF",
-                "alignment": "center",
-                "visible": True
-            }
-        
-        if not layout.get('subtitle'):
-            layout['subtitle'] = {
-                "position": {"x": 50, "y": dimensions["height"] - 120, "width": dimensions["width"] - 100, "height": 60},
-                "font_size": 24,
-                "font_weight": "normal",
-                "color": "#FFFFFF",
-                "alignment": "center",
-                "visible": True
-            }
-        
-        if not layout.get('pip_video'):
-            layout['pip_video'] = {
-                "position": {"x": dimensions["width"] - 220, "y": 50, "width": 200, "height": 150},
-                "border_radius": 10,
-                "opacity": 0.9,
-                "visible": True
-            }
-        
-        return layout
+
     
-    def _get_standard_dimensions(self, content_type: str) -> Dict[str, int]:
-        """Get standard dimensions for content types"""
-        dimension_map = {
-            "reel": {"width": 1080, "height": 1920},      # 9:16 vertical
-            "story": {"width": 1080, "height": 1920},     # 9:16 vertical  
-            "post": {"width": 1080, "height": 1080},      # 1:1 square
-            "tutorial": {"width": 1920, "height": 1080},  # 16:9 landscape
-            "teaser": {"width": 1080, "height": 1920},    # 9:16 vertical
-            "yt_short": {"width": 1080, "height": 1920}   # 9:16 vertical
-        }
-        return dimension_map.get(content_type, {"width": 1080, "height": 1080})
-    
-    def _get_content_duration(self, content_type: str) -> str:
-        """Get typical duration for content types"""
-        duration_map = {
-            "reel": "15-30s",
-            "story": "5-15s", 
-            "post": "30-60s",
-            "tutorial": "60-300s",
-            "teaser": "10-15s",
-            "yt_short": "15-60s"
-        }
-        return duration_map.get(content_type, "30s")
+
     def save_template_editor_settings(self, template_editor):
         """Save template editor settings with proper content type isolation"""
         settings = {}
@@ -1507,95 +1190,146 @@ class ReelForgeProject:
         print("✅ Template editor settings loaded successfully")
         return True
 
+    def _extract_title_y_position(self, elements: Dict[str, Any]) -> int:
+        """Extract title Y position from elements - used for positioning (top/center/bottom)"""
+        if not isinstance(elements, dict):
+            return 100  # Default fallback
+        
+        title_element = elements.get('title', {})
+        if not isinstance(title_element, dict):
+            return 100
+            
+        rect = title_element.get('rect', {})
+        if hasattr(rect, 'y'):  # QRect object
+            return rect.y()
+        elif isinstance(rect, list) and len(rect) >= 2:
+            return rect[1]  # Y is second element
+        elif isinstance(rect, dict):
+            return rect.get('y', 100)
+        
+        return 100  # Default fallback
+    
+    def _extract_subtitle_y_position(self, elements: Dict[str, Any]) -> int:
+        """Extract subtitle Y position from elements - used for positioning (top/center/bottom)"""
+        if not isinstance(elements, dict):
+            return 400  # Default fallback
+        
+        subtitle_element = elements.get('subtitle', {})
+        if not isinstance(subtitle_element, dict):
+            return 400
+            
+        rect = subtitle_element.get('rect', {})
+        if hasattr(rect, 'y'):  # QRect object
+            return rect.y()
+        elif isinstance(rect, list) and len(rect) >= 2:
+            return rect[1]  # Y is second element
+        elif isinstance(rect, dict):
+            return rect.get('y', 400)
+        
+        return 400  # Default fallback
+    
+    def _extract_pip_visibility(self, elements: Dict[str, Any]) -> bool:
+        """Extract PiP visibility from elements - used for section control (show/hide video)"""
+        if not isinstance(elements, dict):
+            return True  # Default fallback
+        
+        pip_element = elements.get('pip', {})
+        if not isinstance(pip_element, dict):
+            return True
+            
+        return pip_element.get('enabled', True)
+
+    def _get_standard_dimensions(self, content_type: str) -> Dict[str, int]:
+        """Get standard dimensions for content types"""
+        dimension_map = {
+            "reel": {"width": 1080, "height": 1920},      # 9:16 vertical
+            "story": {"width": 1080, "height": 1920},     # 9:16 vertical  
+            "post": {"width": 1080, "height": 1080},      # 1:1 square
+            "tutorial": {"width": 1920, "height": 1080},  # 16:9 landscape
+            "teaser": {"width": 1080, "height": 1920},    # 9:16 vertical
+            "yt_short": {"width": 1080, "height": 1920}   # 9:16 vertical
+        }
+        return dimension_map.get(content_type, {"width": 1080, "height": 1080})
+
 class ProjectManager:
-    """Manages recent projects and templates"""
-
+    """Project management utilities for ReelTune"""
+    
     def __init__(self):
-        self.recent_projects: List[str] = []
-        self.max_recent = 10
-        self._load_recent_projects()
-
-    def _get_settings_path(self) -> Path:
-        """Get path to settings file"""
-        from PyQt6.QtCore import QStandardPaths
-        app_data = QStandardPaths.writableLocation(
-            QStandardPaths.StandardLocation.AppDataLocation
-        )
-        return Path(app_data) / "reeltune_settings.json"
-
-    def _load_recent_projects(self):
-        """Load recent projects from settings"""
-        try:
-            settings_path = self._get_settings_path()
-            if settings_path.exists():
-                with open(settings_path, 'r') as f:
-                    data = json.load(f)
-                    self.recent_projects = data.get('recent_projects', [])
-        except Exception:
-            self.recent_projects = []
-
-    def _save_recent_projects(self):
-        """Save recent projects to settings"""
-        try:
-            settings_path = self._get_settings_path()
-            settings_path.parent.mkdir(parents=True, exist_ok=True)
-
-            data = {'recent_projects': self.recent_projects}
-            with open(settings_path, 'w') as f:
-                json.dump(data, f, indent=2)
-        except Exception as e:
-            log_error(f"Error saving recent projects: {e}")
-
-    def add_recent_project(self, project_path: str):
-        """Add project to recent list"""
-        if project_path in self.recent_projects:
-            self.recent_projects.remove(project_path)
-
-        self.recent_projects.insert(0, project_path)
-        self.recent_projects = self.recent_projects[:self.max_recent]
-        self._save_recent_projects()
-
+        self.recent_projects_file = Path.home() / ".reeltune" / "recent_projects.json"
+        self.templates_dir = Path.home() / ".reeltune" / "templates"
+        self._ensure_directories()
+    
+    def _ensure_directories(self):
+        """Ensure configuration directories exist"""
+        self.recent_projects_file.parent.mkdir(parents=True, exist_ok=True)
+        self.templates_dir.mkdir(parents=True, exist_ok=True)
+    
     def get_recent_projects(self) -> List[str]:
-        """Get list of recent project paths that still exist"""
-        existing_projects = []
-        for path in self.recent_projects:
-            if Path(path).exists():
-                existing_projects.append(path)
-
-        # Update list if some projects no longer exist
-        if len(existing_projects) != len(self.recent_projects):
-            self.recent_projects = existing_projects
-            self._save_recent_projects()
-
-        return existing_projects
-
-    def clear_recent_projects(self):
-        """Clear recent projects list"""
-        self.recent_projects = []
-        self._save_recent_projects()
-
-    @staticmethod
-    def get_project_templates() -> Dict[str, Dict[str, Any]]:
+        """Get list of recent project file paths"""
+        try:
+            if not self.recent_projects_file.exists():
+                return []
+            
+            with open(self.recent_projects_file, 'r') as f:
+                recent = json.load(f)
+                
+            # Filter out projects that no longer exist
+            existing_projects = []
+            for project_path in recent.get('projects', []):
+                if Path(project_path).exists():
+                    existing_projects.append(project_path)
+            
+            return existing_projects[:10]  # Limit to 10 most recent
+            
+        except Exception as e:
+            log_error(f"Error loading recent projects: {e}")
+            return []
+    
+    def add_recent_project(self, project_path: str):
+        """Add a project to the recent projects list"""
+        try:
+            recent_projects = self.get_recent_projects()
+            
+            # Remove if already in list
+            if project_path in recent_projects:
+                recent_projects.remove(project_path)
+            
+            # Add to front
+            recent_projects.insert(0, project_path)
+            
+            # Keep only 10 most recent
+            recent_projects = recent_projects[:10]
+            
+            # Save back
+            with open(self.recent_projects_file, 'w') as f:
+                json.dump({'projects': recent_projects}, f, indent=2)
+                
+        except Exception as e:
+            log_error(f"Error saving recent project: {e}")
+    
+    def get_project_templates(self) -> Dict[str, Dict[str, Any]]:
         """Get available project templates"""
-        return {
-            "Social Media - Square": {
-                "format": "1080x1080",
-                "fps": 30,
-                "description": "Perfect for Instagram posts and stories"
-            },
-            "Social Media - Vertical": {
+        templates = {
+            "Basic Project": {
+                "name": "Basic Project",
+                "description": "A basic ReelTune project with default settings",
+                "template_id": "basic",
                 "format": "1080x1920",
-                "fps": 30,
-                "description": "Optimized for TikTok, Instagram Reels, YouTube Shorts"
+                "fps": 30
             },
-            "YouTube - Landscape": {
-                "format": "1920x1080",
-                "fps": 30,
-                "description": "Standard YouTube video format"
+            "Social Media Campaign": {
+                "name": "Social Media Campaign", 
+                "description": "Pre-configured for Instagram reels and stories",
+                "template_id": "social_media",
+                "format": "1080x1920",
+                "fps": 30
             },
-            "Custom": {
+            "Tutorial Series": {
+                "name": "Tutorial Series",
+                "description": "Set up for educational content creation", 
+                "template_id": "tutorial",
                 "format": "1920x1080",
-                "fps": 30,
-                "description": "Custom project settings"
+                "fps": 30
             }
         }
+        return templates
