@@ -1836,3 +1836,48 @@ class TemplateCanvas(QWidget):
         painter.setPen(QPen(QColor(255, 255, 255), 2))
         center = lock_rect.center()
         painter.drawText(lock_rect, Qt.AlignmentFlag.AlignCenter, "🔒")
+    
+    def ensure_frame_populated(self):
+        """Ensure current frame is populated with elements when template editor opens."""
+        if self.is_video_content_type():
+            # For video content, ensure current frame is loaded
+            frame_data = self.get_current_frame_data()
+            if frame_data is None:
+                print(f"🆕 Frame {self.current_frame} has no data - creating defaults")
+                self._setup_frame_defaults()
+            elif not frame_data.get('elements'):
+                print(f"🆕 Frame {self.current_frame} has empty elements - creating defaults")
+                self._setup_frame_defaults()
+            else:
+                print(f"✅ Frame {self.current_frame} has {len(frame_data.get('elements', {}))} elements")
+                # Force reload current frame to ensure elements are visible
+                self._load_current_frame_state()
+        else:
+            # For static content, ensure we have elements
+            if not self.elements:
+                print(f"🆕 Static content {self.content_type} has no elements - creating defaults")
+                self.reset_positions()
+    
+    def _setup_frame_defaults(self):
+        """Set up default elements for current frame if none exist."""
+        if self.is_video_content_type():
+            # Create default elements and assign to current frame
+            self._setup_content_type_elements(self.content_type)
+            # Save these defaults to the current frame
+            self._save_current_frame_state()
+        else:
+            # For static content, just set up elements normally
+            self._setup_content_type_elements(self.content_type)
+    
+    def refresh_display(self):
+        """Force refresh of the current display to show loaded elements."""
+        if self.is_video_content_type():
+            # For video content, reload current frame to ensure display is updated
+            self._load_current_frame_state()
+        else:
+            # For static content, reload content state
+            self._load_content_state()
+        
+        # Force visual update
+        self.update()
+        print(f"🔄 Forced refresh - now showing {len(self.elements)} elements")

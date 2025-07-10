@@ -103,8 +103,9 @@ class TemplateEditor(QWidget):
         self.canvas.set_content_type("reel")
         self.controls.set_content_type("reel")
         
-        # Ensure default elements are created
-        self.canvas.reset_positions()
+        # Don't create default elements here - they will be created when needed
+        # The project loading will handle existing data, and reset_positions() 
+        # can be called manually if needed
         
         # Set initial constraint mode
         self.canvas.set_constraint_mode(False)  # Free placement by default
@@ -444,3 +445,9 @@ class TemplateEditor(QWidget):
         
         # Connect canvas to timeline AFTER reset
         self.frame_timeline.set_canvas(self.canvas)
+    
+    def showEvent(self, event):
+        """Handle when template editor becomes visible."""
+        super().showEvent(event)
+        # Ensure current frame/content is populated when editor opens
+        self.canvas.ensure_frame_populated()

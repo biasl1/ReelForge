@@ -1181,6 +1181,9 @@ class ReelForgeProject:
                 template_editor.canvas.set_frame_data(frame_idx, content_type, frame_data)
                 print(f"  📂 Frame {frame_idx}: '{frame_data.get('frame_description', '')}'")
             
+            # CRITICAL: After restoring all frame data, reload the current frame for display
+            template_editor.canvas._load_current_frame_state()
+            
             # Update timeline frame count
             template_editor.frame_timeline.set_frame_count(frame_count)
         
