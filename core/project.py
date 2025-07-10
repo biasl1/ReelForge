@@ -1057,12 +1057,14 @@ class ReelForgeProject:
                 title_y = self._extract_title_y_position(frame_elements)
                 subtitle_y = self._extract_subtitle_y_position(frame_elements)
                 pip_visible = self._extract_pip_visibility(frame_elements)
+                title_size = self._extract_title_font_size(frame_elements)
+                subtitle_size = self._extract_subtitle_font_size(frame_elements)
                 
                 frame_sections[f"frame_{frame_index}"] = {
                     "frame_description": frame_description,
                     "layout": {
-                        "title": {"position": {"y": title_y}},
-                        "subtitle": {"position": {"y": subtitle_y}},
+                        "title": {"position": {"y": title_y}, "font_size": title_size},
+                        "subtitle": {"position": {"y": subtitle_y}, "font_size": subtitle_size},
                         "pip_video": {"visible": pip_visible}
                     }
                 }
@@ -1080,13 +1082,15 @@ class ReelForgeProject:
             title_y = self._extract_title_y_position(elements)
             subtitle_y = self._extract_subtitle_y_position(elements)
             pip_visible = self._extract_pip_visibility(elements)
+            title_size = self._extract_title_font_size(elements)
+            subtitle_size = self._extract_subtitle_font_size(elements)
             
             return {
                 "content_type": content_type,
                 "is_video_content": False,
                 "layout": {
-                    "title": {"position": {"y": title_y}},
-                    "subtitle": {"position": {"y": subtitle_y}},
+                    "title": {"position": {"y": title_y}, "font_size": title_size},
+                    "subtitle": {"position": {"y": subtitle_y}, "font_size": subtitle_size},
                     "pip_video": {"visible": pip_visible}
                 }
             }
@@ -1241,6 +1245,28 @@ class ReelForgeProject:
             return True
             
         return pip_element.get('enabled', True)
+
+    def _extract_title_font_size(self, elements: Dict[str, Any]) -> int:
+        """Extract title font size from elements"""
+        if not isinstance(elements, dict):
+            return 30  # Default fallback
+        
+        title_element = elements.get('title', {})
+        if not isinstance(title_element, dict):
+            return 30
+            
+        return title_element.get('size', 30)
+    
+    def _extract_subtitle_font_size(self, elements: Dict[str, Any]) -> int:
+        """Extract subtitle font size from elements"""
+        if not isinstance(elements, dict):
+            return 20  # Default fallback
+        
+        subtitle_element = elements.get('subtitle', {})
+        if not isinstance(subtitle_element, dict):
+            return 20
+            
+        return subtitle_element.get('size', 20)
 
     def _get_standard_dimensions(self, content_type: str) -> Dict[str, int]:
         """Get standard dimensions for content types"""
