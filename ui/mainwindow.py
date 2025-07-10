@@ -410,7 +410,7 @@ class MainWindow(QMainWindow):
             return
 
         # Create new event dialog (simplified for AI workflow)
-        dialog = EventDialog(date, parent=self)
+        dialog = EventDialog(date, project=self.current_project, parent=self)
         dialog.event_created.connect(self._on_event_created)
 
         if dialog.exec() == EventDialog.DialogCode.Accepted:
@@ -426,7 +426,7 @@ class MainWindow(QMainWindow):
         event_date = datetime.fromisoformat(event.date)
 
         # Open edit dialog
-        dialog = EventDialog(event_date, event=event, parent=self)
+        dialog = EventDialog(event_date, event=event, project=self.current_project, parent=self)
         dialog.event_updated.connect(self._on_event_updated)
 
         if dialog.exec() == EventDialog.DialogCode.Accepted:

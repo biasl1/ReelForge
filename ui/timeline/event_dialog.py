@@ -23,11 +23,12 @@ class EventDialog(QDialog):
     event_created = pyqtSignal(ReleaseEvent)
     event_updated = pyqtSignal(ReleaseEvent)
 
-    def __init__(self, date: datetime, event: Optional[ReleaseEvent] = None, parent=None):
+    def __init__(self, date: datetime, event: Optional[ReleaseEvent] = None, project=None, parent=None):
         super().__init__(parent)
 
         self.target_date = date
         self.editing_event = event
+        self.project = project
 
         self.setup_ui()
         self.setup_connections()
@@ -69,6 +70,11 @@ class EventDialog(QDialog):
         # Target platforms
         platforms_group = self.create_platforms_group()
         form_layout.addWidget(platforms_group)
+
+        # XplainPack session selection
+        if self.project and hasattr(self.project, 'xplainpack_sessions') and self.project.xplainpack_sessions:
+            session_group = self.create_session_group()
+            form_layout.addWidget(session_group)
 
         form_layout.addStretch()
         layout.addWidget(scroll)
@@ -149,6 +155,31 @@ class EventDialog(QDialog):
             platforms_layout.addWidget(checkbox)
 
         layout.addLayout(platforms_layout)
+
+        return group
+
+    def create_session_group(self) -> QGroupBox:
+        """Create XplainPack session selection group"""
+        group = QGroupBox("XplainPack Session (Optional)")
+        layout = QVBoxLayout(group)
+
+        # Session explanation
+        explanation = QLabel("Link this content to an XplainPack session for synchronized video/audio content generation.")
+        explanation.setStyleSheet("color: #969696; font-style: italic; font-size: 10px;")
+        explanation.setWordWrap(True)
+        layout.addWidget(explanation)
+
+        # Session selection
+        self.session_combo = QComboBox()
+        self.session_combo.addItem("None - No session", "")
+        
+        # Add available sessions
+        if self.project and hasattr(self.project, 'xplainpack_sessions'):
+            for session_id, session_data in self.project.xplainpack_sessions.items():
+                session_name = session_data.get('name', session_id)
+                self.session_combo.addItem(f"{session_name} ({session_id})", session_id)
+        
+        layout.addWidget(self.session_combo)
 
         return group
 
@@ -243,6 +274,13 @@ class EventDialog(QDialog):
                 if checkbox.isChecked():
                     selected_platforms.append(platform)
 
+            # Get selected session
+            selected_session_id = None
+            if hasattr(self, 'session_combo'):
+                selected_session_id = self.session_combo.currentData()
+                if selected_session_id == "":
+                    selected_session_id = None
+
             # Create or update event
             if self.editing_event:
                 # Update existing event
@@ -251,6 +289,7 @@ class EventDialog(QDialog):
                 event.description = description
                 event.content_type = content_type
                 event.platforms = selected_platforms
+                event.session_id = selected_session_id
 
                 self.event_updated.emit(event)
             else:
@@ -265,7 +304,8 @@ class EventDialog(QDialog):
                     duration_seconds=30,  # Default duration
                     assets=[],  # AI will select assets
                     platforms=selected_platforms,
-                    hashtags=[]  # AI will generate hashtags
+                    hashtags=[],  # AI will generate hashtags
+                    session_id=selected_session_id
                 )
 
                 self.event_created.emit(event)
@@ -284,3 +324,9 @@ class EventDialog(QDialog):
         # Set platforms
         for platform, checkbox in self.platform_checkboxes.items():
             checkbox.setChecked(platform in event.platforms)
+
+        # Set session if available
+        if hasattr(self, 'session_combo') and event.session_id:
+            session_index = self.session_combo.findData(event.session_id)
+            if session_index >= 0:
+                self.session_combo.setCurrentIndex(session_index)

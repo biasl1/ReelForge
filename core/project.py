@@ -13,6 +13,7 @@ import uuid
 from core.plugins import PluginManager
 from core.logging_config import log_info, log_error, log_warning, log_debug
 from core.content_generation import ReelTuneJSONEncoder
+from core.xplainpack import XplainPackManager
 import enum
 
 def convert_enums(obj):
@@ -59,6 +60,7 @@ class ReleaseEvent:
     duration_seconds: int = 30  # Target content duration
     hashtags: List[str] = field(default_factory=list)
     created_date: str = ""
+    session_id: Optional[str] = None  # XplainPack session ID for synchronized content
 
     def __post_init__(self):
         if not self.id:
@@ -146,6 +148,9 @@ class ReelForgeProject:
         self.global_prompt: str = ""  # Global AI prompt for content generation
         self.moodboard_path: Optional[str] = None  # Path to moodboard image (relative to project)
         self.simple_templates: Dict[str, Any] = {}  # Template settings for AI generation
+        
+        # XplainPack sessions for enhanced AI content generation
+        self.xplainpack_manager: Optional[XplainPackManager] = None
 
     @property
     def is_modified(self) -> bool:
@@ -168,6 +173,16 @@ class ReelForgeProject:
         """Mark project as modified"""
         self._is_modified = True
         self.metadata.modified_date = datetime.now().isoformat()
+
+    def _initialize_xplainpack_manager(self):
+        """Initialize XplainPack manager when project directory is available"""
+        if self.project_directory and not self.xplainpack_manager:
+            self.xplainpack_manager = XplainPackManager(self.project_directory)
+            log_info("Initialized XplainPack manager")
+        elif not self.project_directory:
+            log_warning("Cannot initialize XplainPackManager: no project directory")
+        else:
+            log_debug("XplainPackManager already initialized")
 
     # Timeline Management Methods
     def initialize_timeline(self, start_date: Optional[datetime] = None, duration_weeks: int = 4):
@@ -394,13 +409,22 @@ class ReelForgeProject:
         # Get all scheduled events with their prompts
         events_data = []
         for event in self.release_events.values():
-            events_data.append({
+            event_data = {
                 "date": event.date,
                 "content_type": event.content_type,
                 "title": event.title,
                 "prompt": event.description,  # The AI prompt/description
-                "platforms": event.platforms
-            })
+                "platforms": event.platforms,
+                "template_key": event.content_type  # Template reference
+            }
+            
+            # Add session reference if event is linked to an XplainPack
+            if event.session_id:
+                session = self.get_xplainpack_session(event.session_id)
+                if session:
+                    event_data["session_id"] = event.session_id
+                
+            events_data.append(event_data)
 
         # Get content generation templates - always export practical layout info for all content types
         templates_data = {}
@@ -438,7 +462,7 @@ class ReelForgeProject:
             if not content_types_to_export:
                 content_types_to_export = {'reel', 'story', 'post'}
             
-            print(f"🔍 Exporting templates for content types: {content_types_to_export}")
+            log_info(f"Exporting templates for content types: {content_types_to_export}")
             
             # Export layout data for each content type
             for content_type in content_types_to_export:
@@ -452,14 +476,14 @@ class ReelForgeProject:
                     if config and config.get('canvas_config'):
                         # Convert to export format
                         templates_data[content_type] = self._convert_ui_layout_to_export_format(config, content_type)
-                        print(f"✅ Exported template for {content_type}")
+                        log_info(f"Exported template for {content_type}")
                     else:
                         # Fall back to basic layout
                         templates_data[content_type] = self._export_practical_layout(content_type)
-                        print(f"⚠️ Used fallback layout for {content_type}")
+                        log_warning(f"Used fallback layout for {content_type}")
                         
                 except Exception as e:
-                    print(f"❌ Error exporting {content_type}: {e}")
+                    log_error(f"Error exporting {content_type}: {e}")
                     # Use fallback
                     templates_data[content_type] = self._export_practical_layout(content_type)
             
@@ -515,6 +539,7 @@ class ReelForgeProject:
         return {
             "plugin": plugin_data,
             "global_prompt": self.global_prompt,
+            "xplainpack_sessions": [session.to_dict() for session in (self.xplainpack_manager.get_all_sessions() if self.xplainpack_manager else [])],
             "assets": assets_data,
             "scheduled_content": events_data,
             "content_generation": {
@@ -645,7 +670,7 @@ class ReelForgeProject:
         if isinstance(data, dict):
             for k, v in data.items():
                 if isinstance(v, enum.Enum) and v.__class__.__name__ == "ConfigMode":
-                    print(f"Found ConfigMode at {path}.{k}: {v}")
+                    log_debug(f"Found ConfigMode at {path}.{k}: {v}")
                 else:
                     self._find_config_mode_in_data(v, f"{path}.{k}")
         elif isinstance(data, list):
@@ -659,17 +684,17 @@ class ReelForgeProject:
                 try:
                     json.dumps({k: v})
                 except Exception as e:
-                    print(f"Non-serializable at key '{k}': {e}")
-                    print(f"Type: {type(v)}")
+                    log_debug(f"Non-serializable at key '{k}': {e}")
+                    log_debug(f"Type: {type(v)}")
                     if hasattr(v, '__dict__'):
-                        print(f"Attributes: {dir(v)}")
+                        log_debug(f"Attributes: {dir(v)}")
                     self._debug_find_non_serializable(v)
         elif isinstance(data, list):
             for i, item in enumerate(data):
                 try:
                     json.dumps([item])
                 except Exception as e:
-                    print(f"Non-serializable at index {i}: {e}")
+                    log_debug(f"Non-serializable at index {i}: {e}")
                     self._debug_find_non_serializable(item)
 
     def import_asset(self, file_path: str) -> Optional[str]:
@@ -813,7 +838,8 @@ class ReelForgeProject:
             "global_prompt": self.global_prompt,
             "moodboard_path": self.moodboard_path,
             "simple_templates": getattr(self, 'simple_templates', {}),
-            "version": "1.3"  # Updated version for AI features
+            "xplainpack_sessions": self.xplainpack_manager.to_dict() if self.xplainpack_manager else {},
+            "version": "1.4"  # Updated version for XplainPack features
         }
         
         # Save template editor settings if available
@@ -866,6 +892,9 @@ class ReelForgeProject:
         if "simple_templates" in data:
             project.simple_templates = data["simple_templates"]
             
+        # Load XplainPack sessions - defer this until after project_file_path is set
+        project._pending_xplainpack_sessions = data.get("xplainpack_sessions", {})
+            
         # Load template editor settings
         if "template_editor_settings" in data:
             project.template_editor_settings = data["template_editor_settings"]
@@ -891,8 +920,12 @@ class ReelForgeProject:
             # Create directory if needed
             target_path.parent.mkdir(parents=True, exist_ok=True)
 
-            print(f"💾 Saving project to: {target_path}")
-            print(f"   Project data keys: {list(self.to_dict().keys())}")
+            # Initialize XplainPackManager if not already done
+            if not self.xplainpack_manager:
+                self._initialize_xplainpack_manager()
+
+            log_info(f"Saving project to: {target_path}")
+            log_debug(f"Project data keys: {list(self.to_dict().keys())}")
 
             # Save project data
             with open(target_path, 'w', encoding='utf-8') as f:
@@ -902,12 +935,11 @@ class ReelForgeProject:
             self.project_file_path = target_path
             self._is_modified = False
 
-            print(f"✅ Project saved successfully to: {target_path}")
+            log_info(f"Project saved successfully to: {target_path}")
             return True
 
         except Exception as e:
             log_error(f"Error saving project: {e}")
-            print(f"❌ Save failed: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -920,27 +952,39 @@ class ReelForgeProject:
             if isinstance(file_path, str):
                 file_path = Path(file_path)
 
-            print(f"📂 Loading project from: {file_path}")
+            log_info(f"Loading project from: {file_path}")
             
             if not file_path.exists():
-                print(f"❌ File does not exist: {file_path}")
+                log_error(f"File does not exist: {file_path}")
                 return None
 
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
-            print(f"📊 Loaded project data keys: {list(data.keys())}")
+            log_debug(f"Loaded project data keys: {list(data.keys())}")
 
             project = cls.from_dict(data)
             project.project_file_path = file_path
             project._is_modified = False
 
-            print(f"✅ Project loaded successfully: {project.project_name}")
+            # Initialize XplainPackManager now that we have the project directory
+            project._initialize_xplainpack_manager()
+            
+            # Load pending XplainPack sessions now that manager is initialized
+            if hasattr(project, '_pending_xplainpack_sessions') and project._pending_xplainpack_sessions:
+                if project.xplainpack_manager:
+                    log_info(f"Loading {len(project._pending_xplainpack_sessions)} XplainPack sessions")
+                    project.xplainpack_manager.from_dict(project._pending_xplainpack_sessions)
+                    log_info(f"Loaded {len(project.xplainpack_manager.sessions)} sessions into manager")
+                    delattr(project, '_pending_xplainpack_sessions')  # Clean up temporary attribute
+                else:
+                    log_warning("XplainPackManager not available for loading sessions")
+
+            log_info(f"Project loaded successfully: {project.project_name}")
             return project
 
         except Exception as e:
             log_error(f"Error loading project: {e}")
-            print(f"❌ Load failed: {e}")
             import traceback
             traceback.print_exc()
             return None
@@ -1107,7 +1151,7 @@ class ReelForgeProject:
         
         # Save each content type's data separately
         for content_type in ['reel', 'story', 'tutorial', 'post', 'teaser']:
-            print(f"💾 Saving {content_type} settings...")
+            log_debug(f"Saving {content_type} settings...")
             
             # Switch to this content type to get its data
             template_editor.set_content_type(content_type)
@@ -1139,24 +1183,24 @@ class ReelForgeProject:
                         'constrain_to_frame': frame_data.get('constrain_to_frame', False),
                         'frame_description': frame_data.get('frame_description', '')
                     }
-                    print(f"  💾 Frame {frame_idx}: '{frame_data.get('frame_description', '')}'")
+                    log_debug(f"Frame {frame_idx}: '{frame_data.get('frame_description', '')}'")
         
         # Restore original content type
         template_editor.set_content_type(current_content_type)
         
         # Save settings to project
         self.template_editor_settings = settings
-        print(f"✅ Saved template editor settings for {len(settings)} content types")
+        log_info(f"Saved template editor settings for {len(settings)} content types")
         return True
 
     def load_template_editor_settings(self, template_editor):
         """Load template editor settings with proper content type isolation"""
         if not hasattr(self, 'template_editor_settings') or not self.template_editor_settings:
-            print("⚠️ No template editor settings to load")
+            log_warning("No template editor settings to load")
             return False
         
         settings = self.template_editor_settings
-        print(f"📂 Loading template editor settings for {len(settings)} content types...")
+        log_info(f"Loading template editor settings for {len(settings)} content types...")
         
         # Get current content type to restore later
         current_content_type = template_editor.get_content_type()
@@ -1164,7 +1208,7 @@ class ReelForgeProject:
         # Load each content type's data
         for content_type_key, content_data in settings.items():
             content_type = content_type_key.lower()
-            print(f"📂 Loading {content_type} settings...")
+            log_debug(f"Loading {content_type} settings...")
             
             # Switch to this content type
             template_editor.set_content_type(content_type)
@@ -1183,7 +1227,7 @@ class ReelForgeProject:
                 
                 # Set frame data in canvas
                 template_editor.canvas.set_frame_data(frame_idx, content_type, frame_data)
-                print(f"  📂 Frame {frame_idx}: '{frame_data.get('frame_description', '')}'")
+                log_debug(f"Frame {frame_idx}: '{frame_data.get('frame_description', '')}'")
             
             # CRITICAL: After restoring all frame data, reload the current frame for display
             template_editor.canvas._load_current_frame_state()
@@ -1194,7 +1238,7 @@ class ReelForgeProject:
         # Restore original content type
         template_editor.set_content_type(current_content_type)
         
-        print("✅ Template editor settings loaded successfully")
+        log_info("Template editor settings loaded successfully")
         return True
 
     def _extract_title_y_position(self, elements: Dict[str, Any]) -> int:
@@ -1279,6 +1323,76 @@ class ReelForgeProject:
             "yt_short": {"width": 1080, "height": 1920}   # 9:16 vertical
         }
         return dimension_map.get(content_type, {"width": 1080, "height": 1080})
+
+    # XplainPack Management Methods
+    def get_all_xplainpack_sessions(self) -> List[Dict[str, Any]]:
+        """Get all XplainPack sessions"""
+        if not self.xplainpack_manager:
+            self._initialize_xplainpack_manager()
+        
+        if self.xplainpack_manager:
+            return [session.to_dict() for session in self.xplainpack_manager.get_all_sessions()]
+        return []
+
+    def get_xplainpack_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Get XplainPack session by ID"""
+        if not self.xplainpack_manager:
+            self._initialize_xplainpack_manager()
+        
+        if self.xplainpack_manager:
+            session = self.xplainpack_manager.get_session(session_id)
+            return session.to_dict() if session else None
+        return None
+
+    def update_xplainpack_session(self, session_id: str, updated_data: Dict[str, Any]) -> bool:
+        """Update XplainPack session data"""
+        if not self.xplainpack_manager:
+            self._initialize_xplainpack_manager()
+        
+        if self.xplainpack_manager:
+            return self.xplainpack_manager.update_session(session_id, **updated_data)
+        return False
+
+    def import_xplainpack(self, pack_path: Path) -> Optional[str]:
+        """Import an XplainPack and return the session ID"""
+        if not self.xplainpack_manager:
+            self._initialize_xplainpack_manager()
+        
+        if self.xplainpack_manager:
+            session_id = self.xplainpack_manager.import_xplainpack(pack_path)
+            if session_id:
+                self.mark_modified()
+                return session_id
+        return None
+
+    def add_xplainpack_session(self, session_data: Dict[str, Any]) -> bool:
+        """Add XplainPack session data (for backward compatibility)"""
+        if not self.xplainpack_manager:
+            self._initialize_xplainpack_manager()
+        
+        if self.xplainpack_manager:
+            # Convert dict to XplainPackSession and add
+            from core.xplainpack import XplainPackSession
+            try:
+                session = XplainPackSession.from_dict(session_data)
+                self.xplainpack_manager.sessions[session.id] = session
+                self.mark_modified()
+                return True
+            except Exception as e:
+                log_error(f"Error adding XplainPack session: {e}")
+        return False
+
+    def remove_xplainpack_session(self, session_id: str) -> bool:
+        """Remove XplainPack session"""
+        if not self.xplainpack_manager:
+            self._initialize_xplainpack_manager()
+        
+        if self.xplainpack_manager:
+            if self.xplainpack_manager.remove_session(session_id):
+                self.mark_modified()
+                return True
+        return False
+
 
 class ProjectManager:
     """Project management utilities for ReelTune"""

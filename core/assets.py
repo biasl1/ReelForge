@@ -6,6 +6,7 @@ Handles file operations, validation, and metadata extraction
 import os
 import mimetypes
 import hashlib
+import json
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
@@ -20,15 +21,37 @@ ALL_SUPPORTED_FORMATS = SUPPORTED_VIDEO_FORMATS | SUPPORTED_AUDIO_FORMATS | SUPP
 
 
 @dataclass
+class XplainPackInfo:
+    """XplainPack information structure"""
+    path: Path
+    name: str
+    video_file: Optional[Path] = None
+    audio_file: Optional[Path] = None
+    metadata_file: Optional[Path] = None
+    description: str = ""
+    tags: List[str] = None
+    transcript: str = ""
+    transients: List[float] = None
+    is_valid: bool = False
+    
+    def __post_init__(self):
+        if self.tags is None:
+            self.tags = []
+        if self.transients is None:
+            self.transients = []
+
+
+@dataclass
 class FileInfo:
     """File information structure"""
     path: Path
     name: str
     size: int
     mime_type: str
-    file_type: str  # 'video', 'audio', 'image', 'other'
+    file_type: str  # 'video', 'audio', 'image', 'xplainpack', 'other'
     extension: str
     is_supported: bool
+    xplainpack_info: Optional[XplainPackInfo] = None
 
 
 class AssetManager:
@@ -47,7 +70,22 @@ class AssetManager:
             if not file_path.exists():
                 raise FileNotFoundError(f"File not found: {file_path}")
 
-            # Get file stats
+            # Check if it's an XplainPack first
+            if file_path.is_dir():
+                xplainpack_info = self._validate_xplainpack(file_path)
+                if xplainpack_info.is_valid:
+                    return FileInfo(
+                        path=file_path,
+                        name=file_path.name,
+                        size=self._get_directory_size(file_path),
+                        mime_type="application/x-xplainpack",
+                        file_type="xplainpack",
+                        extension=".xplainpack",
+                        is_supported=True,
+                        xplainpack_info=xplainpack_info
+                    )
+
+            # Regular file validation
             stat = file_path.stat()
             extension = file_path.suffix.lower()
 
@@ -71,6 +109,134 @@ class AssetManager:
 
         except Exception as e:
             raise ValueError(f"Failed to validate file: {e}")
+
+    def _validate_xplainpack(self, pack_path: Path) -> XplainPackInfo:
+        """Validate and analyze an XplainPack directory"""
+        pack_info = XplainPackInfo(path=pack_path, name=pack_path.name)
+        
+        try:
+            # Check if it's a proper XplainPack directory
+            if not (pack_path.name.endswith('.xplainpack') or 
+                   any(pack_path.glob('*.mov')) and any(pack_path.glob('*.mp3') or pack_path.glob('*.wav'))):
+                return pack_info
+            
+            # Find video file (.mov preferred)
+            video_files = list(pack_path.glob('*.mov'))
+            if not video_files:
+                video_files = [f for f in pack_path.iterdir() if f.suffix.lower() in SUPPORTED_VIDEO_FORMATS]
+            
+            if video_files:
+                pack_info.video_file = video_files[0]
+            
+            # Find audio file
+            audio_files = [f for f in pack_path.iterdir() if f.suffix.lower() in SUPPORTED_AUDIO_FORMATS]
+            if audio_files:
+                pack_info.audio_file = audio_files[0]
+            
+            # Check for metadata file
+            metadata_files = list(pack_path.glob('metadata.json')) or list(pack_path.glob('*.json'))
+            if metadata_files:
+                pack_info.metadata_file = metadata_files[0]
+                pack_info = self._load_xplainpack_metadata(pack_info)
+            
+            # XplainPack is valid if it has both video and audio
+            pack_info.is_valid = pack_info.video_file is not None and pack_info.audio_file is not None
+            
+            return pack_info
+            
+        except Exception as e:
+            print(f"Error validating XplainPack: {e}")
+            return pack_info
+
+    def _load_xplainpack_metadata(self, pack_info: XplainPackInfo) -> XplainPackInfo:
+        """Load metadata from XplainPack JSON file"""
+        try:
+            if not pack_info.metadata_file or not pack_info.metadata_file.exists():
+                return pack_info
+                
+            with open(pack_info.metadata_file, 'r', encoding='utf-8') as f:
+                metadata = json.load(f)
+            
+            # Extract metadata fields
+            pack_info.description = metadata.get('description', '')
+            pack_info.tags = metadata.get('tags', [])
+            pack_info.transcript = metadata.get('transcript', '')
+            pack_info.transients = metadata.get('transients', [])
+            
+            return pack_info
+            
+        except Exception as e:
+            print(f"Error loading XplainPack metadata: {e}")
+            return pack_info
+
+    def _get_directory_size(self, directory: Path) -> int:
+        """Get total size of all files in directory"""
+        total_size = 0
+        try:
+            for file_path in directory.rglob('*'):
+                if file_path.is_file():
+                    total_size += file_path.stat().st_size
+        except Exception:
+            pass
+        return total_size
+
+    def create_xplainpack_session(self, pack_info: XplainPackInfo) -> Dict[str, any]:
+        """Create XplainPack session data for export"""
+        try:
+            session_data = {
+                "id": f"session_{self.generate_asset_id(pack_info.path)[:8]}",
+                "name": pack_info.name.replace('.xplainpack', ''),
+                "path": str(pack_info.path),
+                "description": pack_info.description,
+                "tags": pack_info.tags,
+                "files": {
+                    "video": str(pack_info.video_file) if pack_info.video_file else None,
+                    "audio": str(pack_info.audio_file) if pack_info.audio_file else None,
+                    "metadata": str(pack_info.metadata_file) if pack_info.metadata_file else None
+                },
+                "transcript": pack_info.transcript,
+                "transients": pack_info.transients,
+                "duration": self._get_xplainpack_duration(pack_info),
+                "is_valid": pack_info.is_valid
+            }
+            
+            return session_data
+            
+        except Exception as e:
+            print(f"Error creating XplainPack session: {e}")
+            return {}
+
+    def _get_xplainpack_duration(self, pack_info: XplainPackInfo) -> Optional[float]:
+        """Get duration of XplainPack content"""
+        try:
+            # For now, return None - would need media analysis library
+            # TODO: Add ffprobe or similar for duration extraction
+            return None
+        except Exception:
+            return None
+
+    def scan_for_xplainpacks(self, directory: Path) -> List[XplainPackInfo]:
+        """Scan directory for XplainPack folders"""
+        xplainpacks = []
+        try:
+            # Look for .xplainpack directories
+            for pack_dir in directory.glob('*.xplainpack'):
+                if pack_dir.is_dir():
+                    pack_info = self._validate_xplainpack(pack_dir)
+                    if pack_info.is_valid:
+                        xplainpacks.append(pack_info)
+            
+            # Also look for directories with video + audio pairs
+            for item in directory.iterdir():
+                if item.is_dir() and not item.name.endswith('.xplainpack'):
+                    pack_info = self._validate_xplainpack(item)
+                    if pack_info.is_valid:
+                        xplainpacks.append(pack_info)
+                        
+        except Exception as e:
+            print(f"Error scanning for XplainPacks: {e}")
+            
+        return xplainpacks
 
     def _get_file_type(self, extension: str) -> str:
         """Determine file type from extension"""

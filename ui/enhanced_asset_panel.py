@@ -26,12 +26,107 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QFrame, QGridLayout, QMessageBox, QFileDialog,
     QApplication, QSizePolicy, QMenu, QDialog, QDialogButtonBox,
-    QTextEdit, QFormLayout, QComboBox
+    QTextEdit, QFormLayout, QComboBox, QLineEdit
 )
-from PyQt6.QtCore import pyqtSignal, Qt, QSize, QThread, pyqtSlot, QMimeData
+from PyQt6.QtCore import pyqtSignal, Qt, QSize, QThread, pyqtSlot, QMimeData, QRect
 from PyQt6.QtGui import QPixmap, QPainter, QBrush, QColor, QFont, QIcon, QPen, QAction, QDrag
 
 from core.logging_config import log_info, log_error, log_warning, log_debug
+
+
+class XplainPackSessionDialog(QDialog):
+    """Dialog for viewing/editing XplainPack session metadata"""
+
+    def __init__(self, session_data, parent=None):
+        super().__init__(parent)
+        self.session_data = session_data
+        self.setWindowTitle(f"XplainPack Session: {session_data.get('name', 'Unknown')}")
+        self.setModal(True)
+        self.resize(500, 400)
+
+        self._setup_ui()
+        self._load_data()
+
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setSpacing(15)
+
+        # Header
+        header_frame = QFrame()
+        header_frame.setStyleSheet("background-color: #2d2d30; border-radius: 5px; padding: 10px;")
+        header_layout = QVBoxLayout(header_frame)
+        
+        title_label = QLabel("XplainPack Session Details")
+        title_label.setStyleSheet("color: #cccccc; font-size: 16px; font-weight: bold;")
+        header_layout.addWidget(title_label)
+        
+        layout.addWidget(header_frame)
+
+        # Form layout
+        form_layout = QFormLayout()
+
+        # Session ID (read-only)
+        self.session_id_label = QLabel()
+        self.session_id_label.setStyleSheet("font-weight: bold; color: #007acc;")
+        form_layout.addRow("Session ID:", self.session_id_label)
+
+        # Session name
+        self.name_edit = QLineEdit()
+        self.name_edit.setPlaceholderText("Enter session name...")
+        form_layout.addRow("Name:", self.name_edit)
+
+        # Description
+        self.description_edit = QTextEdit()
+        self.description_edit.setMaximumHeight(100)
+        self.description_edit.setPlaceholderText("Describe the content of this XplainPack session...")
+        form_layout.addRow("Description:", self.description_edit)
+
+        # File information (read-only)
+        self.video_file_label = QLabel()
+        self.video_file_label.setStyleSheet("color: #cccccc; font-size: 11px;")
+        form_layout.addRow("Video File:", self.video_file_label)
+
+        self.audio_file_label = QLabel()
+        self.audio_file_label.setStyleSheet("color: #cccccc; font-size: 11px;")
+        form_layout.addRow("Audio File:", self.audio_file_label)
+
+        # Duration info
+        self.duration_label = QLabel()
+        self.duration_label.setStyleSheet("color: #cccccc; font-size: 11px;")
+        form_layout.addRow("Duration:", self.duration_label)
+
+        layout.addLayout(form_layout)
+
+        # Buttons
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+    def _load_data(self):
+        """Load session data into the form"""
+        self.session_id_label.setText(self.session_data.get('id', 'N/A'))
+        self.name_edit.setText(self.session_data.get('name', ''))
+        self.description_edit.setPlainText(self.session_data.get('description', ''))
+        
+        # File information
+        video_file = self.session_data.get('video_file', 'N/A')
+        audio_file = self.session_data.get('audio_file', 'N/A')
+        self.video_file_label.setText(video_file)
+        self.audio_file_label.setText(audio_file)
+        
+        # Duration
+        duration = self.session_data.get('duration', 'Unknown')
+        self.duration_label.setText(str(duration))
+
+    def get_updated_data(self):
+        """Get the updated session data"""
+        updated_data = self.session_data.copy()
+        updated_data['name'] = self.name_edit.text().strip()
+        updated_data['description'] = self.description_edit.toPlainText().strip()
+        return updated_data
 
 
 class AssetDescriptionDialog(QDialog):
@@ -127,6 +222,8 @@ class ThumbnailWorker(QThread):
                 thumbnail = self.create_image_thumbnail()
             elif self.file_type == "video":
                 thumbnail = self.create_video_thumbnail()
+            elif self.file_type == "xplainpack":
+                thumbnail = self.create_xplainpack_thumbnail()
             else:
                 thumbnail = self.create_icon_thumbnail()
 
@@ -134,6 +231,64 @@ class ThumbnailWorker(QThread):
                 self.thumbnail_ready.emit(self.asset_id, thumbnail)
         except Exception as e:
             log_error(f"Error generating thumbnail for {self.asset_id}: {e}")
+
+    def create_xplainpack_thumbnail(self) -> QPixmap:
+        """Create thumbnail for XplainPack sessions"""
+        thumbnail = QPixmap(150, 150)
+        thumbnail.fill(QColor(255, 107, 53))  # Orange background for XplainPacks
+        
+        painter = QPainter(thumbnail)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Draw XplainPack icon design
+        # Background gradient
+        from PyQt6.QtGui import QLinearGradient
+        gradient = QLinearGradient(0, 0, 150, 150)
+        gradient.setColorAt(0, QColor(255, 107, 53))  # Orange
+        gradient.setColorAt(1, QColor(204, 85, 42))   # Darker orange
+        painter.fillRect(thumbnail.rect(), QBrush(gradient))
+        
+        # Draw microphone icon (for voice/audio)
+        painter.setPen(QPen(QColor(255, 255, 255), 3))
+        painter.setBrush(QBrush(QColor(255, 255, 255)))
+        
+        # Microphone body
+        center_x, center_y = 75, 65
+        mic_rect = QRect(center_x - 12, center_y - 20, 24, 30)
+        painter.drawRoundedRect(mic_rect, 12, 12)
+        
+        # Microphone stand
+        painter.drawLine(center_x, center_y + 10, center_x, center_y + 30)
+        painter.drawLine(center_x - 15, center_y + 30, center_x + 15, center_y + 30)
+        
+        # Sound waves
+        painter.setPen(QPen(QColor(255, 255, 255, 150), 2))
+        for i, radius in enumerate([35, 45, 55]):
+            painter.drawArc(center_x - radius//2, center_y - radius//2, radius, radius, 45*16, 90*16)
+        
+        # Video play symbol overlay
+        painter.setPen(QPen(QColor(255, 255, 255), 2))
+        painter.setBrush(QBrush(QColor(255, 255, 255, 200)))
+        
+        # Small play triangle
+        play_x, play_y = 110, 110
+        play_size = 8
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtGui import QPolygon
+        play_triangle = QPolygon([
+            QPoint(play_x - play_size//2, play_y - play_size//2),
+            QPoint(play_x - play_size//2, play_y + play_size//2),
+            QPoint(play_x + play_size//2, play_y)
+        ])
+        painter.drawPolygon(play_triangle)
+        
+        # XplainPack label
+        painter.setFont(QFont("Arial", 9, QFont.Weight.Bold))
+        painter.setPen(QPen(QColor(255, 255, 255), 2))
+        painter.drawText(10, 140, "XPLAINPACK")
+        
+        painter.end()
+        return thumbnail
 
     def create_image_thumbnail(self) -> QPixmap:
         """Create thumbnail for image files"""
@@ -597,6 +752,7 @@ class EnhancedAssetPanel(QWidget):
 
         # Group assets by type
         asset_groups = {
+            'xplainpack': [],
             'image': [],
             'video': [],
             'audio': [],
@@ -605,10 +761,29 @@ class EnhancedAssetPanel(QWidget):
 
         for asset in assets:
             asset_groups[asset.file_type].append(asset)
+            
+        # Add XplainPack sessions as special assets
+        if self.current_project:
+            xplainpack_sessions = self.current_project.get_all_xplainpack_sessions()
+            for session in xplainpack_sessions:
+                # Create a pseudo-asset for XplainPack display
+                class XplainPackAsset:
+                    def __init__(self, session_data):
+                        self.id = f"xplainpack_{session_data.get('id', 'unknown')}"
+                        self.name = session_data.get('name', 'Unknown Session')
+                        self.file_type = 'xplainpack'
+                        self.description = session_data.get('description', '')
+                        self.session_data = session_data
+                        self.file_size = 0  # XplainPack sessions don't have a single file size
+                        self.folder = 'XplainPack Sessions'  # Add folder for consistency
+                        self.file_path = session_data.get('folder_path', '')  # Add file_path
+                        
+                asset_groups['xplainpack'].append(XplainPackAsset(session))
 
         # Create category sections
         row = 0
         category_styles = {
+            'xplainpack': {'color': '#FF6B35', 'name': 'XplainPack Sessions'},
             'image': {'color': '#4CAF50', 'name': 'Images'},
             'video': {'color': '#f44336', 'name': 'Videos'},
             'audio': {'color': '#2196F3', 'name': 'Audio'},
@@ -650,7 +825,7 @@ class EnhancedAssetPanel(QWidget):
 
                 asset_widget = AssetThumbnailWidget(asset)
                 asset_widget.clicked.connect(self.asset_selected.emit)
-                asset_widget.double_clicked.connect(self.asset_double_clicked.emit)
+                asset_widget.double_clicked.connect(self._handle_asset_double_click)
                 asset_widget.edit_requested.connect(self._edit_asset)
                 asset_widget.delete_requested.connect(self._delete_asset)
 
@@ -666,12 +841,104 @@ class EnhancedAssetPanel(QWidget):
         # Add stretch to push everything to top
         self.assets_layout.setRowStretch(row + 1, 1)
 
+    def _handle_asset_double_click(self, asset_id: str):
+        """Handle double-click on an asset"""
+        if not self.current_project:
+            return
+        
+        # Check if this is a XplainPack session
+        if asset_id.startswith("xplainpack_"):
+            session_id = asset_id.replace("xplainpack_", "")
+            session_data = self.current_project.get_xplainpack_session(session_id)
+            
+            if session_data:
+                # Open XplainPack session editor
+                dialog = XplainPackSessionDialog(session_data, self)
+                if dialog.exec() == QDialog.DialogCode.Accepted:
+                    # Update session data
+                    updated_data = dialog.get_updated_data()
+                    # Update in project (we need to implement this method)
+                    self.current_project.update_xplainpack_session(session_id, updated_data)
+                    # Refresh display
+                    self.refresh_assets()
+        else:
+            # Regular asset double-click - emit signal for other handlers
+            self.asset_double_clicked.emit(asset_id)
+
     def import_assets(self):
-        """Import assets dialog"""
+        """Import assets dialog with XplainPack support"""
         if not self.current_project:
             QMessageBox.warning(self, "No Project", "Please create or open a project first.")
             return
 
+        # Create dialog with options for regular assets vs XplainPacks
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Import Assets")
+        dialog.setModal(True)
+        dialog.resize(400, 200)
+        
+        layout = QVBoxLayout(dialog)
+        
+        # Title
+        title = QLabel("Choose Import Type:")
+        title.setStyleSheet("font-size: 14px; font-weight: bold; margin: 10px;")
+        layout.addWidget(title)
+        
+        # Regular assets button
+        assets_btn = QPushButton("Import Media Files")
+        assets_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0078d4;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #106ebe;
+            }
+        """)
+        assets_btn.clicked.connect(lambda: self._import_regular_assets(dialog))
+        layout.addWidget(assets_btn)
+        
+        # XplainPack button
+        xplainpack_btn = QPushButton("Import XplainPack Session")
+        xplainpack_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #107c10;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #0e6e0e;
+            }
+        """)
+        xplainpack_btn.clicked.connect(lambda: self._import_xplainpack(dialog))
+        layout.addWidget(xplainpack_btn)
+        
+        # Info text
+        info_text = QLabel("💡 XplainPacks are specialized folders containing synchronized video + audio for AI content generation")
+        info_text.setStyleSheet("color: #969696; font-size: 10px; margin: 10px; text-align: center;")
+        info_text.setWordWrap(True)
+        layout.addWidget(info_text)
+        
+        # Cancel button
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(dialog.reject)
+        layout.addWidget(cancel_btn)
+        
+        dialog.exec()
+
+    def _import_regular_assets(self, dialog):
+        """Import regular media assets"""
+        dialog.accept()
+        
         file_paths, _ = QFileDialog.getOpenFileNames(
             self,
             "Import Assets",
@@ -681,6 +948,65 @@ class EnhancedAssetPanel(QWidget):
 
         for file_path in file_paths:
             self.import_single_asset(Path(file_path))
+
+    def _import_xplainpack(self, dialog):
+        """Import XplainPack session"""
+        dialog.accept()
+        
+        pack_path = QFileDialog.getExistingDirectory(
+            self,
+            "Select XplainPack Folder",
+            str(Path.home()),
+            QFileDialog.Option.ShowDirsOnly
+        )
+        
+        if pack_path:
+            self.import_xplainpack_session(Path(pack_path))
+
+    def import_xplainpack_session(self, pack_path: Path):
+        """Import an XplainPack session"""
+        if not self.current_project:
+            return
+            
+        try:
+            session_id = self.current_project.import_xplainpack(pack_path)
+            if session_id:
+                log_info(f"Imported XplainPack session: {pack_path.name} (ID: {session_id})")
+                
+                # Show success message with session details
+                session_data = self.current_project.get_xplainpack_session(session_id)
+                if session_data:
+                    QMessageBox.information(
+                        self,
+                        "XplainPack Imported Successfully!",
+                        f"Session: {session_data.get('name', 'Unknown')}\n"
+                        f"ID: {session_id}\n"
+                        f"Description: {session_data.get('description', 'No description')}\n"
+                        f"Files: Video, Audio, Metadata\n\n"
+                        f"This session can now be linked to content events for synchronized AI generation."
+                    )
+                
+                # Refresh display - XplainPacks will appear as special asset type
+                self.refresh_assets()
+                
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Import Failed",
+                    f"Failed to import XplainPack from:\n{pack_path}\n\n"
+                    f"Please ensure the folder contains:\n"
+                    f"• A video file (.mov preferred)\n"
+                    f"• An audio file (.mp3/.wav)\n"
+                    f"• Optional: metadata.json with transcript/transients"
+                )
+                
+        except Exception as e:
+            log_error(f"Error importing XplainPack {pack_path}: {e}")
+            QMessageBox.critical(
+                self,
+                "Import Error", 
+                f"Error importing XplainPack:\n{str(e)}"
+            )
 
     def import_single_asset(self, file_path: Path):
         """Import a single asset"""
@@ -707,14 +1033,37 @@ class EnhancedAssetPanel(QWidget):
             event.acceptProposedAction()
 
     def dropEvent(self, event):
-        """Handle drop event"""
+        """Handle drop event with XplainPack support"""
         if not self.current_project:
             return
 
         for url in event.mimeData().urls():
             file_path = Path(url.toLocalFile())
+            
             if file_path.is_file():
+                # Regular file import
                 self.import_single_asset(file_path)
+            elif file_path.is_dir():
+                # Check if it might be an XplainPack
+                from core.assets import AssetManager
+                asset_manager = AssetManager(self.current_project.project_directory)
+                pack_info = asset_manager._validate_xplainpack(file_path)
+                
+                if pack_info.is_valid:
+                    # Import as XplainPack
+                    self.import_xplainpack_session(file_path)
+                else:
+                    # Scan directory for media files
+                    media_files = []
+                    for ext in ['.mp4', '.mov', '.avi', '.mp3', '.wav', '.jpg', '.png']:
+                        media_files.extend(file_path.glob(f'*{ext}'))
+                        media_files.extend(file_path.glob(f'*{ext.upper()}'))
+                    
+                    if media_files:
+                        for media_file in media_files:
+                            self.import_single_asset(media_file)
+                    else:
+                        log_warning(f"No supported media files found in: {file_path}")
 
     def _on_category_filter_changed(self, category):
         """Handle category filter change"""
@@ -743,7 +1092,17 @@ class EnhancedAssetPanel(QWidget):
 
     def _delete_asset(self, asset_id: str):
         """Delete asset after confirmation"""
-        if not self.current_project or asset_id not in self.current_project.assets:
+        if not self.current_project:
+            return
+
+        # Check if this is an XplainPack session
+        if asset_id.startswith("xplainpack_"):
+            xplainpack_session_id = asset_id.replace("xplainpack_", "")
+            self._delete_xplainpack_session(xplainpack_session_id)
+            return
+
+        # Regular asset deletion
+        if asset_id not in self.current_project.assets:
             return
 
         asset = self.current_project.assets[asset_id]
@@ -763,6 +1122,31 @@ class EnhancedAssetPanel(QWidget):
                 QMessageBox.information(self, "Deleted", f"Asset '{asset.name}' has been deleted.")
             else:
                 QMessageBox.critical(self, "Error", "Failed to delete asset.")
+
+    def _delete_xplainpack_session(self, session_id: str):
+        """Delete XplainPack session after confirmation"""
+        if not self.current_project or not self.current_project.xplainpack_manager:
+            return
+
+        session = self.current_project.xplainpack_manager.get_session(session_id)
+        if not session:
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Delete XplainPack Session",
+            f"Are you sure you want to delete XplainPack session '{session.name}'?\n\nThis will remove the session from the project but will not delete the original files.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            if self.current_project.remove_xplainpack_session(session_id):
+                self.refresh_assets()
+                self.assets_changed.emit()
+                QMessageBox.information(self, "Deleted", f"XplainPack session '{session.name}' has been removed from the project.")
+            else:
+                QMessageBox.critical(self, "Error", "Failed to delete XplainPack session.")
 
 
 class AssetDescriptionDialog(QDialog):
