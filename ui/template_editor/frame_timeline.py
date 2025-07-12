@@ -62,13 +62,11 @@ class FrameTimeline(QWidget):
         self.frames = []  # List of frame configurations
         self.frame_buttons = []
         
-        # CRITICAL: Per-content-type isolation - each content type has its own timeline data
-        self.content_type = "reel"  # Current content type
-        self.content_type_data = {  # Separate data for each content type
-            'reel': {'frames': [], 'current_frame': 0},
-            'story': {'frames': [], 'current_frame': 0},
-            'tutorial': {'frames': [], 'current_frame': 0}
-        }
+        # Per-event frame management (no longer per-content-type)
+        self.current_event_id = None
+        self.frame_count = 1
+        self.content_type = 'video'  # Default content type
+        self.content_type_data = {}  # Not used anymore
         
         self._setup_ui()
         self._initialize_content_type_frames()
@@ -87,14 +85,18 @@ class FrameTimeline(QWidget):
         timeline_label.setStyleSheet("font-weight: bold; color: #333;")
         header_layout.addWidget(timeline_label)
         
-        # Frame count control
-        frame_count_label = QLabel("Frames:")
+        # 🎯 FRAME COUNT CONTROL - THE ONLY PLACE TO SET FRAME COUNTS!
+        frame_info_label = QLabel("🎬 Frame Count (ONLY set here!):")
+        frame_info_label.setStyleSheet("font-weight: bold; color: #2196F3;")
+        frame_info_label.setToolTip("Frame count is ONLY set in the Template Editor, not in the calendar!")
+        
         self.frame_count_spin = QSpinBox()
         self.frame_count_spin.setRange(1, 10)
-        self.frame_count_spin.setValue(3)
+        self.frame_count_spin.setValue(1)  # Default to 1 frame
         self.frame_count_spin.valueChanged.connect(self._on_frame_count_changed)
+        self.frame_count_spin.setToolTip("Change the number of frames for this video event")
         
-        header_layout.addWidget(frame_count_label)
+        header_layout.addWidget(frame_info_label)
         header_layout.addWidget(self.frame_count_spin)
         
         # Add/Remove buttons
@@ -152,26 +154,8 @@ class FrameTimeline(QWidget):
         layout.addLayout(frame_info_layout)
     
     def _initialize_content_type_frames(self):
-        """Initialize frames for current content type - EACH CONTENT TYPE IS INDEPENDENT."""
-        # Initialize frames for each content type separately
-        for content_type in ['reel', 'story', 'tutorial']:
-            if not self.content_type_data[content_type]['frames']:
-                # Create 3 default frames for each content type
-                frames = []
-                for i in range(3):
-                    frame_config = {
-                        'elements': {},
-                        'duration': 1.0,
-                        'transition': 'none',
-                        'frame_description': f'{content_type.title()} frame {i+1} description'
-                    }
-                    frames.append(frame_config)
-                
-                self.content_type_data[content_type]['frames'] = frames
-                self.content_type_data[content_type]['current_frame'] = 0
-        
-        # Load the current content type's frames
-        self._load_content_type_frames()
+        """Initialize frames - no longer needed in per-event system."""
+        pass
     
     def _load_content_type_frames(self):
         """Load frames for the current content type - COMPLETE ISOLATION."""
@@ -197,7 +181,7 @@ class FrameTimeline(QWidget):
             self._create_frame_button(i)
         
         # Update UI to show current content type's data
-        if self.frame_buttons:
+        if self.frame_buttons and 0 <= self.current_frame < len(self.frame_buttons):
             self.frame_buttons[self.current_frame].setChecked(True)
         
         self.frame_count_spin.setValue(len(self.frames))
@@ -268,12 +252,6 @@ class FrameTimeline(QWidget):
         current_description = self.frame_description_edit.text()
         if self.current_frame < len(self.frames):
             self.frames[self.current_frame]['frame_description'] = current_description
-            # Also save to content type data - with bounds checking
-            if (self.content_type in self.content_type_data and 
-                'frames' in self.content_type_data[self.content_type] and
-                self.current_frame < len(self.content_type_data[self.content_type]['frames'])):
-                # Fix: access list element, not dict key
-                self.content_type_data[self.content_type]['frames'][self.current_frame]['frame_description'] = current_description
             
         # Uncheck all other buttons
         for i, btn in enumerate(self.frame_buttons):
@@ -281,7 +259,6 @@ class FrameTimeline(QWidget):
         
         # Switch to new frame
         self.current_frame = frame_index
-        self.content_type_data[self.content_type]['current_frame'] = frame_index
         
         # Update UI with new frame's data
         self._update_current_frame_label()
@@ -309,11 +286,6 @@ class FrameTimeline(QWidget):
         # Save to current frame in current content type
         if self.current_frame < len(self.frames):
             self.frames[self.current_frame]['frame_description'] = description
-            # Also save to content type data - with bounds checking
-            if (self.content_type in self.content_type_data and 
-                'frames' in self.content_type_data[self.content_type] and
-                self.current_frame < len(self.content_type_data[self.content_type]['frames'])):
-                self.content_type_data[self.content_type]['frames'][self.current_frame]['frame_description'] = description
             
             # Emit signal to editor
             self.frame_description_changed.emit(self.current_frame, description)
@@ -323,6 +295,29 @@ class FrameTimeline(QWidget):
         self.canvas = canvas
         # Timeline manages its own descriptions per content type
         # NO automatic sync with canvas
+    
+    def get_current_frame_description(self) -> str:
+        """Get the description of the current frame."""
+        if hasattr(self, 'frame_description_edit'):
+            return self.frame_description_edit.text()
+        elif self.current_frame < len(self.frames):
+            return self.frames[self.current_frame].get('frame_description', f'Frame {self.current_frame + 1}')
+        return f'Frame {self.current_frame + 1}'
+    
+    def set_frame_description(self, description: str):
+        """Set the description for the current frame."""
+        if hasattr(self, 'frame_description_edit'):
+            self.frame_description_edit.blockSignals(True)
+            self.frame_description_edit.setText(description)
+            self.frame_description_edit.blockSignals(False)
+        
+        # Also update the frames data
+        if self.current_frame < len(self.frames):
+            self.frames[self.current_frame]['frame_description'] = description
+    
+    def get_frame_count(self) -> int:
+        """Get the total number of frames."""
+        return len(self.frames)
     
     def _sync_canvas_frame_count(self):
         """Sync the canvas frame count with timeline frame count - CRITICAL FOR PRESERVATION."""
@@ -412,11 +407,13 @@ class FrameTimeline(QWidget):
             self.current_frame = len(self.frames) - 1
             self.content_type_data[self.content_type]['current_frame'] = self.current_frame
         
-        # Update selection
+        # Update selection - make sure current_frame is valid for frame_buttons too
         if self.frame_buttons:
             for btn in self.frame_buttons:
                 btn.setChecked(False)
-            self.frame_buttons[self.current_frame].setChecked(True)
+            # Double-check bounds for frame_buttons
+            if 0 <= self.current_frame < len(self.frame_buttons):
+                self.frame_buttons[self.current_frame].setChecked(True)
         
         # Update UI
         self.frame_count_spin.setValue(len(self.frames))
@@ -512,7 +509,7 @@ class FrameTimeline(QWidget):
     
     def is_video_content_type(self, content_type: str) -> bool:
         """Check if content type supports frames."""
-        return content_type in ['story', 'reel', 'tutorial']
+        return content_type == 'video'
     
     def set_content_type_frames(self, content_type: str):
         """Set the number of frames based on content type - RESPECT USER CHOICE."""
@@ -594,10 +591,40 @@ class FrameTimeline(QWidget):
         print(f"📏 Timeline set frame count to {frame_count} for {self.content_type}")
     
     def _update_frame_ui(self):
-        """Update the frame UI display"""
-        # Update frame count label
-        if hasattr(self, 'frame_count_spin'):
-            self.frame_count_spin.setValue(len(self.frames))
+        """Update the frame UI display - rebuild frame buttons to match frame count"""
+        # Clear existing frame buttons
+        for btn in self.frame_buttons:
+            btn.setParent(None)
+            btn.deleteLater()
+        self.frame_buttons.clear()
         
-        print(f"🔄 Updated frame UI for {self.content_type}: {len(self.frames)} frames")
+        # Create new frame buttons for current frame count
+        for i in range(len(self.frames)):
+            self._create_frame_button(i)
+        
+        # Update current frame selection
+        if self.frame_buttons and 0 <= self.current_frame < len(self.frame_buttons):
+            self.frame_buttons[self.current_frame].setChecked(True)
+        
+        print(f"🔄 Updated frame UI for {self.content_type}: {len(self.frames)} frames, {len(self.frame_buttons)} buttons")
+    
+    def update_for_event(self, event_data):
+        """Update the frame timeline for a specific event."""
+        frame_count = event_data.get('frame_count', 1)
+        content_type = event_data.get('content_type', 'video')
+        
+        print(f"🔄 Timeline updating for {content_type} event with {frame_count} frames")
+        
+        # Update content type
+        self.content_type = content_type
+        
+        # Update the spinbox without triggering signals
+        self.frame_count_spin.blockSignals(True)
+        self.frame_count_spin.setValue(frame_count)
+        self.frame_count_spin.blockSignals(False)
+        
+        # Update frame count
+        self.set_frame_count(frame_count)
+        
+        print(f"📏 Timeline set frame count to {frame_count} for {content_type}")
 

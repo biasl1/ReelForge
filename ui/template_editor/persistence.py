@@ -252,7 +252,7 @@ class TemplatePersistence:
         canvas_config = config.get('canvas_config', {})
         
         export_data = {
-            'content_type': canvas_config.get('content_type', 'reel'),
+            'content_type': canvas_config.get('content_type', 'video'),
             'settings': {
                 'constrain_to_frame': canvas_config.get('constrain_to_frame', False)
             },

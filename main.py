@@ -86,7 +86,9 @@ class ReelTuneApp(QApplication):
             self.main_window.show()
 
         except Exception as e:
+            import traceback
             log_error(f"Error opening main window: {e}")
+            traceback.print_exc()
             sys.exit(1)
 
 

@@ -701,9 +701,8 @@ class PluginDashboard(QWidget):
                     "5. Create compelling content that demonstrates plugin features",
                     "6. Ensure timing aligns with template frame durations"
                 ]
-                base_instructions["content_requirements"]["reel"] = "15-60 seconds, vertical 9:16, sync with voice and transients"
-                base_instructions["content_requirements"]["story"] = "15 seconds max, vertical 9:16, highlight one key feature"
-                base_instructions["content_requirements"]["tutorial"] = "60-300 seconds, use full voice transcript for educational content"
+                base_instructions["content_requirements"]["video"] = "15-60 seconds, vertical 9:16, sync with voice and transients"
+                base_instructions["content_requirements"]["picture"] = "Static image, 1:1 aspect ratio, highlight key features"
                 base_instructions["xplainpack_usage_guidance"] = [
                     "Voice transcript provides natural explanations to incorporate",
                     "Transients indicate musical moments for visual emphasis",

@@ -1,7 +1,6 @@
 """
 Clean template editor widget for per-event editing.
 """
-import datetime
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QSplitter
 from PyQt6.QtCore import Qt, pyqtSignal
 
@@ -31,7 +30,6 @@ class TemplateEditor(QWidget):
         self.current_event_data = None
         self.current_frame_index = 0
         self.project = None  # Reference to the project
-        self._loading_frame = False  # Flag to prevent recursion
         
         self._setup_ui()
         self._connect_signals()
@@ -85,9 +83,9 @@ class TemplateEditor(QWidget):
         """Connect signals between components."""
         # Controls -> Editor
         self.controls.event_changed.connect(self.load_event)
-        # Note: Frame navigation is now handled by frame_timeline, not controls
+        self.controls.frame_changed.connect(self.load_frame)
         self.controls.constraint_mode_changed.connect(self.canvas.set_constraint_mode)
-        self.controls.reset_positions_requested.connect(self._handle_reset_positions)
+        self.controls.reset_positions_requested.connect(self.canvas.reset_positions)
         self.controls.element_property_changed.connect(self._handle_element_property_change)
         
         # Canvas -> Controls
@@ -127,159 +125,53 @@ class TemplateEditor(QWidget):
         self.frame_timeline.setVisible(is_video)
         
         if is_video:
-            # Set up frame timeline with the new update method
-            self.frame_timeline.update_for_event(self.current_event_data.__dict__)
+            # Set up frame timeline
+            frame_count = self.current_event_data.frame_count
+            self.frame_timeline.set_frame_count(frame_count)
             self.frame_timeline.set_current_frame(0)
         
         # Load first frame
         self.load_frame(0)
     
     def load_frame(self, frame_index: int):
-        """Load a specific frame with COMPLETE restoration of ALL element properties."""
-        if self._loading_frame:  # Prevent recursion
-            return
-            
+        """Load a specific frame for the current event."""
         if not self.current_event_id or not self.current_event_data:
             return
         
-        self._loading_frame = True
-        try:
-            # Save current frame before switching
-            if self.current_frame_index != frame_index:
-                self._save_current_frame()
-            
-            self.current_frame_index = frame_index
-            
-            # Get COMPLETE frame data from event template config
-            frame_data = self._get_frame_data(self.current_event_id, frame_index)
-            
-            print(f"🔄 LOADING INDEPENDENT FRAME {frame_index}: {len(frame_data.get('elements', {}))} elements")
-            
-            # Load frame elements into canvas with FULL restoration
-            elements_data = frame_data.get('elements', {})
-            
-            # Ensure complete element restoration
-            for element_id, element_data in elements_data.items():
-                print(f"   📋 Element {element_id}: type={element_data.get('type')}, visible={element_data.get('visible', True)}")
-                
-                # For text elements - restore ALL text properties
-                if element_data.get('type') == 'text':
-                    print(f"      📝 Text content: '{element_data.get('content', '')}', size: {element_data.get('size', 24)}")
-                
-                # For PiP elements - restore ALL PiP properties  
-                elif element_data.get('type') == 'pip':
-                    print(f"      🎬 PiP visible: {element_data.get('visible', True)}, corner_radius: {element_data.get('corner_radius', 0)}")
-            
-            self.canvas.load_frame_elements(elements_data)
-            
-            # Update frame timeline with description
-            if self.frame_timeline.isVisible():
-                self.frame_timeline.set_current_frame(frame_index)
-                frame_desc = frame_data.get('frame_description', f'Frame {frame_index + 1}')
-                self.frame_timeline.set_frame_description(frame_desc)
-                
-            print(f"✅ FRAME {frame_index} LOADED: Completely independent with all properties restored")
-            
-        finally:
-            self._loading_frame = False
+        # Save current frame before switching
+        if self.current_frame_index != frame_index:
+            self._save_current_frame()
+        
+        self.current_frame_index = frame_index
+        
+        # Get frame data from event template config
+        frame_data = self._get_frame_data(self.current_event_id, frame_index)
+        
+        # Load frame elements into canvas
+        self.canvas.load_frame_elements(frame_data.get('elements', {}))
+        
+        # Update frame timeline
+        if self.frame_timeline.isVisible():
+            self.frame_timeline.set_current_frame(frame_index)
     
     def _get_frame_data(self, event_id: str, frame_index: int) -> dict:
-        """Get frame data for an event, creating default elements if frame is new."""
+        """Get frame data for an event."""
         if not self.project or event_id not in self.project.release_events:
             return {}
         
         event = self.project.release_events[event_id]
         frame_data = event.template_config.get('frame_data', {})
-        existing_frame_data = frame_data.get(str(frame_index), {})
-        
-        # If frame has no elements, create default ones
-        if not existing_frame_data.get('elements'):
-            print(f"🔧 Creating default elements for new frame {frame_index} ({event.content_type})")
-            
-            # Use canvas to create default elements for this content type
-            self.canvas._setup_content_type_elements(event.content_type)
-            
-            # Get the default elements from canvas
-            if event.content_type in self.canvas.content_states:
-                import copy
-                default_elements = copy.deepcopy(self.canvas.content_states[event.content_type]['elements'])
-                
-                # Convert to serializable format
-                from core.project import convert_enums
-                default_elements = convert_enums(default_elements)
-                
-                existing_frame_data = {
-                    'frame_index': frame_index,
-                    'frame_description': f'{event.content_type.title()} frame {frame_index + 1}',
-                    'elements': default_elements
-                }
-                
-                # Save the default elements to the event
-                if 'frame_data' not in event.template_config:
-                    event.template_config['frame_data'] = {}
-                event.template_config['frame_data'][str(frame_index)] = existing_frame_data
-                
-                print(f"✅ Created {len(default_elements)} default elements for frame {frame_index}")
-        
-        return existing_frame_data
+        return frame_data.get(str(frame_index), {})
     
     def _save_current_frame(self):
-        """Save the current frame data with COMPLETE independence - ALL element properties."""
-        if self._loading_frame:  # Don't save while loading
-            return
-            
+        """Save the current frame data."""
         if not self.current_event_id:
             return
         
-        # Get comprehensive frame data including ALL element properties
-        elements_data = self.canvas.get_elements_data()
-        
-        # Ensure each element has complete data for frame independence
-        for element_id, element_data in elements_data.items():
-            # Make sure ALL properties are saved per frame
-            if 'rect' not in element_data:
-                element_data['rect'] = {'x': 0, 'y': 0, 'width': 100, 'height': 50}
-            if 'visible' not in element_data:
-                element_data['visible'] = True
-            if 'enabled' not in element_data:
-                element_data['enabled'] = True
-            
-            # For text elements - save ALL text properties per frame
-            if element_data.get('type') == 'text':
-                if 'content' not in element_data:
-                    element_data['content'] = f'Text Frame {self.current_frame_index + 1}'
-                if 'size' not in element_data:
-                    element_data['size'] = 24
-                if 'color' not in element_data:
-                    element_data['color'] = {'r': 255, 'g': 255, 'b': 255, 'a': 255}
-                if 'position_preset' not in element_data:
-                    element_data['position_preset'] = 'Middle'
-            
-            # For PiP elements - save ALL PiP properties per frame
-            elif element_data.get('type') == 'pip':
-                if 'corner_radius' not in element_data:
-                    element_data['corner_radius'] = 0
-                if 'visible' not in element_data:
-                    element_data['visible'] = True
-        
-        # Get frame description from timeline if available
-        frame_description = 'Frame description'
-        if hasattr(self, 'frame_timeline') and self.frame_timeline:
-            frame_description = self.frame_timeline.get_current_frame_description()
-        
-        # Create comprehensive frame data
         frame_data = {
-            'frame_index': self.current_frame_index,
-            'frame_description': frame_description,
-            'elements': elements_data,
-            'timestamp': datetime.datetime.now().isoformat(),
-            'frame_settings': {
-                'background_color': self.canvas.get_background_color() if hasattr(self.canvas, 'get_background_color') else None,
-                'canvas_size': self.canvas.size() if hasattr(self.canvas, 'size') else None
-            }
+            'elements': self.canvas.get_elements_data(),
+            'frame_description': self.canvas.get_frame_description()
         }
-        
-        print(f"💾 SAVING INDEPENDENT FRAME {self.current_frame_index}: {len(elements_data)} elements with complete properties")
         
         # Save to event template config
         self._set_frame_data(self.current_event_id, self.current_frame_index, frame_data)
@@ -295,7 +187,9 @@ class TemplateEditor(QWidget):
         
         event.template_config['frame_data'][str(frame_index)] = frame_data
         
-        # Mark project as modified (no need for per-event last_modified tracking)
+        # Mark as modified
+        import datetime
+        event.last_modified = datetime.datetime.now()
     
     def _save_event_template(self):
         """Save current event template configuration."""
@@ -307,7 +201,8 @@ class TemplateEditor(QWidget):
         
         # Get template config
         template_config = {
-            'frame_data': self._get_all_frame_data()
+            'frame_data': self._get_all_frame_data(),
+            'last_modified': self.current_event_data.last_modified
         }
         
         # Save to project
@@ -341,9 +236,7 @@ class TemplateEditor(QWidget):
     
     def _handle_element_selection(self, element_id: str):
         """Handle element selection in canvas."""
-        # Get element data from canvas
-        element_data = self.canvas.get_element_data(element_id)
-        self.controls.set_selected_element(element_id, element_data)
+        self.controls.set_selected_element(element_id)
     
     def _handle_element_moved(self, element_id: str, new_rect):
         """Handle element moved in canvas."""
@@ -376,18 +269,6 @@ class TemplateEditor(QWidget):
             frame_data['frame_description'] = description
             self._set_frame_data(self.current_event_id, frame_index, frame_data)
     
-    def _handle_reset_positions(self):
-        """Handle reset positions request by passing current event's content type."""
-        if self.current_event_data:
-            content_type = self.current_event_data.content_type
-            print(f"🔄 Resetting positions for current event content type: {content_type}")
-            self.canvas.reset_positions(content_type)
-            
-            # After reset, save the new default elements to current frame
-            self._save_current_frame()
-        else:
-            print("❌ No current event - cannot reset positions")
-
     # === COMPATIBILITY METHODS ===
     
     def get_template_config(self) -> dict:

@@ -54,12 +54,13 @@ class TemplateCanvas(QWidget):
     element_selected = pyqtSignal(str)  # element_type
     canvas_clicked = pyqtSignal(QPointF)  # click position
     reset_positions_requested = pyqtSignal()
+    elements_changed = pyqtSignal()  # When elements are modified
     
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumSize(400, 600)
         self.setMouseTracking(True)
-        self.content_type = "reel"
+        self.content_type = "video"
         self.content_frame = QRect(50, 50, 300, 500)
         self._need_frame_check = False
         
@@ -90,73 +91,16 @@ class TemplateCanvas(QWidget):
             self.reset_positions_requested.connect(self.reset_positions)
     
     def _initialize_content_states(self):
-        """Initialize separate states for each content type with frame support - RESPECTS USER CHOICE!"""
-        # Define content types with their DEFAULT frame counts (can be changed by user)
-        content_type_configs = {
-            'reel': {'frames': 3, 'is_video': True},      # Default 3 frames, user can change
-            'story': {'frames': 3, 'is_video': True},     # Default 3 frames, user can change
-            'tutorial': {'frames': 3, 'is_video': True},  # Default 3 frames, user can change
-            'post': {'frames': 1, 'is_video': False},     # Posts are static
-            'teaser': {'frames': 1, 'is_video': False}    # Teasers are static
-        }
-        
-        for content_type, config in content_type_configs.items():
-            is_video = config['is_video']
-            frame_count = config['frames']
-            
-            if is_video:
-                # Video content types have INDEPENDENT frame counts with unique configurations
-                frames = {}
-                for i in range(frame_count):
-                    # Generate unique descriptive name for each frame
-                    frame_description = f"Frame {i+1} for {content_type.title()}"
-                    
-                    # For specialized content types, add more specific descriptions
-                    if content_type == 'story':
-                        if i == 0:
-                            frame_description = f"Story intro - opening hook"
-                        elif i == frame_count - 1:
-                            frame_description = f"Story conclusion - call to action" 
-                        else:
-                            frame_description = f"Story part {i+1} - narrative progression"
-                    elif content_type == 'tutorial':
-                        if i == 0:
-                            frame_description = f"Tutorial intro - what you'll learn"
-                        elif i == frame_count - 1:
-                            frame_description = f"Tutorial conclusion - summary"
-                        else:
-                            frame_description = f"Tutorial step {i} - instruction phase"
-                    elif content_type == 'reel':
-                        frame_description = f"Reel main content - key visual hook"
-                    
-                    frames[i] = {
-                        'elements': {},
-                        'content_frame': QRect(50, 50, 300, 500),
-                        'constrain_to_frame': False,
-                        'frame_description': frame_description
-                    }
-                
-                self.content_states[content_type] = {
-                    'frames': frames,
-                    'current_frame': 0,
-                    'frame_count': frame_count
-                }
-                
-                print(f"🎬 Initialized {content_type} with {frame_count} frames")
-            else:
-                # Static content types (like 'post') have single state
-                self.content_states[content_type] = {
-                    'elements': {},
-                    'content_frame': QRect(50, 50, 300, 500),
-                    'constrain_to_frame': False
-                }
-                
-                print(f"📄 Initialized {content_type} as static content")
+        """Initialize canvas state - now using per-event template system."""
+        # No longer initialize legacy content types
+        # Per-event templates are loaded dynamically via load_frame_elements()
+        self.content_states = {}
+        print("✅ Canvas initialized for per-event template system")
     
     def _setup_default_elements(self):
         """Setup default elements for the current content type."""
         defaults = {
-            'reel': {
+            'video': {
                 'pip': {
                     'type': 'pip',
                     'enabled': True,
@@ -189,85 +133,21 @@ class TemplateCanvas(QWidget):
                     'style': 'normal'
                 }
             },
-            'story': {
+            'picture': {
                 'title': {
                     'type': 'text',
                     'enabled': True,
                     'rect': QRect(50, 50, 300, 80),
-                    'content': "Story Title",
+                    'content': "Picture Title",
                     'size': 32,
                     'color': QColor(255, 255, 255),
                     'style': 'bold'
-                },
-                'body': {
-                    'type': 'text',
-                    'enabled': True,
-                    'rect': QRect(50, 150, 300, 300),
-                    'content': "Once upon a time...",
-                    'size': 18,
-                    'color': QColor(255, 255, 255),
-                    'style': 'normal'
-                }
-            },
-            'post': {
-                'image': {
-                    'type': 'pip',
-                    'enabled': True,
-                    'rect': QRect(50, 50, 300, 200),
-                    'use_plugin_aspect_ratio': False,  # Toggle for using .adsp aspect ratio
-                    'plugin_aspect_ratio': 1.75,      # Default plugin aspect ratio (700x400)
-                    'plugin_file_path': '',           # Path to .adsp file  
-                    'corner_radius': 12,              # Corner roundness (0-50)
-                    'shape': 'rectangle',
-                    'color': QColor(100, 150, 200, 128),
-                    'border_color': QColor(255, 255, 255),
-                    'border_width': 2
                 },
                 'caption': {
                     'type': 'text',
                     'enabled': True,
                     'rect': QRect(50, 260, 300, 60),
-                    'content': "Caption for the post image.",
-                    'size': 18,
-                    'color': QColor(255, 255, 255),
-                    'style': 'normal'
-                }
-            },
-            'teaser': {
-                'title': {
-                    'type': 'text',
-                    'enabled': True,
-                    'rect': QRect(50, 50, 250, 70),
-                    'content': "Teaser Title",
-                    'size': 28,
-                    'color': QColor(255, 255, 255),
-                    'style': 'bold'
-                },
-                'preview': {
-                    'type': 'text',
-                    'enabled': True,
-                    'rect': QRect(50, 130, 250, 50),
-                    'content': "Exciting preview of the content...",
-                    'size': 16,
-                    'color': QColor(200, 200, 200),
-                    'style': 'normal'
-                }
-            },
-            'tutorial': {
-                'title': {
-                    'type': 'text',
-                    'enabled': True,
-                    'rect': QRect(50, 50, 300, 80),
-                    'content': "Tutorial Title",
-                    'size': 32,
-                    'color': QColor(255, 255, 255),
-                    'style': 'bold'
-                },
-                'steps': {
-                    'type': 'text',
-                    'enabled': True,
-                    'rect': QRect(50, 150, 300, 300),
-                    'content': "1. Step one...\n2. Step two...\n3. Step three...",
+                    'content': "Picture caption text.",
                     'size': 18,
                     'color': QColor(255, 255, 255),
                     'style': 'normal'
@@ -284,88 +164,18 @@ class TemplateCanvas(QWidget):
                 self.elements[element_id] = element
     
     def set_content_type(self, content_type: str):
-        """Set the content type and switch to its independent state with frame support."""
-        new_content_type = content_type.lower()
-        
-        # If switching to a different content type, save current state first
-        if new_content_type != self.content_type:
-            if self.is_video_content_type(self.content_type):
-                self._save_current_frame_state()
-            else:
-                self._save_current_state()
-        
-        # Switch to new content type
-        self.content_type = new_content_type
-        
-        # Reset current frame for video content types
-        if self.is_video_content_type():
-            if self.content_type in self.content_states:
-                self.current_frame = self.content_states[self.content_type].get('current_frame', 0)
-            else:
-                self.current_frame = 0
-        
-        # Load the state for the new content type (and current frame if video)
-        if self.is_video_content_type():
-            self._load_current_frame_state()
-        else:
-            self._load_content_state()
-        
-        self._need_frame_check = True
+        """Set the content type - simplified for per-event system."""
+        self.content_type = content_type.lower()
+        # No need to load states since per-event data is loaded separately
         self.update()
     
     def _save_current_state(self):
-        """Save current canvas state for the current content type."""
-        if self.is_video_content_type():
-            # For video content, save to current frame
-            self._save_current_frame_state()
-        else:
-            # For static content, save normally
-            if self.content_type in self.content_states:
-                state = self.content_states[self.content_type]
-                
-                # Deep copy elements to avoid reference issues
-                import copy
-                state['elements'] = copy.deepcopy(self.elements)
-                state['content_frame'] = QRect(self.content_frame)
-                state['constrain_to_frame'] = self.constrain_to_frame
-                # REMOVE zoom/pan
+        """Save current canvas state - no longer needed in per-event system."""
+        pass
     
     def _load_content_state(self):
-        """Load state for the current content type (non-video only)."""
-        if self.is_video_content_type():
-            # For video content, load from current frame
-            self._load_current_frame_state()
-            return
-        
-        print(f"🔄 Loading content state for: {self.content_type}")
-        print(f"   Available states: {list(self.content_states.keys())}")
-        
-        if self.content_type not in self.content_states:
-            # Initialize if not exists - only for truly new content types
-            print(f"   No state found, initializing with defaults")
-            self.content_states[self.content_type] = {
-                'elements': {},
-                'content_frame': QRect(50, 50, 300, 500),
-                'constrain_to_frame': False
-            }
-            # Set up initial default elements for new content type
-            self._setup_content_type_elements(self.content_type)
-
-        state = self.content_states[self.content_type]
-        print(f"   State has {len(state.get('elements', {}))} elements (respecting saved state)")
-
-        # Always load the saved state, even if elements are empty
-        # Don't call _setup_content_type_elements() for existing states!
-        
-        # Restore elements (deep copy to avoid reference issues)
-        import copy
-        self.elements = copy.deepcopy(state['elements'])
-        print(f"   Loaded {len(self.elements)} elements: {list(self.elements.keys())}")
-        
-        # Restore frame and settings
-        self.content_frame = QRect(state['content_frame'])
-        self.constrain_to_frame = state['constrain_to_frame']
-        # REMOVE zoom/pan
+        """Load state - no longer needed in per-event system."""
+        pass
     
     def _setup_content_type_elements(self, content_type: str):
         """Set up default elements for a specific content type."""
@@ -429,7 +239,7 @@ class TemplateCanvas(QWidget):
         title_height = int(title_size * 1.5)    # Height based on font size
         subtitle_height = int(subtitle_size * 1.5)
         
-        if content_type in ['reel', 'story']:
+        if content_type == 'video':
             # Portrait layout - TOP and BOTTOM positioning
             
             # Title at TOP (10% down from frame top)
@@ -462,7 +272,7 @@ class TemplateCanvas(QWidget):
                 'position_preset': 'bottom'
             }
             
-        elif content_type == 'post':
+        elif content_type == 'picture':
             # Square layout - TOP and BOTTOM
             title_x = frame_rect.left() + text_margin
             title_y = frame_rect.top() + text_margin
@@ -470,7 +280,7 @@ class TemplateCanvas(QWidget):
             elements['title'] = {
                 'type': 'text',
                 'rect': QRect(title_x, title_y, text_width, title_height),
-                'content': 'Post Title',
+                'content': 'Picture Title',
                 'size': title_size,
                 'color': QColor(255, 255, 255),
                 'style': 'normal',
@@ -484,7 +294,7 @@ class TemplateCanvas(QWidget):
             elements['subtitle'] = {
                 'type': 'text',
                 'rect': QRect(subtitle_x, subtitle_y, text_width, subtitle_height),
-                'content': 'Post Subtitle',
+                'content': 'Picture Subtitle',
                 'size': subtitle_size,
                 'color': QColor(255, 255, 255),
                 'style': 'normal',
@@ -492,7 +302,7 @@ class TemplateCanvas(QWidget):
                 'position_preset': 'bottom'
             }
             
-        else:  # tutorial, teaser - landscape
+        else:  # Any other type - default to picture layout
             # Landscape layout - TOP and BOTTOM
             title_x = frame_rect.left() + text_margin
             title_y = frame_rect.top() + text_margin
@@ -522,7 +332,9 @@ class TemplateCanvas(QWidget):
                 'position_preset': 'bottom'
             }
         
-        # Save to content state
+        # Save to content state (create if needed)
+        if content_type not in self.content_states:
+            self.content_states[content_type] = {}
         self.content_states[content_type]['elements'] = elements
         self.content_states[content_type]['content_frame'] = frame_rect
     
@@ -786,9 +598,17 @@ class TemplateCanvas(QWidget):
     def _draw_pip_element(self, painter, element_id, element):
         """Draw picture-in-picture element with optional rounded corners and plugin aspect ratio."""
         rect = element['rect']
-        # Ensure rect is a QRect object (convert from list if needed)
-        if isinstance(rect, list) and len(rect) == 4:
+        
+        # Ensure rect is a QRect object (convert from dict or list if needed)
+        if isinstance(rect, dict):
+            # Convert from dict format: {'x': X, 'y': Y, 'width': W, 'height': H}
+            rect = QRect(int(rect['x']), int(rect['y']), int(rect['width']), int(rect['height']))
+        elif isinstance(rect, list) and len(rect) == 4:
+            # Convert from list format: [x, y, width, height]
             rect = QRect(int(rect[0]), int(rect[1]), int(rect[2]), int(rect[3]))
+        elif not isinstance(rect, QRect):
+            # Fallback to default rect
+            rect = QRect(100, 100, 200, 112)  # 16:9 aspect ratio default
         
         corner_radius = element.get('corner_radius', 0)
         enabled = element.get('enabled', True)
@@ -844,9 +664,17 @@ class TemplateCanvas(QWidget):
     def _draw_text_element(self, painter, element_id, element):
         """Draw text overlay element."""
         rect = element['rect']
-        # Ensure rect is a QRect object (convert from list if needed)
-        if isinstance(rect, list) and len(rect) == 4:
+        
+        # Ensure rect is a QRect object (convert from dict or list if needed)
+        if isinstance(rect, dict):
+            # Convert from dict format: {'x': X, 'y': Y, 'width': W, 'height': H}
+            rect = QRect(int(rect['x']), int(rect['y']), int(rect['width']), int(rect['height']))
+        elif isinstance(rect, list) and len(rect) == 4:
+            # Convert from list format: [x, y, width, height]
             rect = QRect(int(rect[0]), int(rect[1]), int(rect[2]), int(rect[3]))
+        elif not isinstance(rect, QRect):
+            # Fallback to default rect
+            rect = QRect(100, 100, 200, 50)
         
         enabled = element.get('enabled', True)
         
@@ -941,13 +769,14 @@ class TemplateCanvas(QWidget):
         
         # Update all elements maintaining RELATIVE positions within the frame
         for element in self.elements.values():
-            old_rect = element['rect']
+            old_rect = self._get_qrect_from_element(element)
+            old_frame_rect = self._ensure_qrect(old_frame)
             
             # Calculate RELATIVE position within old frame (as percentages)
-            rel_x_percent = (old_rect.x() - old_frame.x()) / old_frame.width()
-            rel_y_percent = (old_rect.y() - old_frame.y()) / old_frame.height()
-            rel_width_percent = old_rect.width() / old_frame.width()
-            rel_height_percent = old_rect.height() / old_frame.height()
+            rel_x_percent = (old_rect.x() - old_frame_rect.x()) / old_frame_rect.width()
+            rel_y_percent = (old_rect.y() - old_frame_rect.y()) / old_frame_rect.height()
+            rel_width_percent = old_rect.width() / old_frame_rect.width()
+            rel_height_percent = old_rect.height() / old_frame_rect.height()
             
             # Apply relative position to new frame
             new_x = self.content_frame.x() + (rel_x_percent * self.content_frame.width())
@@ -1049,7 +878,8 @@ class TemplateCanvas(QWidget):
                     self.element_selected.emit(element_id)
                 elif interaction_type == "resize":
                     self.resizing_element = element_id
-                    self.resize_handle = self._get_resize_handle(canvas_point, self.elements[element_id]['rect'])
+                    element_rect = self._get_qrect_from_element(self.elements[element_id])
+                    self.resize_handle = self._get_resize_handle(canvas_point, element_rect)
                 elif interaction_type == "move":
                     self.dragging_element = element_id
                     self.last_mouse_pos = canvas_point
@@ -1071,10 +901,9 @@ class TemplateCanvas(QWidget):
             if self.last_mouse_pos:
                 delta = canvas_point - self.last_mouse_pos
                 element = self.elements[self.dragging_element]
-                old_rect = element['rect']
-                # Ensure old_rect is a QRect object (convert from list if needed)
-                if isinstance(old_rect, list) and len(old_rect) == 4:
-                    old_rect = QRect(int(old_rect[0]), int(old_rect[1]), int(old_rect[2]), int(old_rect[3]))
+                
+                # Use helper method to get QRect from element
+                old_rect = self._get_qrect_from_element(element)
                 
                 new_rect = QRect(old_rect.x() + delta.x(), old_rect.y() + delta.y(),
                                old_rect.width(), old_rect.height())
@@ -1102,10 +931,8 @@ class TemplateCanvas(QWidget):
             canvas_point = QPoint(int(event.position().x()), int(event.position().y()))
             
             element = self.elements[self.resizing_element]
-            old_rect = element['rect']
-            # Ensure old_rect is a QRect object (convert from list if needed)
-            if isinstance(old_rect, list) and len(old_rect) == 4:
-                old_rect = QRect(int(old_rect[0]), int(old_rect[1]), int(old_rect[2]), int(old_rect[3]))
+            # Use helper method to get QRect from element
+            old_rect = self._get_qrect_from_element(element)
             
             new_rect = self._calculate_resize(old_rect, canvas_point, self.resize_handle)
             
@@ -1138,17 +965,36 @@ class TemplateCanvas(QWidget):
             self.resize_handle = ""
             self.last_mouse_pos = None
     
+    def _get_element_rect(self, element_data: dict) -> QRect:
+        """Safely get QRect from element data, handling both dict and QRect formats."""
+        rect = element_data.get('rect')
+        
+        # Ensure rect is a QRect object (convert from dict or list if needed)
+        if isinstance(rect, QRect):
+            return rect
+        elif isinstance(rect, dict):
+            # Convert from dict format: {'x': X, 'y': Y, 'width': W, 'height': H}
+            return QRect(int(rect['x']), int(rect['y']), int(rect['width']), int(rect['height']))
+        elif isinstance(rect, list) and len(rect) == 4:
+            # Convert from list format: [x, y, width, height]
+            return QRect(int(rect[0]), int(rect[1]), int(rect[2]), int(rect[3]))
+        else:
+            # Fallback to default rect
+            return QRect(50, 50, 100, 50)
+
     def _find_element_at_point(self, point: QPoint) -> tuple[str, str] | None:
         """Find element at point and determine interaction type."""
         # Check resize handles first (if an element is selected)
         if self.selected_element and self.selected_element in self.elements:
             element = self.elements[self.selected_element]
-            if self._point_in_resize_handle(point, element['rect']):
+            rect = self._get_element_rect(element)
+            if self._point_in_resize_handle(point, rect):
                 return self.selected_element, "resize"
         
         # Check for elements (in reverse order for top-to-bottom selection)
         for element_id, element in reversed(list(self.elements.items())):
-            if element['rect'].contains(point):
+            rect = self._get_element_rect(element)
+            if rect.contains(point):
                 return element_id, "move"
         
         return None
@@ -1260,7 +1106,7 @@ class TemplateCanvas(QWidget):
         
         element = self.elements[element_id]
         aspect_ratio = element.get('plugin_aspect_ratio', 1.75)
-        current_rect = element['rect']
+        current_rect = self._get_element_rect(element)
         
         # Maintain center point and adjust size to match aspect ratio
         center_x = current_rect.center().x()
@@ -1314,30 +1160,37 @@ class TemplateCanvas(QWidget):
             'border_width': element.get('border_width', 2)
         }
     
-    def reset_positions(self):
+    def reset_positions(self, content_type=None):
         """Reset all elements to their default positions for the current content type."""
+        # Use provided content_type or fall back to self.content_type
+        reset_content_type = content_type or self.content_type
+        
         # Clear current elements
         self.elements = {}
         
-        # Re-setup default elements for current content type
-        self._setup_content_type_elements(self.content_type)
+        # Re-setup default elements for specified content type
+        self._setup_content_type_elements(reset_content_type)
         
         # Load the fresh defaults
-        if self.content_type in self.content_states:
+        if reset_content_type in self.content_states:
             import copy
-            self.elements = copy.deepcopy(self.content_states[self.content_type]['elements'])
+            self.elements = copy.deepcopy(self.content_states[reset_content_type]['elements'])
         
         # Clear selection
         self.selected_element = None
         
         # Update display
         self.update()
-        print(f"Reset element positions for {self.content_type}")
+        print(f"✅ Reset element positions for {reset_content_type}: {len(self.elements)} default elements created")
+        
+        # Emit signal so editor knows elements changed
+        if hasattr(self, 'elements_changed'):
+            self.elements_changed.emit()
     
     def is_video_content_type(self, content_type=None):
         """Check if content type supports frames"""
         ct = content_type or self.content_type
-        return ct in ['reel', 'story', 'tutorial']
+        return ct == 'video'
     
     def get_current_frame_data(self):
         """Get current frame data for video content types"""
@@ -1383,11 +1236,8 @@ class TemplateCanvas(QWidget):
         self.update()
     
     def _save_current_frame_state(self):
-        """Save current elements to the current frame - PRESERVES INDEPENDENCE"""
-        if not self.is_video_content_type():
-            # For static content, save normally
-            self._save_current_state()
-            return
+        """Save current frame state - no longer needed in per-event system."""
+        pass
         
         state = self.content_states.get(self.content_type, {})
         frames = state.get('frames', {})
@@ -1419,11 +1269,8 @@ class TemplateCanvas(QWidget):
         # Frame save complete
     
     def _load_current_frame_state(self):
-        """Load elements from current frame - MAINTAINS INDEPENDENCE"""
-        if not self.is_video_content_type():
-            # For static content, load normally
-            self._load_content_state()
-            return
+        """Load elements from current frame - no longer needed in per-event system."""
+        pass
         
         # Validate frame bounds before loading
         max_frames = self.get_content_type_frame_count()
@@ -1615,11 +1462,8 @@ class TemplateCanvas(QWidget):
         
         # Define maximum frame limits
         max_frames = {
-            'reel': 3,      # Reels can have up to 3 frames
-            'story': 10,    # Stories can have up to 10 frames
-            'tutorial': 15, # Tutorials can have up to 15 steps
-            'post': 1,      # Posts are always 1 frame
-            'teaser': 1     # Teasers are always 1 frame
+            'video': 10,    # Videos can have up to 10 frames
+            'picture': 1    # Pictures are always 1 frame
         }
 
         return max_frames.get(ct, 10)  # Default max to 10
@@ -1638,6 +1482,10 @@ class TemplateCanvas(QWidget):
         # Initialize frames if needed
         if 'frames' not in state:
             state['frames'] = {}
+        
+        # Initialize current_frame if needed
+        if 'current_frame' not in state:
+            state['current_frame'] = 0
         
         # Remove extra frames (handle both int and str keys for cleanup)
         frames_to_remove = []
@@ -1881,3 +1729,195 @@ class TemplateCanvas(QWidget):
         # Force visual update
         self.update()
         print(f"🔄 Forced refresh - now showing {len(self.elements)} elements")
+    
+    
+    def load_frame_elements(self, elements_data: dict):
+        """Load elements data into the current frame with COMPLETE property restoration."""
+        print(f"🎨 Canvas loading {len(elements_data)} elements with full independence")
+        
+        self.elements = {}
+        
+        # Restore Qt objects from serialized data with COMPLETE properties
+        for element_id, element_data in elements_data.items():
+            element_copy = copy.deepcopy(element_data)
+            element_copy = restore_qt_objects(element_copy)
+            
+            # Ensure ALL properties are present for frame independence
+            if 'visible' not in element_copy:
+                element_copy['visible'] = True
+            if 'enabled' not in element_copy:
+                element_copy['enabled'] = True
+            if 'rect' not in element_copy:
+                element_copy['rect'] = {'x': 100, 'y': 100, 'width': 200, 'height': 50}
+            
+            # For text elements - ensure ALL text properties
+            if element_copy.get('type') == 'text':
+                if 'content' not in element_copy:
+                    element_copy['content'] = 'Sample Text'
+                if 'size' not in element_copy:
+                    element_copy['size'] = 24
+                if 'color' not in element_copy:
+                    from PyQt6.QtGui import QColor
+                    element_copy['color'] = QColor(255, 255, 255)
+                if 'position_preset' not in element_copy:
+                    element_copy['position_preset'] = 'Middle'
+                    
+                print(f"   📝 Text Element {element_id}: '{element_copy['content']}', visible={element_copy['visible']}")
+            
+            # For PiP elements - ensure ALL PiP properties
+            elif element_copy.get('type') == 'pip':
+                if 'corner_radius' not in element_copy:
+                    element_copy['corner_radius'] = 0
+                    
+                print(f"   🎬 PiP Element {element_id}: visible={element_copy['visible']}, corner_radius={element_copy['corner_radius']}")
+            
+            self.elements[element_id] = element_copy
+        
+        print(f"✅ Canvas loaded {len(self.elements)} elements with complete frame independence")
+        self.update()
+    
+    def get_elements_data(self) -> dict:
+        """Get current frame elements data with COMPLETE properties for frame independence."""
+        elements_data = {}
+        
+        for element_id, element in self.elements.items():
+            # Deep copy to avoid reference issues
+            element_copy = copy.deepcopy(element)
+            
+            # Ensure ALL critical properties are included
+            if 'visible' not in element_copy:
+                element_copy['visible'] = True
+            if 'enabled' not in element_copy:
+                element_copy['enabled'] = True
+            if 'type' not in element_copy:
+                element_copy['type'] = 'unknown'
+            
+            # For text elements - include ALL text properties
+            if element_copy.get('type') == 'text':
+                if 'content' not in element_copy:
+                    element_copy['content'] = 'Sample Text'
+                if 'size' not in element_copy:
+                    element_copy['size'] = 24
+                if 'color' not in element_copy:
+                    from PyQt6.QtGui import QColor
+                    element_copy['color'] = QColor(255, 255, 255)
+                if 'position_preset' not in element_copy:
+                    element_copy['position_preset'] = 'Middle'
+            
+            # For PiP elements - include ALL PiP properties
+            elif element_copy.get('type') == 'pip':
+                if 'corner_radius' not in element_copy:
+                    element_copy['corner_radius'] = 0
+            
+            # Ensure rect is properly serializable
+            if 'rect' in element_copy and hasattr(element_copy['rect'], 'x'):
+                # Convert QRect to dict for serialization
+                rect = element_copy['rect']
+                element_copy['rect'] = {
+                    'x': rect.x(),
+                    'y': rect.y(),
+                    'width': rect.width(),
+                    'height': rect.height()
+                }
+            
+            elements_data[element_id] = element_copy
+        
+        print(f"📦 Canvas providing {len(elements_data)} elements with complete properties")
+        return elements_data
+    
+    def get_frame_description(self) -> str:
+        """Get current frame description."""
+        return getattr(self, 'frame_description', '')
+    
+    def set_frame_description(self, description: str):
+        """Set current frame description."""
+        self.frame_description = description
+
+    def update_element_property(self, element_id: str, property_name: str, value):
+        """Update a property of an element."""
+        if element_id not in self.elements:
+            return
+        
+        element = self.elements[element_id]
+        
+        if property_name == 'content':
+            element['content'] = value
+        elif property_name == 'size':
+            element['size'] = value
+        elif property_name == 'color':
+            element['color'] = value
+        elif property_name == 'enabled':
+            element['enabled'] = value
+        elif property_name == 'corner_radius':
+            element['corner_radius'] = value
+        elif property_name == 'position_preset':
+            # Handle simplified position preset
+            self._apply_position_preset(element_id, value)
+        elif property_name.startswith('rect_'):
+            # Handle rect property updates
+            rect_prop = property_name.replace('rect_', '')
+            rect = element.get('rect', QRect(100, 100, 200, 100))
+            if rect_prop == 'x':
+                rect.setX(value)
+            elif rect_prop == 'y':
+                rect.setY(value)
+            elif rect_prop == 'width':
+                rect.setWidth(value)
+            elif rect_prop == 'height':
+                rect.setHeight(value)
+            element['rect'] = rect
+        
+        # Update the visual representation
+        self.update()
+    
+    def _apply_position_preset(self, element_id: str, preset: str):
+        """Apply a position preset to an element."""
+        if element_id not in self.elements:
+            return
+        
+        element = self.elements[element_id]
+        rect = element.get('rect', QRect(100, 100, 200, 100))
+        
+        # Get canvas dimensions
+        canvas_width = self.width()
+        canvas_height = self.height()
+        
+        # Calculate position based on preset
+        if preset == "Top":
+            new_y = 50
+        elif preset == "Bottom":
+            new_y = canvas_height - rect.height() - 50
+        else:  # Middle
+            new_y = (canvas_height - rect.height()) // 2
+        
+        # Center horizontally
+        new_x = (canvas_width - rect.width()) // 2
+        
+        rect.setX(new_x)
+        rect.setY(new_y)
+        element['rect'] = rect
+
+    def get_element_data(self, element_id: str) -> dict:
+        """Get element data for the specified element."""
+        return self.elements.get(element_id, {})
+    
+    def _ensure_qrect(self, rect_data):
+        """Ensure rect_data is a QRect object."""
+        if isinstance(rect_data, QRect):
+            return rect_data
+        elif isinstance(rect_data, dict):
+            return QRect(
+                rect_data.get('x', 0),
+                rect_data.get('y', 0), 
+                rect_data.get('width', 100),
+                rect_data.get('height', 50)
+            )
+        elif isinstance(rect_data, list) and len(rect_data) >= 4:
+            return QRect(rect_data[0], rect_data[1], rect_data[2], rect_data[3])
+        else:
+            return QRect(0, 0, 100, 50)  # Default fallback
+
+    def _get_qrect_from_element(self, element):
+        """Get QRect from element, handling various rect formats."""
+        rect_data = element.get('rect')
+        return self._ensure_qrect(rect_data)

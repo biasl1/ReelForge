@@ -516,6 +516,8 @@ class MainWindow(QMainWindow):
         if self.current_project:
             if self.current_project.add_release_event(event):
                 self._update_timeline_display()
+                # Refresh template editor events list
+                self.content_template_view.refresh_events()
                 self.status_bar.showMessage(f"Event '{event.title}' created", 2000)
             else:
                 QMessageBox.warning(
@@ -597,9 +599,12 @@ class MainWindow(QMainWindow):
         self.templates_btn.setChecked(True)
         self.stacked_widget.setCurrentIndex(1)
         
-    def _on_template_changed(self):
-        """Handle template parameter changes"""
-        # Reduced logging to avoid console spam
+    def _on_template_changed(self, event_id: str, template_config: dict):
+        """Handle template parameter changes for specific event"""
         if self.current_project:
             self.current_project.mark_modified()
             self._update_status_bar()
+            
+            # Update the timeline canvas if needed
+            if hasattr(self, 'timeline_canvas'):
+                self.timeline_canvas.update()

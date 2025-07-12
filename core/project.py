@@ -33,8 +33,10 @@ def convert_enums(obj):
         if hasattr(obj, 'toRect'):  # QRect
             rect = obj.toRect()
             return [rect.x(), rect.y(), rect.width(), rect.height()]
-        elif hasattr(obj, 'x') and hasattr(obj, 'y'):  # QPoint, QSize, etc.
-            if hasattr(obj, 'width') and hasattr(obj, 'height'):  # QRect, QSize
+        elif hasattr(obj, 'width') and hasattr(obj, 'height') and not hasattr(obj, 'x'):  # QSize
+            return [obj.width(), obj.height()]
+        elif hasattr(obj, 'x') and hasattr(obj, 'y'):  # QPoint, QRect, etc.
+            if hasattr(obj, 'width') and hasattr(obj, 'height'):  # QRect
                 return [obj.x(), obj.y(), obj.width(), obj.height()]
             else:  # QPoint
                 return [obj.x(), obj.y()]
@@ -43,30 +45,44 @@ def convert_enums(obj):
         else:
             # For other Qt objects, try to convert to string
             return str(obj)
+    elif isinstance(obj, datetime):
+        # Convert datetime objects to ISO format strings
+        return obj.isoformat()
     else:
         return obj
 
 @dataclass
 class ReleaseEvent:
-    """A scheduled content release event"""
+    """A scheduled content release event - now supports flexible VIDEO/PICTURE types"""
     id: str
     date: str  # ISO format date string
-    content_type: str  # "reel", "story", "post", "teaser", "tutorial"
+    content_type: str  # "video" or "picture" 
     title: str
     description: str = ""
     assets: List[str] = field(default_factory=list)  # Asset IDs
     platforms: List[str] = field(default_factory=list)  # "instagram", "tiktok", "youtube"
     status: str = "planned"  # "planned", "ready", "published"
-    duration_seconds: int = 30  # Target content duration
+    duration_seconds: int = 30  # Target content duration (for videos)
     hashtags: List[str] = field(default_factory=list)
     created_date: str = ""
     session_id: Optional[str] = None  # XplainPack session ID for synchronized content
+    
+    # NEW: Per-event template configuration
+    template_config: Dict[str, Any] = field(default_factory=dict)  # Frame layouts specific to this event
+    frame_count: int = 1  # Number of frames for this event (videos can have multiple frames)
 
     def __post_init__(self):
         if not self.id:
             self.id = str(uuid.uuid4())[:8]
         if not self.created_date:
             self.created_date = datetime.now().isoformat()
+        
+        # Set sensible defaults based on content type
+        if self.content_type == "picture":
+            self.frame_count = 1  # Pictures always have 1 frame
+            self.duration_seconds = 0  # Pictures don't have duration
+        elif self.content_type == "video" and not self.template_config:
+            self.frame_count = 1  # Default to 1 frame for videos (user can add more)
 
 
 @dataclass
@@ -426,109 +442,41 @@ class ReelForgeProject:
                 
             events_data.append(event_data)
 
-        # Get content generation templates - always export practical layout info for all content types
+        # Get content generation templates from per-event configurations
         templates_data = {}
         
-        # First priority: Get REAL layout data from UI template editor
-        if template_editor:
-            # Get current content type to restore later
-            original_content_type = template_editor.get_content_type()
-            
-            # Save current state before gathering data
-            template_editor.canvas._save_current_state()
-            
-            # Get all content types that have been configured
-            content_types_to_export = set()
-            
-            # Add content types from events
-            for event in events_data:
-                content_types_to_export.add(event["content_type"])
-            
-            # Add content types that have actual configuration in template editor
-            if hasattr(template_editor.canvas, 'content_states'):
-                for content_type, state in template_editor.canvas.content_states.items():
-                    # Check if this content type has any elements configured
-                    if template_editor.canvas.is_video_content_type(content_type):
-                        frames = state.get('frames', {})
-                        has_elements = any(frame.get('elements') for frame in frames.values())
-                        if has_elements:
-                            content_types_to_export.add(content_type)
-                    else:
-                        elements = state.get('elements', {})
-                        if elements:
-                            content_types_to_export.add(content_type)
-            
-            # If no content types configured yet, use common defaults
-            if not content_types_to_export:
-                content_types_to_export = {'reel', 'story', 'post'}
-            
-            log_info(f"Exporting templates for content types: {content_types_to_export}")
-            
-            # Export layout data for each content type
-            for content_type in content_types_to_export:
-                try:
-                    # Switch to this content type
-                    template_editor.set_content_type(content_type)
-                    
-                    # Get template configuration using the editor's API
-                    config = template_editor.get_template_config()
-                    
-                    if config and config.get('canvas_config'):
-                        # Convert to export format
-                        templates_data[content_type] = self._convert_ui_layout_to_export_format(config, content_type)
-                        log_info(f"Exported template for {content_type}")
-                    else:
-                        # Fall back to basic layout
-                        templates_data[content_type] = self._export_practical_layout(content_type)
-                        log_warning(f"Used fallback layout for {content_type}")
-                        
-                except Exception as e:
-                    log_error(f"Error exporting {content_type}: {e}")
-                    # Use fallback
-                    templates_data[content_type] = self._export_practical_layout(content_type)
-            
-            # Restore original content type
-            template_editor.set_content_type(original_content_type)
-        
-        # Second priority: Export from ContentGenerationManager if it exists
-        elif hasattr(self, 'content_generation_manager') and self.content_generation_manager:
-            # Export all content type templates with REAL settings
-            content_types_used = set()
-            for event in events_data:
-                content_types_used.add(event["content_type"])
-            
-            # Export actual configured templates for each content type used
-            for content_type in content_types_used:
-                actual_template = self.content_generation_manager.get_content_template(content_type)
-                templates_data[content_type] = self._export_practical_template(actual_template, content_type.replace("_", " ").title())
-            
-            # Export project-wide template if customized
-            if self.content_generation_manager.project_wide_template:
-                templates_data["project_wide_custom"] = self._export_practical_template(
-                    self.content_generation_manager.project_wide_template, "project_wide_custom"
-                )
-            
-            # Export event-specific templates (these override content-type defaults)
-            for event_id, template in self.content_generation_manager.event_templates.items():
-                templates_data[f"event_{event_id}_custom"] = self._export_practical_template(template, f"event_{event_id}_custom")
-        else:
-            # Fallback: export basic layout for content types if no ContentGenerationManager
-            content_types_used = set()
-            for event in events_data:
-                content_types_used.add(event["content_type"])
-            
-            for content_type in content_types_used:
-                templates_data[content_type] = self._export_practical_layout(content_type)
+        # Extract template data from events (per-event system)
+        for event in self.release_events.values():
+            content_type = event.content_type
+            if content_type not in templates_data:
+                # Create basic template structure for this content type
+                # Convert template_config to ensure QColor and Qt objects are serializable
+                serializable_template_config = convert_enums(event.template_config)
+                templates_data[content_type] = {
+                    "frame_count": event.frame_count,
+                    "template_config": serializable_template_config,
+                    "aspect_ratio": 9/16 if content_type == 'video' else 1.0
+                }
+                log_info(f"Exported template for {content_type} from events")
+        # If no events have templates, provide defaults
+        if not templates_data:
+            templates_data = {
+                "video": {
+                    "frame_count": 3,
+                    "template_config": {},
+                    "aspect_ratio": 9/16
+                },
+                "picture": {
+                    "frame_count": 1,
+                    "template_config": {},
+                    "aspect_ratio": 1.0
+                }
+            }
 
-        # Ensure content type consistency
-        # Map calendar content types to template names
+        # Map calendar content types to template names (modernized)
         content_type_mapping = {
-            "reel": "reel",
-            "story": "story", 
-            "post": "post",
-            "tutorial": "tutorial",
-            "teaser": "teaser",
-            "yt_short": "yt_short"
+            "video": "video",
+            "picture": "picture"
         }
         
         # Update events data with consistent content types
@@ -1035,10 +983,10 @@ class ReelForgeProject:
         }
     
     def _export_practical_layout(self, content_type: str) -> Dict[str, Any]:
-        """Export SIMPLIFIED practical layout information for any content type"""
+        """Export SIMPLIFIED practical layout information for VIDEO/PICTURE content types"""
         return {
             "content_type": content_type,
-            "is_video_content": content_type in ['reel', 'story', 'tutorial'],
+            "is_video_content": content_type == 'video',
             "layout": {
                 "title": {"position": {"y": 100}},      # Default title position
                 "subtitle": {"position": {"y": 400}},   # Default subtitle position
@@ -1074,7 +1022,7 @@ class ReelForgeProject:
             log_error(f"ERROR: frames_data is not a dict, it's a {type(frames_data)}")
             frames_data = {}
             
-        is_video_content = content_type in ['reel', 'story', 'tutorial']
+        is_video_content = content_type == 'video'
         
         if is_video_content and frames_data:
             # For video content types, export SIMPLIFIED frame structure
@@ -1143,102 +1091,20 @@ class ReelForgeProject:
     
 
     def save_template_editor_settings(self, template_editor):
-        """Save template editor settings with proper content type isolation"""
-        settings = {}
+        """Save template editor settings for current event"""
+        if not template_editor.current_event_id:
+            log_warning("No current event selected in template editor")
+            return False
         
-        # Get current content type to restore later
-        current_content_type = template_editor.get_content_type()
+        # Save current frame
+        template_editor._save_current_frame()
         
-        # Save each content type's data separately
-        for content_type in ['reel', 'story', 'tutorial', 'post', 'teaser']:
-            log_debug(f"Saving {content_type} settings...")
-            
-            # Switch to this content type to get its data
-            template_editor.set_content_type(content_type)
-            
-            # Save current frame before getting data
-            template_editor.canvas.save_current_frame()
-            
-            # Get frame count for this content type
-            frame_count = template_editor.canvas.get_content_type_frame_count(content_type)
-            
-            # Initialize content type data
-            settings[content_type.upper()] = {
-                'frame_count': frame_count,
-                'frames': {}
-            }
-            
-            # Save each frame's data
-            for frame_idx in range(frame_count):
-                # Switch to this frame
-                template_editor.frame_timeline.set_current_frame(frame_idx)
-                
-                # Get frame data from canvas
-                frame_data = template_editor.canvas.get_frame_data(frame_idx, content_type)
-                
-                if frame_data:
-                    settings[content_type.upper()]['frames'][str(frame_idx)] = {
-                        'elements': frame_data.get('elements', {}),
-                        'content_frame': frame_data.get('content_frame'),
-                        'constrain_to_frame': frame_data.get('constrain_to_frame', False),
-                        'frame_description': frame_data.get('frame_description', '')
-                    }
-                    log_debug(f"Frame {frame_idx}: '{frame_data.get('frame_description', '')}'")
-        
-        # Restore original content type
-        template_editor.set_content_type(current_content_type)
-        
-        # Save settings to project
-        self.template_editor_settings = settings
-        log_info(f"Saved template editor settings for {len(settings)} content types")
+        log_info(f"Saved template editor settings for event {template_editor.current_event_id}")
         return True
 
     def load_template_editor_settings(self, template_editor):
-        """Load template editor settings with proper content type isolation"""
-        if not hasattr(self, 'template_editor_settings') or not self.template_editor_settings:
-            log_warning("No template editor settings to load")
-            return False
-        
-        settings = self.template_editor_settings
-        log_info(f"Loading template editor settings for {len(settings)} content types...")
-        
-        # Get current content type to restore later
-        current_content_type = template_editor.get_content_type()
-        
-        # Load each content type's data
-        for content_type_key, content_data in settings.items():
-            content_type = content_type_key.lower()
-            log_debug(f"Loading {content_type} settings...")
-            
-            # Switch to this content type
-            template_editor.set_content_type(content_type)
-            
-            # Clear existing frames first
-            template_editor.canvas.clear_all_frames_for_content_type(content_type)
-            
-            # Set frame count
-            frame_count = content_data.get('frame_count', 0)
-            template_editor.canvas.set_frame_count_for_content_type(content_type, frame_count)
-            
-            # Load each frame's data
-            frames_data = content_data.get('frames', {})
-            for frame_idx_str, frame_data in frames_data.items():
-                frame_idx = int(frame_idx_str)
-                
-                # Set frame data in canvas
-                template_editor.canvas.set_frame_data(frame_idx, content_type, frame_data)
-                log_debug(f"Frame {frame_idx}: '{frame_data.get('frame_description', '')}'")
-            
-            # CRITICAL: After restoring all frame data, reload the current frame for display
-            template_editor.canvas._load_current_frame_state()
-            
-            # Update timeline frame count
-            template_editor.frame_timeline.set_frame_count(frame_count)
-        
-        # Restore original content type
-        template_editor.set_content_type(current_content_type)
-        
-        log_info("Template editor settings loaded successfully")
+        """Load template editor settings - no longer needed in new system"""
+        log_info("Template editor settings loading skipped - using per-event system")
         return True
 
     def _extract_title_y_position(self, elements: Dict[str, Any]) -> int:
@@ -1313,14 +1179,10 @@ class ReelForgeProject:
         return subtitle_element.get('size', 20)
 
     def _get_standard_dimensions(self, content_type: str) -> Dict[str, int]:
-        """Get standard dimensions for content types"""
+        """Get standard dimensions for VIDEO/PICTURE content types"""
         dimension_map = {
-            "reel": {"width": 1080, "height": 1920},      # 9:16 vertical
-            "story": {"width": 1080, "height": 1920},     # 9:16 vertical  
-            "post": {"width": 1080, "height": 1080},      # 1:1 square
-            "tutorial": {"width": 1920, "height": 1080},  # 16:9 landscape
-            "teaser": {"width": 1080, "height": 1920},    # 9:16 vertical
-            "yt_short": {"width": 1080, "height": 1920}   # 9:16 vertical
+            "video": {"width": 1080, "height": 1920},      # 9:16 vertical for video
+            "picture": {"width": 1080, "height": 1080},    # 1:1 square for picture
         }
         return dimension_map.get(content_type, {"width": 1080, "height": 1080})
 
@@ -1392,6 +1254,88 @@ class ReelForgeProject:
                 self.mark_modified()
                 return True
         return False
+
+    # Event Template Management Methods (NEW ARCHITECTURE)
+    def get_event_template_config(self, event_id: str) -> Dict[str, Any]:
+        """Get template configuration for a specific event"""
+        if event_id in self.release_events:
+            return self.release_events[event_id].template_config
+        return {}
+    
+    def set_event_template_config(self, event_id: str, config: Dict[str, Any]) -> bool:
+        """Set template configuration for a specific event"""
+        if event_id in self.release_events:
+            self.release_events[event_id].template_config = config
+            self.mark_modified()
+            return True
+        return False
+    
+    def get_event_frame_count(self, event_id: str) -> int:
+        """Get number of frames for a specific event"""
+        if event_id in self.release_events:
+            return self.release_events[event_id].frame_count
+        return 1
+    
+    def set_event_frame_count(self, event_id: str, frame_count: int) -> bool:
+        """Set number of frames for a specific event"""
+        if event_id in self.release_events:
+            self.release_events[event_id].frame_count = max(1, frame_count)
+            # Initialize frame data if needed
+            if 'frame_data' not in self.release_events[event_id].template_config:
+                self.release_events[event_id].template_config['frame_data'] = {}
+            self.mark_modified()
+            return True
+        return False
+    
+    def get_event_frame_data(self, event_id: str, frame_index: int) -> Dict[str, Any]:
+        """Get frame data for a specific event and frame"""
+        if event_id in self.release_events:
+            frame_data = self.release_events[event_id].template_config.get('frame_data', {})
+            return frame_data.get(str(frame_index), {})
+        return {}
+    
+    def set_event_frame_data(self, event_id: str, frame_index: int, frame_data: Dict[str, Any]) -> bool:
+        """Set frame data for a specific event and frame"""
+        if event_id in self.release_events:
+            if 'frame_data' not in self.release_events[event_id].template_config:
+                self.release_events[event_id].template_config['frame_data'] = {}
+            self.release_events[event_id].template_config['frame_data'][str(frame_index)] = frame_data
+            self.mark_modified()
+            return True
+        return False
+    
+    def create_event_with_template(self, date: str, content_type: str, title: str, 
+                                 description: str = "", frame_count: int = None) -> str:
+        """Create a new event with default template configuration"""
+        # Determine default frame count based on content type
+        if frame_count is None:
+            frame_count = 1 if content_type == "picture" else 3
+        
+        # Create the event
+        event = ReleaseEvent(
+            id="",  # Will be auto-generated
+            date=date,
+            content_type=content_type,
+            title=title,
+            description=description,
+            frame_count=frame_count,
+            template_config={"frame_data": {}}
+        )
+        
+        # Add to release events
+        self.release_events[event.id] = event
+        
+        # Add to timeline
+        if not self.timeline_plan:
+            self.initialize_timeline()
+        
+        if date not in self.timeline_plan.events:
+            self.timeline_plan.events[date] = []
+        self.timeline_plan.events[date].append(event.id)
+        
+        self.mark_modified()
+        log_info(f"Created {content_type} event: {title} ({event.id})")
+        return event.id
 
 
 class ProjectManager:

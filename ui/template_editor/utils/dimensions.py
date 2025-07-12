@@ -3,39 +3,25 @@ Content type dimensions and aspect ratios for ReelTune templates.
 """
 
 CONTENT_DIMENSIONS = {
-    "reel": {
+    "video": {
         "width": 1080,
         "height": 1920,
-        "name": "Instagram Reel (9:16)",
+        "name": "Video Content (9:16)",
         "aspect_ratio": 9/16,
         "has_timeline": True
     },
-    "story": {
-        "width": 1080, 
-        "height": 1920,
-        "name": "Instagram Story (9:16)",
-        "aspect_ratio": 9/16,
-        "has_timeline": True
-    },
-    "post": {
+    "picture": {
         "width": 1080,
         "height": 1080, 
-        "name": "Instagram Post (1:1)",
+        "name": "Picture Content (1:1)",
         "aspect_ratio": 1.0,
         "has_timeline": False
-    },
-    "tutorial": {
-        "width": 1920,
-        "height": 1080,
-        "name": "YouTube Tutorial (16:9)",
-        "aspect_ratio": 16/9,
-        "has_timeline": True
     }
 }
 
 def get_content_dimensions(content_type: str) -> dict:
     """Get dimensions for a content type."""
-    return CONTENT_DIMENSIONS.get(content_type.lower(), CONTENT_DIMENSIONS["reel"])
+    return CONTENT_DIMENSIONS.get(content_type.lower(), CONTENT_DIMENSIONS["video"])
 
 def get_canvas_size(content_type: str, scale_factor: float = 1.0) -> tuple[int, int]:
     """Get scaled canvas size for content type."""

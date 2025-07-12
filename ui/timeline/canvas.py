@@ -145,19 +145,22 @@ class DayCell(QFrame):
         indicator.setMaximumHeight(16)
         indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Color coding by content type
+        # Color coding by content type - VIDEO/PICTURE only
         colors = {
-            "reel": "#ff4444",      # Red
-            "story": "#9c27b0",     # Purple
-            "post": "#2196f3",      # Blue
-            "teaser": "#ff9800",    # Orange
-            "tutorial": "#4caf50"   # Green
+            "video": "#ff4444",      # Red for VIDEO
+            "picture": "#2196f3",    # Blue for PICTURE
         }
 
-        color = colors.get(event.content_type, "#cccccc")
+        color = colors.get(event.content_type.lower(), "#cccccc")
 
-        # Create styled indicator
-        indicator.setText(f"● {event.content_type.title()}")
+        # Create styled indicator with frame count for videos
+        if event.content_type.lower() == "video":
+            frame_count = getattr(event, 'frame_count', 1)
+            display_text = f"● VIDEO ({frame_count}f)"
+        else:
+            display_text = f"● PICTURE"
+            
+        indicator.setText(display_text)
         indicator.setStyleSheet(f"""
             color: {color};
             font-size: 9px;
@@ -167,7 +170,7 @@ class DayCell(QFrame):
             background-color: rgba{tuple(QColor(color).getRgb()[:3]) + (40,)};
         """)
 
-        indicator.setToolTip(f"{event.title}\n{event.description}")
+        indicator.setToolTip(f"{event.title}\n{event.description}\nFrames: {getattr(event, 'frame_count', 1)}")
 
         return indicator
 

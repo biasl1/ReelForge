@@ -19,7 +19,7 @@ class TemplateControls(QWidget):
     """
     
     # Signals
-    content_type_changed = pyqtSignal(str)
+    event_changed = pyqtSignal(str)  # event_id
     constraint_mode_changed = pyqtSignal(bool)
     element_property_changed = pyqtSignal(str, str, object)  # element_id, property, value
     reset_positions_requested = pyqtSignal()
@@ -58,16 +58,17 @@ class TemplateControls(QWidget):
         layout.addStretch()
     
     def _create_content_type_group(self) -> QGroupBox:
-        """Create content type selection group."""
-        group = QGroupBox("Content Type")
+        """Create calendar event selection group."""
+        group = QGroupBox("Calendar Event")
         layout = QVBoxLayout(group)
         
-        self.content_combo = QComboBox()
-        for content_type, dims in CONTENT_DIMENSIONS.items():
-            self.content_combo.addItem(dims["name"], content_type)
+        self.event_combo = QComboBox()
+        self.event_combo.addItem("No event selected", None)
+        self.event_combo.currentTextChanged.connect(self._on_event_changed)
+        layout.addWidget(self.event_combo)
         
-        self.content_combo.currentTextChanged.connect(self._on_content_type_changed)
-        layout.addWidget(self.content_combo)
+        # Note: Frame navigation is handled by the frame timeline at the bottom
+        # No frame selector needed here - it was redundant and confusing
         
         return group
     
@@ -110,33 +111,20 @@ class TemplateControls(QWidget):
         
         return group
     
-    def _on_content_type_changed(self):
-        """Handle content type change."""
-        content_type = self.content_combo.currentData()
-        if content_type:
-            self.content_type_changed.emit(content_type)
+    def _on_event_changed(self):
+        """Handle event selection change."""
+        event_id = self.event_combo.currentData()
+        if event_id:
+            self.event_changed.emit(event_id)
     
     def set_content_type(self, content_type: str):
-        """Set the current content type."""
-        for i in range(self.content_combo.count()):
-            if self.content_combo.itemData(i) == content_type:
-                self.content_combo.setCurrentIndex(i)
-                break
+        """Set the current content type - now determined by selected event."""
+        # Content type is now determined by the selected event, not a separate control
+        pass
     
     def set_constraint_mode(self, constrain: bool):
         """Set constraint mode."""
         self.constrain_checkbox.setChecked(constrain)
-    
-    def set_selected_element(self, element_id: str, element_data: dict):
-        """Set the currently selected element and show its properties."""
-        self.current_element = element_id
-        self._update_element_properties(element_id, element_data)
-    
-    def clear_selection(self):
-        """Clear element selection."""
-        self.current_element = None
-        self.no_selection_label.show()
-        self.properties_widget.hide()
     
     def _update_element_properties(self, element_id: str, element_data: dict):
         """Update the properties panel for the selected element."""
@@ -245,11 +233,19 @@ class TemplateControls(QWidget):
         position_combo = QComboBox()
         position_combo.addItems(["Top", "Middle", "Bottom"])
         
-        # Determine current position based on Y coordinate
+        # Determine current position based on Y coordinate - handle rect format safely
         rect = element_data.get('rect')
         current_position = "Middle"  # default
         if rect:
-            y_pos = rect.y()
+            # Handle different rect formats safely
+            y_pos = 300  # default middle position
+            if hasattr(rect, 'y'):  # QRect object
+                y_pos = rect.y()
+            elif isinstance(rect, dict):
+                y_pos = rect.get('y', 300)
+            elif isinstance(rect, list) and len(rect) >= 2:
+                y_pos = rect[1]  # Y is second element
+            
             # Rough approximation based on content dimensions
             if y_pos < 200:
                 current_position = "Top"
@@ -319,3 +315,64 @@ class TemplateControls(QWidget):
         
         if self.current_element:
             self.element_property_changed.emit(self.current_element, 'corner_radius', value)
+    
+    def update_element_position(self, element_id: str, new_rect):
+        """Update element position display (placeholder)."""
+        # This could update position displays in the UI if needed
+        pass
+    
+    def update_element_size(self, element_id: str, new_rect):
+        """Update element size display (placeholder)."""
+        # This could update size displays in the UI if needed
+        pass
+    
+    def set_events(self, events: list):
+        """Set the available calendar events."""
+        self.event_combo.clear()
+        self.event_combo.addItem("No event selected", None)
+        
+        for event in events:
+            display_name = f"{event.title} ({event.content_type.upper()}) - {event.date}"
+            self.event_combo.addItem(display_name, event.id)
+    
+    def refresh_events(self, events_dict: dict):
+        """Refresh the event list from a dictionary of events."""
+        events = list(events_dict.values())
+        self.set_events(events)
+    
+    def set_current_event(self, event_id: str, event_data: dict):
+        """Set the current event being edited."""
+        # Find and select the event in the combo box
+        for i in range(self.event_combo.count()):
+            if self.event_combo.itemData(i) == event_id:
+                self.event_combo.setCurrentIndex(i)
+                break
+    
+    def clear_selection(self):
+        """Clear element selection."""
+        self.current_element = None
+        self.no_selection_label.show()
+        self.properties_widget.hide()
+        print("🔄 Controls cleared element selection")
+    
+    def set_selected_element(self, element_id: str, element_data: dict = None):
+        """Set the currently selected element and optionally show its properties."""
+        self.current_element = element_id
+        print(f"🎯 Controls set selected element: {element_id}")
+        
+        if element_data:
+            print(f"   Properties: visible={element_data.get('visible', True)}, enabled={element_data.get('enabled', True)}")
+            
+            if element_data.get('type') == 'text':
+                print(f"   Text properties: content='{element_data.get('content', '')}', size={element_data.get('size', 24)}")
+            elif element_data.get('type') == 'pip':
+                print(f"   PiP properties: corner_radius={element_data.get('corner_radius', 0)}")
+                
+            self._update_element_properties(element_id, element_data)
+        else:
+            print("   (Properties will be loaded separately)")
+    
+    def update_selected_element_properties(self, element_data: dict):
+        """Update properties for the currently selected element."""
+        if self.current_element:
+            self._update_element_properties(self.current_element, element_data)
