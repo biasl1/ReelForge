@@ -458,17 +458,19 @@ class ReelForgeProject:
         
         # Extract template data from events (per-event system)
         for event in self.release_events.values():
-            content_type = event.content_type
-            if content_type not in templates_data:
-                # Create basic template structure for this content type
-                # Convert template_config to ensure QColor and Qt objects are serializable
-                serializable_template_config = convert_enums(event.template_config)
-                templates_data[content_type] = {
-                    "frame_count": event.frame_count,
-                    "template_config": serializable_template_config,
-                    "aspect_ratio": 9/16 if content_type == 'video' else 1.0
-                }
-                log_info(f"Exported template for {content_type} from events")
+            # Use event ID as the template key for per-event templates
+            event_key = f"{event.content_type}_{event.id}"
+            # Convert template_config to ensure QColor and Qt objects are serializable
+            serializable_template_config = convert_enums(event.template_config)
+            templates_data[event_key] = {
+                "event_id": event.id,
+                "event_title": event.title,
+                "content_type": event.content_type,
+                "frame_count": event.frame_count,
+                "template_config": serializable_template_config,
+                "aspect_ratio": 9/16 if event.content_type == 'video' else 1.0
+            }
+            log_info(f"Exported template for event {event.title} (ID: {event.id})")
         # If no events have templates, provide defaults
         if not templates_data:
             templates_data = {
