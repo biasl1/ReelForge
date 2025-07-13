@@ -1115,88 +1115,11 @@ class ReelForgeProject:
         return True
 
     def load_template_editor_settings(self, template_editor):
-        """Load template editor settings - no longer needed in new system"""
-        log_info("Template editor settings loading skipped - using per-event system")
+        """Load template editor settings - compatibility method"""
+        # This method is called by MainWindow for compatibility
+        # The actual loading is now handled by the per-event system
+        log_info("Template editor settings loading - using per-event system")
         return True
-
-    def _extract_title_y_position(self, elements: Dict[str, Any]) -> int:
-        """Extract title Y position from elements - used for positioning (top/center/bottom)"""
-        if not isinstance(elements, dict):
-            return 100  # Default fallback
-        
-        title_element = elements.get('title', {})
-        if not isinstance(title_element, dict):
-            return 100
-            
-        rect = title_element.get('rect', {})
-        if hasattr(rect, 'y'):  # QRect object
-            return rect.y()
-        elif isinstance(rect, list) and len(rect) >= 2:
-            return rect[1]  # Y is second element
-        elif isinstance(rect, dict):
-            return rect.get('y', 100)
-        
-        return 100  # Default fallback
-    
-    def _extract_subtitle_y_position(self, elements: Dict[str, Any]) -> int:
-        """Extract subtitle Y position from elements - used for positioning (top/center/bottom)"""
-        if not isinstance(elements, dict):
-            return 400  # Default fallback
-        
-        subtitle_element = elements.get('subtitle', {})
-        if not isinstance(subtitle_element, dict):
-            return 400
-            
-        rect = subtitle_element.get('rect', {})
-        if hasattr(rect, 'y'):  # QRect object
-            return rect.y()
-        elif isinstance(rect, list) and len(rect) >= 2:
-            return rect[1]  # Y is second element
-        elif isinstance(rect, dict):
-            return rect.get('y', 400)
-        
-        return 400  # Default fallback
-    
-    def _extract_pip_visibility(self, elements: Dict[str, Any]) -> bool:
-        """Extract PiP visibility from elements - used for section control (show/hide video)"""
-        if not isinstance(elements, dict):
-            return True  # Default fallback
-        
-        pip_element = elements.get('pip', {})
-        if not isinstance(pip_element, dict):
-            return True
-            
-        return pip_element.get('enabled', True)
-
-    def _extract_title_font_size(self, elements: Dict[str, Any]) -> int:
-        """Extract title font size from elements"""
-        if not isinstance(elements, dict):
-            return 30  # Default fallback
-        
-        title_element = elements.get('title', {})
-        if not isinstance(title_element, dict):
-            return 30
-            
-        return title_element.get('size', 30)
-    
-    def _extract_subtitle_font_size(self, elements: Dict[str, Any]) -> int:
-        """Extract subtitle font size from elements"""
-        if not isinstance(elements, dict):
-            return 20  # Default fallback
-        
-        subtitle_element = elements.get('subtitle', {})
-        if not isinstance(subtitle_element, dict):
-            return 20
-            
-        return subtitle_element.get('size', 20)
-
-    def _get_standard_dimensions(self, content_type: str) -> Dict[str, int]:
-        """Get standard dimensions for VIDEO/PICTURE content types"""
-        dimension_map = {
-            "video": {"width": 1080, "height": 1920},      # 9:16 vertical for video
-            "picture": {"width": 1080, "height": 1080},    # 1:1 square for picture
-        }
-        return dimension_map.get(content_type, {"width": 1080, "height": 1080})
 
     # XplainPack Management Methods
     def get_all_xplainpack_sessions(self) -> List[Dict[str, Any]]:
