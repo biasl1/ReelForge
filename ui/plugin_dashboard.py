@@ -652,66 +652,6 @@ class PluginDashboard(QWidget):
             template_editor = getattr(self, 'template_editor', None)
             ai_data = self.current_project.get_ai_generation_data(template_editor=template_editor)
 
-            # Add metadata for AI processing
-            ai_data["generation_info"] = {
-                "export_date": datetime.now().isoformat(),
-                "project_name": self.current_project.project_name,
-                "version": "1.4.0",
-                "format": self.current_project.metadata.format,
-                "total_assets": len(ai_data.get("assets", [])),
-                "total_events": len(ai_data.get("scheduled_content", [])),
-                "total_sessions": len(ai_data.get("xplainpack_sessions", [])),
-                "has_global_prompt": bool(ai_data.get("global_prompt")),
-                "has_moodboard": bool(ai_data.get("moodboard_path")),
-                "has_xplainpack_sessions": bool(ai_data.get("xplainpack_sessions"))
-            }
-
-            # Enhanced AI processing instructions with XplainPack support
-            base_instructions = {
-                "content_generation_workflow": [
-                    "1. Use plugin info to understand the product and its unique features",
-                    "2. Apply global_prompt for consistent brand voice and style",
-                    "3. Use moodboard for visual style guidance (if provided)",
-                    "4. Select appropriate assets from the assets list for each content piece",
-                    "5. Generate content based on each scheduled_content item's prompt",
-                    "6. Ensure platform-specific optimization for each target platform"
-                ],
-                "content_requirements": {
-                    "reel": "15-60 seconds, vertical 9:16, engaging hook in first 3 seconds",
-                    "story": "15 seconds max, vertical 9:16, quick and engaging",
-                    "post": "Static or short video, square 1:1, informative and branded",
-                    "teaser": "10-15 seconds, any format, mysterious/exciting",
-                    "tutorial": "60-300 seconds, landscape 16:9, educational and clear"
-                },
-                "asset_selection_guidance": [
-                    "Choose assets that best demonstrate the prompt requirements",
-                    "Prefer audio assets for showcasing plugin sound",
-                    "Use video assets for UI demonstrations",
-                    "Combine multiple assets when needed for comprehensive content"
-                ]
-            }
-
-            # Add XplainPack-specific instructions if sessions exist
-            if ai_data.get("xplainpack_sessions"):
-                base_instructions["xplainpack_workflow"] = [
-                    "1. Load xplainpack session data (video, voice transcript, transients)",
-                    "2. Analyze voice transcript for key talking points and timing",
-                    "3. Use transient data to identify musical moments and rhythm patterns",
-                    "4. Sync visual elements with voice explanations and audio transients",
-                    "5. Create compelling content that demonstrates plugin features",
-                    "6. Ensure timing aligns with template frame durations"
-                ]
-                base_instructions["content_requirements"]["video"] = "15-60 seconds, vertical 9:16, sync with voice and transients"
-                base_instructions["content_requirements"]["picture"] = "Static image, 1:1 aspect ratio, highlight key features"
-                base_instructions["xplainpack_usage_guidance"] = [
-                    "Voice transcript provides natural explanations to incorporate",
-                    "Transients indicate musical moments for visual emphasis",
-                    "Video provides authentic plugin demonstrations",
-                    "Sync content timing with voice explanations for authenticity"
-                ]
-
-            ai_data["ai_instructions"] = base_instructions
-
             # Choose export location
             current_time = datetime.now()
             default_name = f"{self.current_project.project_name}_ai_data_{current_time.strftime('%Y%m%d_%H%M%S')}.json"

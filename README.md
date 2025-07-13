@@ -1,51 +1,66 @@
 # ReelTune
 
-**Professional AI-Ready Social Media Content Planning Tool**
+**Professional Audio Plugin Content Creation & Planning Tool**
 
-ReelTune is a modern PyQt6-based desktop application designed for professional content creators and audio plugin developers. Originally ReelForge, it has been transformed into a comprehensive content planning and management system with AI integration capabilities, timeline scheduling, and enhanced asset management.
+ReelTune is a modern PyQt6-based desktop application designed specifically for audio plugin developers and content creators. Built around intelligent .adsp plugin metadata integration, it streamlines the creation of professional marketing content for audio plugins with AI-ready data extraction and content planning workflows.
 
-## 🚀 Features
+## 🚀 Core Features
 
-### Core Foundation
-- **Project Management**: Create, save, and load projects with JSON-based `.rforge` files
-- **Enhanced Asset Panel**: Professional asset management with thumbnails, categorization, and import
-- **Professional UI**: Dark theme with responsive design and intuitive workflow
-- **Recent Projects**: Quick access to recently opened projects
-- **AI-Ready Structure**: Comprehensive project data for AI content generation
-- **Structured Logging**: Professional logging system replacing print statements for better debugging
+### 🎛️ Plugin-Centric Design
+- **Native .adsp Import**: Direct integration with Artista plugin metadata files
+- **Parameter Intelligence**: Automatic extraction of key parameters, descriptions, and technical specs
+- **Visual Branding**: Plugin highlight colors and visual identity integration
+- **Metadata-Driven Content**: All content generation based on authentic plugin data
 
-### 🎯 Timeline & Event Management
-- **Interactive Timeline Canvas**: Professional calendar-based content planning
-- **Event Scheduling**: Create, edit, and delete content events with visual feedback
-- **Fixed Duration**: Always 4-week timeline for consistent planning (duration selection removed)
-- **Visual Event Display**: Color-coded content types with comprehensive event details
-- **Timeline Navigation**: Smooth previous/next navigation with date controls
-- **Event Persistence**: Reliable save/load with proper event-timeline synchronization
-- **Robust Event Management**: Fixed timeline refresh and event deletion/editing bugs
+### 📅 Professional Content Planning
+- **Timeline Canvas**: Interactive calendar-based content scheduling and management
+- **Multi-Format Support**: Reels, Stories, Posts, Tutorials, and Teasers optimized for plugin content
+- **Event-Based Templates**: Per-event template configuration with complete frame independence
+- **Visual Planning**: Color-coded content types with comprehensive event details
 
-### 🖼️ Enhanced Asset Management
-- **Visual Asset Panel**: Thumbnail previews for images, video previews, and professional icons
-- **Smart Categorization**: Automatic grouping by Images, Videos, Audio, and Other files
-- **Asset Import**: Drag-and-drop and button-based import with file type detection
-- **Professional Design**: Responsive grid layout with category headers and modern styling
-- **Asset Integration**: Link assets to timeline events for complete content planning
+### 🎨 Advanced Template Editor
+- **Frame-Based Video Editing**: Independent frame management for video content with isolated element states
+- **Interactive Canvas**: Real-time element manipulation with professional positioning tools
+- **Parameter Showcase**: Template system designed specifically for audio plugin interface presentation
+- **AI Export Ready**: Template data optimized for AI content generation workflows
 
-### 🔌 Plugin Integration
-- **Artista .adsp Import**: Import plugin metadata from Artista plugin files
-- **Plugin Information Dashboard**: Complete plugin details and management
-- **AI Content Preparation**: Structured data for AI content generation
-- **Marketing Content**: Extract descriptions, features, and selling points
-- **Technical Specifications**: Plugin parameters, categories, and capabilities
+### � Asset & Project Management
+- **Smart Asset Organization**: Automatic categorization with thumbnail previews and type detection
+- **Project Persistence**: JSON-based `.rforge` files with complete project state preservation
+- **Professional Workflow**: Recent projects, dark theme UI, and intuitive navigation
 
-### 🎨 Template Editor
-- **Multi-Content Type Support**: Independent template design for Reels, Stories, Tutorials, Posts, and Teasers
-- **Frame-Based Editing**: Video content types (Reels, Stories, Tutorials) support multiple independent frames
-- **Independent Frame Management**: Each content type maintains its own frame count and descriptions
-- **Element Positioning**: Drag-and-drop element positioning with constraint modes
-- **Real-Time Preview**: Interactive canvas with visual element manipulation
-- **Frame Timeline**: Dedicated timeline for managing video content frames
-- **Persistent Configuration**: Save/load preserves exact frame counts and element positions
-- **AI Export Ready**: Template data structured for AI content generation with frame-specific descriptions
+## 🎯 Plugin-Focused AI Generation
+
+ReelTune's AI content generation is built specifically for audio plugins:
+
+### From .adsp Metadata
+- **Parameter Documentation**: Automatic extraction of parameter names, descriptions, and importance rankings
+- **Technical Specifications**: Plugin capabilities, input types, and compatibility information
+- **Marketing Content**: Unique selling points, problem-solution narratives, and personality traits
+- **Visual Identity**: Brand colors, component layouts, and interface design elements
+
+### Content Type Optimization
+- **Reel (15-30s)**: Interface showcase with parameter interaction and sound transformation
+- **Story (15s)**: Quick feature highlights with strong visual appeal and branding
+- **Post (Static/Loop)**: Clean interface presentation with professional parameter comparison
+- **Tutorial (60-300s)**: Detailed parameter walkthrough with practical examples
+- **Teaser (10-15s)**: Anticipation-building capability preview with mystery elements
+
+### Smart Prompt Generation
+```python
+# Example AI prompt structure from .adsp metadata:
+Create reel content for Euclyd: euclidean multitap delay engine
+Core message: A Euclidean multitap delay engine that thinks in pulses, not echoes
+Unique selling point: Uses Euclidean algorithms to place taps with mathematical balance
+Showcase key parameters:
+  • period: Sets the total duration of the cycle, in bars or milliseconds
+  • steps: Defines how many time divisions make up one full cycle  
+  • fills: Sets how many taps are placed within the cycle
+Format: 1080x1920 (vertical) - 15-30s
+Focus: Interface showcase with parameter interaction
+Style: Dynamic, engaging, show sound transformation
+Personality: Deliberate, mathematical, but deeply musical
+```
 
 ## 🛠️ Technical Architecture
 

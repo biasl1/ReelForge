@@ -399,6 +399,8 @@ class ReelForgeProject:
         # Get plugin info
         plugin_info = self.get_current_plugin_info()
         plugin_data = None
+        raw_adsp_data = None
+        
         if plugin_info:
             plugin_data = {
                 "name": plugin_info.name,
@@ -409,6 +411,15 @@ class ReelForgeProject:
                 "categories": plugin_info.category,
                 "use_cases": plugin_info.intended_use
             }
+            
+            # Get raw .adsp data if available
+            if plugin_info.adsp_file_path and os.path.exists(plugin_info.adsp_file_path):
+                try:
+                    with open(plugin_info.adsp_file_path, 'r') as f:
+                        raw_adsp_data = json.load(f)
+                except Exception as e:
+                    log_error(f"Failed to load raw .adsp data: {e}")
+                    raw_adsp_data = None
 
         # Get all assets (AI will select appropriate ones)
         assets_data = []
@@ -486,6 +497,7 @@ class ReelForgeProject:
 
         return {
             "plugin": plugin_data,
+            "raw_adsp_data": raw_adsp_data,  # ALL the .adsp metadata
             "global_prompt": self.global_prompt,
             "xplainpack_sessions": [session.to_dict() for session in (self.xplainpack_manager.get_all_sessions() if self.xplainpack_manager else [])],
             "assets": assets_data,

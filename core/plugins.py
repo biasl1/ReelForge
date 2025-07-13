@@ -4,6 +4,7 @@ Integrates with Artista plugin metadata for content generation
 """
 
 import json
+import os
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict, field
@@ -198,92 +199,388 @@ class PluginManager:
                 self.plugins[name] = plugin
 
 
-def get_supported_content_types() -> Dict[str, Dict[str, Any]]:
-    """Get supported content types for AI generation"""
+
+
+
+def generate_ai_prompts_for_plugin(plugin_info: PluginInfo, content_type: str = None) -> List[str]:
+    """Generate AI prompts based purely on .adsp plugin metadata and parameters"""
+    if not plugin_info:
+        return []
+        
+    prompts = []
+    
+    # Core plugin information prompts
+    prompts.append(f"Create content showcasing {plugin_info.name}")
+    if plugin_info.tagline:
+        prompts.append(f"Tagline: {plugin_info.tagline}")
+    
+    if plugin_info.short_description:
+        prompts.append(f"Core message: {plugin_info.short_description}")
+    
+    if plugin_info.unique:
+        prompts.append(f"Unique selling point: {plugin_info.unique}")
+    
+    # Parameter-focused prompts from .adsp metadata
+    if plugin_info.key_parameters:
+        prompts.append("Showcase key parameters:")
+        # Show top 3 most important parameters
+        sorted_params = sorted(
+            plugin_info.key_parameters, 
+            key=lambda x: int(x.get('importance', '999'))
+        )[:3]
+        
+        for param in sorted_params:
+            name = param.get('name', 'Parameter')
+            desc = param.get('description', '').strip()
+            prompts.append(f"  • {name}: {desc}")
+    
+    # Visual branding from .adsp
+    if plugin_info.highlight_color:
+        color_hex = '#' + ''.join([f'{c:02x}' for c in plugin_info.highlight_color[:3]])
+        prompts.append(f"Brand highlight color: {color_hex}")
+    
+    # Problem/solution narrative
+    if plugin_info.problem and plugin_info.wow:
+        prompts.append(f"Problem: {plugin_info.problem}")
+        prompts.append(f"Solution/Wow: {plugin_info.wow}")
+    
+    # Technical context
+    if plugin_info.tech_summary:
+        prompts.append(f"Technical context: {plugin_info.tech_summary[:200]}...")
+    
+    # Intended use cases from .adsp
+    if plugin_info.intended_use:
+        use_cases = ", ".join(plugin_info.intended_use[:3])
+        prompts.append(f"Target use cases: {use_cases}")
+    
+    # Personality/tone
+    if plugin_info.personality:
+        prompts.append(f"Personality/tone: {plugin_info.personality}")
+    elif plugin_info.one_word:
+        prompts.append(f"Style keyword: {plugin_info.one_word}")
+    
+    return prompts
+
+
+def extract_plugin_parameters_from_adsp(adsp_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Extract parameter information from .adsp file metadata"""
+    parameters = []
+    
+    # Extract from key_parameters if available
+    if "key_parameters" in adsp_data:
+        for param in adsp_data["key_parameters"]:
+            parameters.append({
+                "name": param.get("name", ""),
+                "description": param.get("description", "").strip(),
+                "importance": param.get("importance", "0"),
+                "type": "key_parameter"
+            })
+    
+    # Extract from components for additional context
+    if "components" in adsp_data:
+        for component in adsp_data["components"]:
+            if component.get("type") in ["dial", "slider", "button", "dropdown"]:
+                param_id = component.get("param_id", "")
+                display_name = component.get("display_name", "")
+                if param_id and display_name:
+                    parameters.append({
+                        "name": display_name,
+                        "param_id": param_id,
+                        "component_type": component.get("type", ""),
+                        "position": component.get("position", [0, 0]),
+                        "size": component.get("size", [0, 0]),
+                        "type": "ui_component"
+                    })
+    
+    # Extract highlight colors if available
+    highlight_info = {}
+    if "pluginTheme" in adsp_data:
+        theme = adsp_data["pluginTheme"]
+        highlight_info = {
+            "primary_color": theme.get("primaryColor", ""),
+            "accent_color": theme.get("accentColor", ""), 
+            "highlight_color": theme.get("highlightColor", ""),
+            "background_color": theme.get("backgroundColor", "")
+        }
+    
     return {
-        "reel": {
-            "name": "Instagram Reel",
-            "format": "1080x1920",
-            "duration": "15-60s",
-            "ai_prompts": [
-                "Show plugin interface with key parameters",
-                "Demonstrate sound transformation",
-                "Quick tutorial on main features",
-                "Before/after audio comparison"
-            ]
-        },
-        "story": {
-            "name": "Instagram Story",
-            "format": "1080x1920",
-            "duration": "15s",
-            "ai_prompts": [
-                "Plugin showcase with branding",
-                "Quick tip or feature highlight",
-                "Behind-the-scenes development",
-                "User testimonial format"
-            ]
-        },
-        "post": {
-            "name": "Instagram Post",
-            "format": "1080x1080",
-            "duration": "static or 15-30s",
-            "ai_prompts": [
-                "Clean plugin interface shot",
-                "Feature comparison graphic",
-                "Educational infographic",
-                "Brand announcement"
-            ]
-        },
-        "teaser": {
-            "name": "Teaser Video",
-            "format": "1080x1920 or 1920x1080",
-            "duration": "10-15s",
-            "ai_prompts": [
-                "Coming soon announcement",
-                "Preview of plugin capabilities",
-                "Mystery/intrigue building",
-                "Quick sound preview"
-            ]
-        },
-        "tutorial": {
-            "name": "Tutorial Video",
-            "format": "1920x1080",
-            "duration": "60-300s",
-            "ai_prompts": [
-                "Step-by-step parameter explanation",
-                "Creative usage examples",
-                "Integration with other plugins",
-                "Production techniques"
-            ]
+        "parameters": parameters,
+        "highlight_info": highlight_info,
+        "plugin_metadata": {
+            "name": adsp_data.get("pluginName", ""),
+            "title": adsp_data.get("pluginTitle", ""),
+            "tagline": adsp_data.get("pluginTagline", ""),
+            "short_description": adsp_data.get("short_description", ""),
+            "long_description": adsp_data.get("long_description", ""),
+            "unique": adsp_data.get("unique", ""),
+            "personality": adsp_data.get("personality", ""),
+            "problem": adsp_data.get("problem", ""),
+            "wow": adsp_data.get("wow", "")
         }
     }
 
 
-def generate_ai_prompts_for_plugin(plugin_info: PluginInfo, content_type: str) -> List[str]:
-    """Generate AI prompts based on plugin info and content type"""
-    base_prompts = get_supported_content_types().get(content_type, {}).get("ai_prompts", [])
+def generate_adsp_based_prompts(adsp_data: Dict[str, Any]) -> List[str]:
+    """Generate AI prompts specifically from .adsp file metadata"""
+    extraction = extract_plugin_parameters_from_adsp(adsp_data)
+    metadata = extraction["plugin_metadata"] 
+    parameters = extraction["parameters"]
+    highlight_info = extraction["highlight_info"]
+    
+    prompts = []
+    
+    # Core plugin identity
+    plugin_name = metadata.get("name", "Plugin")
+    tagline = metadata.get("tagline", "")
+    if tagline:
+        prompts.append(f"Create content for {plugin_name}: {tagline}")
+    else:
+        prompts.append(f"Create content showcasing {plugin_name}")
+    
+    # Key messaging
+    if metadata.get("short_description"):
+        prompts.append(f"Core message: {metadata['short_description']}")
+    
+    if metadata.get("unique"):
+        prompts.append(f"Unique selling point: {metadata['unique']}")
+    
+    # Parameter focus (from .adsp metadata)
+    key_params = [p for p in parameters if p["type"] == "key_parameter"]
+    if key_params:
+        prompts.append("Key parameters to showcase:")
+        # Sort by importance and take top 3
+        sorted_params = sorted(key_params, key=lambda x: int(x.get("importance", "999")))[:3]
+        for param in sorted_params:
+            prompts.append(f"  • {param['name']}: {param['description']}")
+    
+    # Visual style guidance
+    if highlight_info.get("highlight_color"):
+        prompts.append(f"Brand color palette: {highlight_info['highlight_color']} (highlight)")
+    
+    if metadata.get("personality"):
+        prompts.append(f"Personality/tone: {metadata['personality']}")
+    
+    # Problem/solution narrative
+    if metadata.get("problem") and metadata.get("wow"):
+        prompts.append(f"Problem/Solution narrative: {metadata['problem']} → {metadata['wow']}")
+    
+    return prompts
 
-    # Customize prompts with plugin-specific information
-    customized_prompts = []
 
-    for prompt in base_prompts:
-        # Replace generic terms with plugin-specific info
-        customized = prompt.replace("plugin", plugin_info.name)
+def export_ai_generation_data(project_path: str) -> Dict[str, Any]:
+    """Export project data formatted for AI content generation with .adsp-based prompts"""
+    try:
+        with open(project_path, 'r') as f:
+            project_data = json.load(f)
+        
+        # Get plugin info from .adsp file
+        plugin_file = project_data.get('plugin_file')
+        if not plugin_file:
+            # Check metadata for plugin_name
+            metadata = project_data.get('metadata', {})
+            plugin_name = metadata.get('plugin_name', '')
+            if plugin_name:
+                # Search for .adsp file in the same directory
+                project_dir = os.path.dirname(project_path)
+                plugin_file = os.path.join(project_dir, f"{plugin_name}.adsp")
+                if not os.path.exists(plugin_file):
+                    # Try the workspace root
+                    workspace_root = os.path.dirname(project_dir)
+                    plugin_file = os.path.join(workspace_root, f"{plugin_name}.adsp")
+            
+            # If still not found, search for any .adsp file
+            if not plugin_file or not os.path.exists(plugin_file):
+                # Try current directory first
+                project_dir = os.path.dirname(project_path)
+                for file in os.listdir(project_dir):
+                    if file.endswith('.adsp'):
+                        plugin_file = os.path.join(project_dir, file)
+                        break
+                
+                # If not found, try workspace root
+                if not plugin_file or not os.path.exists(plugin_file):
+                    workspace_root = os.path.dirname(project_dir)
+                    if os.path.exists(workspace_root):
+                        for file in os.listdir(workspace_root):
+                            if file.endswith('.adsp'):
+                                plugin_file = os.path.join(workspace_root, file)
+                                break
+        
+        plugin_info = None
+        if plugin_file and os.path.exists(plugin_file):
+            plugin_info = parse_plugin_file(plugin_file)
+        
+        return export_ai_generation_data_updated(project_data, plugin_info)
+        
+    except Exception as e:
+        log_error(f"Failed to export AI generation data: {e}")
+        import traceback
+        log_error(f"Traceback: {traceback.format_exc()}")
+        return {}
 
-        # Add plugin-specific context
-        if plugin_info.unique:
-            customized += f" (Highlight: {plugin_info.unique[:100]}...)"
 
-        if plugin_info.one_word:
-            customized += f" (Style: {plugin_info.one_word})"
+def discover_plugins() -> List[PluginInfo]:
+    """Discover .adsp plugins in common directories"""
+    plugins = []
+    # This would search for .adsp files in common plugin directories
+    # For now, return empty list as placeholder
+    return plugins
 
-        customized_prompts.append(customized)
 
-    # Add plugin-specific prompts
-    if plugin_info.problem:
-        customized_prompts.append(f"Show how {plugin_info.name} solves: {plugin_info.problem}")
+def parse_plugin_file(file_path: str) -> Optional[PluginInfo]:
+    """Parse a single .adsp plugin file"""
+    try:
+        manager = PluginManager()
+        return manager.import_adsp_file(Path(file_path))
+    except Exception as e:
+        log_error(f"Error parsing plugin file {file_path}: {e}")
+        return None
 
-    if plugin_info.wow:
-        customized_prompts.append(f"Demonstrate the wow factor: {plugin_info.wow}")
 
-    return customized_prompts
+def export_ai_generation_data_updated(project_data: Dict[str, Any], plugin_info) -> Dict[str, Any]:
+    """Export project data with .adsp-based AI prompts"""
+    
+    # Import here to avoid circular import
+    from core.project import convert_enums
+    
+    # Extract project name from metadata or root level
+    metadata = project_data.get('metadata', {})
+    project_name = metadata.get('name') or project_data.get('name', 'Untitled Project')
+    
+    # Prepare export data with same structure as before
+    export_data = {
+        'project_name': project_name,
+        'plugin_info': {
+            'name': plugin_info.name if plugin_info else 'Unknown Plugin',
+            'metadata': {
+                'tagline': plugin_info.tagline if plugin_info else '',
+                'short_description': plugin_info.short_description if plugin_info else '',
+                'unique': plugin_info.unique if plugin_info else '',
+                'parameters': plugin_info.key_parameters if plugin_info else [],
+                'highlight_color': plugin_info.highlight_color if plugin_info else None,
+                'problem': plugin_info.problem if plugin_info else '',
+                'wow': plugin_info.wow if plugin_info else '',
+                'intended_use': plugin_info.intended_use if plugin_info else [],
+                'personality': plugin_info.personality if plugin_info else '',
+                'one_word': plugin_info.one_word if plugin_info else ''
+            }
+        },
+        'events': [],
+        'ai_prompts': generate_ai_prompts_for_export(plugin_info) if plugin_info else []
+    }
+    
+    # Process each release event
+    events = project_data.get('release_events', {})
+    # Handle both dict (new format) and list (legacy format)
+    if isinstance(events, dict):
+        events_list = list(events.values())
+    else:
+        events_list = events
+        
+    for event in events_list:
+        event_data = {
+            'id': event.get('id', ''),
+            'type': event.get('content_type', event.get('type', '')),  # Handle both field names
+            'date': event.get('date', ''),
+            'frame_count': event.get('frame_count', 1)
+        }
+        
+        # Extract template configuration for each frame (if exists)
+        template_config = event.get('template_config', {})
+        frames_data = []
+        
+        frame_count = event.get('frame_count', 1)
+        for frame_idx in range(frame_count):
+            frame_key = f"frame_{frame_idx}"
+            frame_elements = template_config.get(frame_key, {}).get('elements', [])
+            
+            # Process elements with JSON serialization
+            processed_elements = []
+            for element in frame_elements:
+                processed_element = convert_enums(element)
+                processed_elements.append(processed_element)
+            
+            frames_data.append({
+                'frame_index': frame_idx,
+                'elements': processed_elements
+            })
+        
+        event_data['frames'] = frames_data
+        export_data['events'].append(event_data)
+    
+    return export_data
+
+
+def get_supported_content_types() -> Dict[str, str]:
+    """Return supported content types for backwards compatibility"""
+    # Return basic event types instead of legacy content types
+    return {
+        'VIDEO': 'Video Content',
+        'PICTURE': 'Picture Content'
+    }
+
+
+def get_plugin_info(plugin_name: str) -> Optional[Dict[str, Any]]:
+    """Get plugin information by name"""
+    # Placeholder for compatibility
+    return None
+
+
+def generate_ai_prompts_for_export(plugin_info) -> List[Dict[str, Any]]:
+    """Generate structured AI prompts for export (returns dicts, not strings)"""
+    if not plugin_info:
+        return []
+    
+    prompts = []
+    
+    # Main creative prompt based on plugin personality and metadata
+    creative_prompt = {
+        'type': 'creative_direction',
+        'context': f"Plugin: {plugin_info.name}",
+        'prompt': f"Generate creative content for {plugin_info.name}: {plugin_info.tagline}. "
+                 f"Focus on {plugin_info.short_description}. "
+                 f"Unique selling point: {plugin_info.unique}. "
+                 f"Target problem: {plugin_info.problem}. "
+                 f"Wow factor: {plugin_info.wow}. "
+                 f"Personality: {plugin_info.personality}. "
+                 f"One word essence: {plugin_info.one_word}.",
+        'style_guidance': {
+            'highlight_color': plugin_info.highlight_color,
+            'personality': plugin_info.personality,
+            'essence': plugin_info.one_word
+        }
+    }
+    prompts.append(creative_prompt)
+    
+    # Technical parameters prompt
+    if plugin_info.key_parameters:
+        # Handle both list of dicts and list of strings
+        if isinstance(plugin_info.key_parameters, list) and plugin_info.key_parameters:
+            if isinstance(plugin_info.key_parameters[0], dict):
+                param_names = [p.get('name', '') for p in plugin_info.key_parameters]
+            else:
+                param_names = plugin_info.key_parameters
+        else:
+            param_names = []
+            
+        tech_prompt = {
+            'type': 'technical_focus',
+            'context': f"Plugin parameters for {plugin_info.name}",
+            'prompt': f"Highlight these key technical features: {', '.join(param_names)}. "
+                     f"Explain how these parameters solve: {plugin_info.problem}",
+            'parameters': param_names
+        }
+        prompts.append(tech_prompt)
+    
+    # Use case prompt
+    if plugin_info.intended_use:
+        use_case_prompt = {
+            'type': 'use_case_scenarios',
+            'context': f"Applications for {plugin_info.name}",
+            'prompt': f"Create content showcasing these use cases: {', '.join(plugin_info.intended_use)}. "
+                     f"Demonstrate the {plugin_info.wow} in practical scenarios.",
+            'use_cases': plugin_info.intended_use
+        }
+        prompts.append(use_case_prompt)
+    
+    return prompts
