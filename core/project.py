@@ -460,8 +460,9 @@ class ReelForgeProject:
         for event in self.release_events.values():
             # Use event ID as the template key for per-event templates
             event_key = f"{event.content_type}_{event.id}"
-            # Convert template_config to ensure QColor and Qt objects are serializable
-            serializable_template_config = convert_enums(event.template_config)
+            # Clean and convert template_config to ensure only essential properties
+            cleaned_template_config = self._clean_template_config_for_export(event.template_config)
+            serializable_template_config = convert_enums(cleaned_template_config)
             templates_data[event_key] = {
                 "event_id": event.id,
                 "event_title": event.title,
@@ -1122,21 +1123,21 @@ class ReelForgeProject:
         """Extract PiP visibility from elements"""
         if 'pip' in elements:
             element = elements['pip']
-            if 'visible' in element:
-                return element['visible']
-            return element.get('enabled', False)
+            return element.get('visible', True)
         return False
 
     def _extract_title_font_size(self, elements: dict) -> int:
         """Extract title font size from elements"""
-        if 'title' in elements and 'size' in elements['title']:
-            return elements['title']['size']
+        if 'title' in elements:
+            element = elements['title']
+            return element.get('font_size', element.get('size', 24))
         return 24
 
     def _extract_subtitle_font_size(self, elements: dict) -> int:
         """Extract subtitle font size from elements"""
-        if 'subtitle' in elements and 'size' in elements['subtitle']:
-            return elements['subtitle']['size']
+        if 'subtitle' in elements:
+            element = elements['subtitle']
+            return element.get('font_size', element.get('size', 18))
         return 18
     
 
@@ -1310,6 +1311,50 @@ class ReelForgeProject:
         log_info(f"Created {content_type} event: {title} ({event.id})")
         return event.id
 
+    def _clean_template_config_for_export(self, template_config: dict) -> dict:
+        """Clean template config to remove unnecessary properties for export."""
+        if 'frame_data' not in template_config:
+            return template_config
+        
+        frame_data = template_config['frame_data']
+        cleaned_frame_data = {}
+        
+        for frame_key, frame_info in frame_data.items():
+            if not isinstance(frame_info, dict):
+                continue
+                
+            elements = frame_info.get('elements', {})
+            cleaned_elements = {}
+            
+            for element_id, element_data in elements.items():
+                if not isinstance(element_data, dict):
+                    continue
+                    
+                # Only keep essential properties
+                cleaned_element = {
+                    'type': element_data.get('type', 'text'),
+                    'content': element_data.get('content', ''),
+                    'font_size': element_data.get('font_size', element_data.get('size', 12)),
+                    'position_preset': element_data.get('position_preset', 'center'),
+                    'visible': element_data.get('visible', True)
+                }
+                
+                # Add PiP-specific properties
+                if element_data.get('type') == 'pip':
+                    cleaned_element['corner_radius'] = element_data.get('corner_radius', 0)
+                
+                cleaned_elements[element_id] = cleaned_element
+            
+            cleaned_frame_data[frame_key] = {
+                'frame_index': frame_info.get('frame_index', 0),
+                'frame_description': frame_info.get('frame_description', ''),
+                'elements': cleaned_elements,
+                'timestamp': frame_info.get('timestamp', datetime.now().isoformat())
+            }
+        
+        return {
+            'frame_data': cleaned_frame_data
+        }
 
 class ProjectManager:
     """Project management utilities for ReelTune"""

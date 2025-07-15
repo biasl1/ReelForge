@@ -219,6 +219,30 @@ class TemplateEditor(QWidget):
                 event.template_config['frame_data'][str(frame_index)] = existing_frame_data
                 
                 print(f"✅ Created {len(default_elements)} default elements for frame {frame_index}")
+        else:
+            # Clean up existing data to remove unnecessary properties
+            elements = existing_frame_data.get('elements', {})
+            cleaned_elements = {}
+            
+            for element_id, element_data in elements.items():
+                # Only keep essential properties
+                cleaned_element = {
+                    'type': element_data.get('type', 'text'),
+                    'content': element_data.get('content', ''),
+                    'font_size': element_data.get('font_size', element_data.get('size', 12)),
+                    'position_preset': element_data.get('position_preset', 'center'),
+                    'visible': element_data.get('visible', True)
+                }
+                
+                # Add PiP-specific properties
+                if element_data.get('type') == 'pip':
+                    cleaned_element['corner_radius'] = element_data.get('corner_radius', 0)
+                
+                cleaned_elements[element_id] = cleaned_element
+            
+            # Update the frame data with cleaned elements
+            existing_frame_data['elements'] = cleaned_elements
+            print(f"🧹 Cleaned {len(cleaned_elements)} elements for frame {frame_index}")
         
         return existing_frame_data
     
@@ -236,23 +260,17 @@ class TemplateEditor(QWidget):
         # Ensure each element has complete data for frame independence
         for element_id, element_data in elements_data.items():
             # Make sure ALL properties are saved per frame
-            if 'rect' not in element_data:
-                element_data['rect'] = {'x': 0, 'y': 0, 'width': 100, 'height': 50}
             if 'visible' not in element_data:
                 element_data['visible'] = True
-            if 'enabled' not in element_data:
-                element_data['enabled'] = True
             
             # For text elements - save ALL text properties per frame
             if element_data.get('type') == 'text':
                 if 'content' not in element_data:
                     element_data['content'] = f'Text Frame {self.current_frame_index + 1}'
-                if 'size' not in element_data:
-                    element_data['size'] = 24
-                if 'color' not in element_data:
-                    element_data['color'] = {'r': 255, 'g': 255, 'b': 255, 'a': 255}
+                if 'font_size' not in element_data:
+                    element_data['font_size'] = 24
                 if 'position_preset' not in element_data:
-                    element_data['position_preset'] = 'Middle'
+                    element_data['position_preset'] = 'center'
             
             # For PiP elements - save ALL PiP properties per frame
             elif element_data.get('type') == 'pip':
@@ -270,12 +288,8 @@ class TemplateEditor(QWidget):
         frame_data = {
             'frame_index': self.current_frame_index,
             'frame_description': frame_description,
-            'elements': elements_data,
-            'timestamp': datetime.datetime.now().isoformat(),
-            'frame_settings': {
-                'background_color': self.canvas.get_background_color() if hasattr(self.canvas, 'get_background_color') else None,
-                'canvas_size': self.canvas.size() if hasattr(self.canvas, 'size') else None
-            }
+            'elements': self._clean_elements_data(elements_data),
+            'timestamp': datetime.datetime.now().isoformat()
         }
         
         print(f"💾 SAVING INDEPENDENT FRAME {self.current_frame_index}: {len(elements_data)} elements with complete properties")
@@ -304,27 +318,44 @@ class TemplateEditor(QWidget):
         # Save current frame
         self._save_current_frame()
         
+        # Get and clean all frame data
+        all_frame_data = self._get_all_frame_data()
+        cleaned_frame_data = {}
+        
+        for frame_key, frame_data in all_frame_data.items():
+            cleaned_frame_data[frame_key] = {
+                'frame_index': frame_data.get('frame_index', 0),
+                'frame_description': frame_data.get('frame_description', ''),
+                'elements': self._clean_elements_data(frame_data.get('elements', {})),
+                'timestamp': frame_data.get('timestamp', datetime.datetime.now().isoformat())
+            }
+        
         # Get template config
         template_config = {
-            'frame_data': self._get_all_frame_data()
+            'frame_data': cleaned_frame_data
         }
         
         # Save to project
         self.project.set_event_template_config(self.current_event_id, template_config)
+        print(f"💾 Saved clean template config for event {self.current_event_id} with {len(cleaned_frame_data)} frames")
     
     def _get_all_frame_data(self) -> dict:
-        """Get all frame data for the current event."""
+        """Get all frame data for the current event - ENSURES ALL FRAMES ARE INCLUDED."""
         if not self.current_event_data:
             return {}
         
         all_frames = {}
         frame_count = self.current_event_data.frame_count
         
+        print(f"🔍 Getting ALL frame data for event {self.current_event_id}: frame_count={frame_count}")
+        
         for i in range(frame_count):
             frame_data = self._get_frame_data(self.current_event_id, i)
-            if frame_data:
-                all_frames[str(i)] = frame_data
+            # ALWAYS include frame data, even if empty - ensures ALL frames are exported
+            all_frames[str(i)] = frame_data
+            print(f"   📋 Frame {i}: {len(frame_data.get('elements', {}))} elements")
         
+        print(f"✅ Collected {len(all_frames)} frames for export (should match frame_count: {frame_count})")
         return all_frames
     
     def refresh_events(self):
@@ -335,6 +366,28 @@ class TemplateEditor(QWidget):
     def set_current_event(self, event_id: str):
         """Set the current event being edited."""
         self.load_event(event_id)
+    
+    def _clean_elements_data(self, elements_data: dict) -> dict:
+        """Clean elements data to ensure only essential properties are saved."""
+        cleaned_elements = {}
+        
+        for element_id, element_data in elements_data.items():
+            # Only keep essential properties
+            cleaned_element = {
+                'type': element_data.get('type', 'text'),
+                'content': element_data.get('content', ''),
+                'font_size': element_data.get('font_size', 12),
+                'position_preset': element_data.get('position_preset', 'center'),
+                'visible': element_data.get('visible', True)
+            }
+            
+            # Add PiP-specific properties
+            if element_data.get('type') == 'pip':
+                cleaned_element['corner_radius'] = element_data.get('corner_radius', 0)
+            
+            cleaned_elements[element_id] = cleaned_element
+        
+        return cleaned_elements
     
     # === SIGNAL HANDLERS ===
     
@@ -394,3 +447,36 @@ class TemplateEditor(QWidget):
         if self.current_event_data:
             return self.current_event_data.content_type
         return 'video'  # Default
+    
+    def keyPressEvent(self, event):
+        """Handle key press events for shortcuts."""
+        if event.key() == Qt.Key.Key_S and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            # Cmd+S: Save project
+            self.save_all()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
+    
+    def save_all(self):
+        """Save all current changes to the project."""
+        if self.project and self.current_event_id:
+            # Clean up and save current template data
+            self._save_event_template()
+            
+            # Save the project
+            self.project.save()
+            print("✅ Project saved with clean template data")
+    
+    def clean_all_project_data(self):
+        """Clean all project data to remove unnecessary properties."""
+        if not self.project:
+            return
+        
+        print("🧹 Cleaning all project template data...")
+        
+        # Clean all release events
+        for event in self.project.release_events.values():
+            if 'frame_data' in event.template_config:
+                event.template_config = self.project._clean_template_config_for_export(event.template_config)
+        
+        print("✅ All project template data cleaned")
