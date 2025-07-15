@@ -66,7 +66,7 @@ class FrameTimeline(QWidget):
         self.current_event_id = None
         self.frame_count = 1
         self.content_type = 'video'  # Default content type
-        self.content_type_data = {}  # Not used anymore
+        # content_type_data removed - using per-event frame management
         
         self._setup_ui()
         self._initialize_content_type_frames()
@@ -157,81 +157,6 @@ class FrameTimeline(QWidget):
         """Initialize frames - no longer needed in per-event system."""
         pass
     
-    def _load_content_type_frames(self):
-        """Load frames for the current content type - COMPLETE ISOLATION."""
-        # Save current description if we're switching
-        if hasattr(self, 'frame_description_edit') and self.frames:
-            current_desc = self.frame_description_edit.text()
-            if self.current_frame < len(self.frames):
-                self.frames[self.current_frame]['frame_description'] = current_desc
-        
-        # Clear existing UI
-        for btn in self.frame_buttons:
-            self.frame_layout.removeWidget(btn)
-            btn.deleteLater()
-        self.frame_buttons.clear()
-        
-        # Load frames for current content type
-        content_data = self.content_type_data[self.content_type]
-        self.frames = content_data['frames'].copy()
-        self.current_frame = content_data['current_frame']
-        
-        # Create buttons for current content type's frames
-        for i in range(len(self.frames)):
-            self._create_frame_button(i)
-        
-        # Update UI to show current content type's data
-        if self.frame_buttons and 0 <= self.current_frame < len(self.frame_buttons):
-            self.frame_buttons[self.current_frame].setChecked(True)
-        
-        self.frame_count_spin.setValue(len(self.frames))
-        self._update_current_frame_label()
-    
-    def set_content_type(self, content_type: str):
-        """Switch to a different content type - COMPLETE DATA ISOLATION."""
-        if content_type == self.content_type:
-            return  # Already on this content type
-        
-        # Save current content type's data
-        self._save_current_content_type_data()
-        
-        # Switch to new content type
-        self.content_type = content_type
-        
-        # Initialize if needed
-        if content_type not in self.content_type_data:
-            self.content_type_data[content_type] = {'frames': [], 'current_frame': 0}
-        
-        if not self.content_type_data[content_type]['frames']:
-            # Create default frames for this content type
-            frames = []
-            for i in range(3):
-                frame_config = {
-                    'elements': {},
-                    'duration': 1.0,
-                    'transition': 'none',
-                    'frame_description': f'{content_type.title()} frame {i+1} description'
-                }
-                frames.append(frame_config)
-            
-            self.content_type_data[content_type]['frames'] = frames
-            self.content_type_data[content_type]['current_frame'] = 0
-        
-        # Load new content type's frames
-        self._load_content_type_frames()
-    
-    def _save_current_content_type_data(self):
-        """Save current content type's data before switching."""
-        if hasattr(self, 'frame_description_edit') and self.frames:
-            # Save current description
-            current_desc = self.frame_description_edit.text()
-            if self.current_frame < len(self.frames):
-                self.frames[self.current_frame]['frame_description'] = current_desc
-        
-        # Save to content type data
-        self.content_type_data[self.content_type]['frames'] = self.frames.copy()
-        self.content_type_data[self.content_type]['current_frame'] = self.current_frame
-    
     def _create_frame_button(self, frame_index: int):
         """Create a new frame button."""
         frame_btn = FrameButton(frame_index)
@@ -244,11 +169,11 @@ class FrameTimeline(QWidget):
         self.remove_frame_btn.setEnabled(len(self.frame_buttons) > 1)
     
     def _on_frame_selected(self, frame_index: int):
-        """Handle frame selection - ONLY WORKS WITH CURRENT CONTENT TYPE DATA."""
+        """Handle frame selection."""
         if frame_index == self.current_frame:
             return
         
-        # Save current frame's description to LOCAL timeline data
+        # Save current frame's description
         current_description = self.frame_description_edit.text()
         if self.current_frame < len(self.frames):
             self.frames[self.current_frame]['frame_description'] = current_description
@@ -340,7 +265,7 @@ class FrameTimeline(QWidget):
                 self._remove_frame_at_index(i)
     
     def _add_frame(self):
-        """Add a new frame to CURRENT CONTENT TYPE ONLY."""
+        """Add a new frame."""
         if len(self.frames) >= 10:  # Max limit
             return
             
@@ -352,9 +277,8 @@ class FrameTimeline(QWidget):
             'frame_description': f'{self.content_type.title()} frame {frame_index+1} description'
         }
         
-        # Add to current content type
+        # Add to current frames
         self.frames.append(frame_config)
-        self.content_type_data[self.content_type]['frames'].append(frame_config)
         
         self._create_frame_button(frame_index)
         
@@ -375,19 +299,12 @@ class FrameTimeline(QWidget):
         self._remove_frame_at_index(len(self.frames) - 1)
     
     def _remove_frame_at_index(self, index: int):
-        """Remove frame at specific index from CURRENT CONTENT TYPE."""
+        """Remove frame at specific index."""
         if len(self.frames) <= 1 or index < 0 or index >= len(self.frames):
             return
         
         # Remove from local frames list
         self.frames.pop(index)
-        
-        # Remove from current content type data - with bounds checking
-        content_type_frames = self.content_type_data[self.content_type]['frames']
-        if index < len(content_type_frames):
-            content_type_frames.pop(index)
-        else:
-            print(f"⚠️ Warning: Frame {index} not found in content_type_data, skipping content_type_data removal")
         
         # Remove button
         if index < len(self.frame_buttons):
@@ -405,7 +322,6 @@ class FrameTimeline(QWidget):
         # Adjust current frame if needed
         if self.current_frame >= len(self.frames):
             self.current_frame = len(self.frames) - 1
-            self.content_type_data[self.content_type]['current_frame'] = self.current_frame
         
         # Update selection - make sure current_frame is valid for frame_buttons too
         if self.frame_buttons:
@@ -538,11 +454,6 @@ class FrameTimeline(QWidget):
                 if canvas_desc:
                     timeline_frame['frame_description'] = canvas_desc
                     # Also update content type data
-                    if (self.content_type in self.content_type_data and 
-                        'frames' in self.content_type_data[self.content_type] and
-                        i < len(self.content_type_data[self.content_type]['frames'])):
-                        self.content_type_data[self.content_type]['frames'][i]['frame_description'] = canvas_desc
-                    
                     print(f"✅ Synced frame {i} description: '{canvas_desc}'")
         
         # Update UI if we're on the current frame
@@ -578,12 +489,8 @@ class FrameTimeline(QWidget):
             if self.current_frame >= frame_count:
                 self.current_frame = max(0, frame_count - 1)
         
-        # Update content type data
-        if self.content_type not in self.content_type_data:
-            self.content_type_data[self.content_type] = {}
-        
-        self.content_type_data[self.content_type]['frames'] = list(range(frame_count))
-        self.content_type_data[self.content_type]['current_frame'] = self.current_frame
+        # Update content type data - removed obsolete content_type_data system
+        # Now using per-event frame management
         
         # Update UI
         self._update_frame_ui()

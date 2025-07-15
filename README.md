@@ -22,12 +22,14 @@ ReelTune is a modern PyQt6-based desktop application designed specifically for a
 - **Frame-Based Video Editing**: Independent frame management for video content with isolated element states
 - **Interactive Canvas**: Real-time element manipulation with professional positioning tools
 - **Parameter Showcase**: Template system designed specifically for audio plugin interface presentation
-- **AI Export Ready**: Template data optimized for AI content generation workflows
+- **AI Export Ready**: Clean template data optimized for AI content generation workflows
+- **Simplified Data Model**: Essential element properties (type, content, font_size, position_preset, visible, corner_radius)
 
-### � Asset & Project Management
+## 🤖 Asset & Project Management
 - **Smart Asset Organization**: Automatic categorization with thumbnail previews and type detection
 - **Project Persistence**: JSON-based `.rforge` files with complete project state preservation
 - **Professional Workflow**: Recent projects, dark theme UI, and intuitive navigation
+- **Clean AI Export**: Streamlined JSON export with only essential properties for AI processing
 
 ## 🎯 Plugin-Focused AI Generation
 
@@ -360,7 +362,33 @@ The repository includes comprehensive `.gitignore` and git hooks to prevent comm
 - [ ] Analytics and performance tracking
 - [ ] Collaboration features
 
+## � Recent Improvements (July 2025)
+
+### Template Editor Enhancements
+- **Simplified Data Model**: Cleaned up element properties to only essential data (type, content, font_size, position_preset, visible, corner_radius)
+- **Frame Count Fix**: Fixed issue where video events with 5 frames only exported 3 frames
+- **Clean AI Export**: Removed unnecessary properties (rect, enabled, color, border_color) from AI export
+- **Data Cleaning Pipeline**: Multi-layer data sanitization at save and export stages
+- **Consistent Visibility**: Ensured 'visible' property is present for all elements across all frames
+
+### Codebase Cleanup
+- **Removed Obsolete Files**: Eliminated unused test files, debug scripts, and empty placeholder files
+- **Cleaned Dependencies**: Removed unused TemplatePersistence class and obsolete content_type_data patterns
+- **Streamlined Imports**: Cleaned up import statements and removed dead code
+- **File Organization**: Removed pycache directories and temporary files
+
+### Bug Fixes
+- **Frame Creation**: Fixed automatic frame creation for events with higher frame counts
+- **Template Persistence**: Improved template saving with proper frame data cleaning
+- **Export Consistency**: Ensured all frames are exported even when some frames have no custom data
+
 ## 🧪 Testing
+
+The application has been thoroughly tested with:
+- Frame count export validation
+- Clean data export verification
+- Template editor functionality
+- Project persistence and loading
 
 To test the application:
 
@@ -368,22 +396,11 @@ To test the application:
 # Run the application
 python main.py
 
-# Test core functionality
-python test_core.py
-
-# Test timeline features
-python test_timeline.py
-
-# Test plugin functionality
-python test_plugins.py
-
-# Complete workflow test:
-1. Create a new project
-2. Import some media files
-3. Import a plugin (.adsp file)
-4. Schedule content in timeline
-5. Save the project
-6. Close and reopen to verify persistence
+# The application will start with a clean codebase and properly working:
+1. Template editor with simplified data model
+2. Frame-based video editing with complete frame export
+3. Clean AI export with only essential properties
+4. Proper project persistence and loading
 ```
 
 ## 🤝 Contributing

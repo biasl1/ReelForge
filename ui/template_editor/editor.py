@@ -7,7 +7,6 @@ from PyQt6.QtCore import Qt, pyqtSignal
 
 from .canvas import TemplateCanvas
 from .controls import TemplateControls
-from .persistence import TemplatePersistence
 from .frame_timeline import FrameTimeline
 
 
@@ -24,7 +23,7 @@ class TemplateEditor(QWidget):
         self.setMinimumSize(800, 600)
         
         # Initialize persistence
-        self.persistence = TemplatePersistence()
+        # Note: Persistence is now handled by the project system
         
         # Event-based management
         self.current_event_id = None
@@ -480,3 +479,29 @@ class TemplateEditor(QWidget):
                 event.template_config = self.project._clean_template_config_for_export(event.template_config)
         
         print("✅ All project template data cleaned")
+    
+    def _ensure_all_frames_exist(self, event_id: str):
+        """Ensure all frames up to frame_count exist with default data."""
+        if not self.project or event_id not in self.project.release_events:
+            return
+        
+        event = self.project.release_events[event_id]
+        frame_count = event.frame_count
+        
+        print(f"🔧 Ensuring all {frame_count} frames exist for event {event_id}")
+        
+        # Make sure frame_data exists
+        if 'frame_data' not in event.template_config:
+            event.template_config['frame_data'] = {}
+        
+        frame_data = event.template_config['frame_data']
+        
+        # Create missing frames
+        for i in range(frame_count):
+            frame_key = str(i)
+            if frame_key not in frame_data:
+                print(f"   🔧 Creating missing frame {i}")
+                # This will trigger the creation of default elements
+                self._get_frame_data(event_id, i)
+        
+        print(f"✅ All {frame_count} frames now exist")
