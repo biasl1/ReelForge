@@ -1102,6 +1102,42 @@ class ReelForgeProject:
             }
     
 
+    def _extract_title_y_position(self, elements: dict) -> str:
+        """Extract title position preset (top, center, bottom) from elements"""
+        if 'title' in elements:
+            element = elements['title']
+            if 'position_preset' in element:
+                return element['position_preset']
+        return "top"
+
+    def _extract_subtitle_y_position(self, elements: dict) -> str:
+        """Extract subtitle position preset (top, center, bottom) from elements"""
+        if 'subtitle' in elements:
+            element = elements['subtitle']
+            if 'position_preset' in element:
+                return element['position_preset']
+        return "bottom"
+
+    def _extract_pip_visibility(self, elements: dict) -> bool:
+        """Extract PiP visibility from elements"""
+        if 'pip' in elements:
+            element = elements['pip']
+            if 'visible' in element:
+                return element['visible']
+            return element.get('enabled', False)
+        return False
+
+    def _extract_title_font_size(self, elements: dict) -> int:
+        """Extract title font size from elements"""
+        if 'title' in elements and 'size' in elements['title']:
+            return elements['title']['size']
+        return 24
+
+    def _extract_subtitle_font_size(self, elements: dict) -> int:
+        """Extract subtitle font size from elements"""
+        if 'subtitle' in elements and 'size' in elements['subtitle']:
+            return elements['subtitle']['size']
+        return 18
     
 
     def save_template_editor_settings(self, template_editor):

@@ -22,7 +22,7 @@ class TemplateControls(QWidget):
     event_changed = pyqtSignal(str)  # event_id
     constraint_mode_changed = pyqtSignal(bool)
     element_property_changed = pyqtSignal(str, str, object)  # element_id, property, value
-    reset_positions_requested = pyqtSignal()
+    # NO RESET SIGNAL - removed to prevent crashes
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -45,11 +45,7 @@ class TemplateControls(QWidget):
         constraint_group = self._create_constraint_group()
         layout.addWidget(constraint_group)
         
-        # Reset Positions button
-        reset_btn = QPushButton("Reset All Positions")
-        reset_btn.setToolTip("Reset all elements to their default positions for this content type.")
-        reset_btn.clicked.connect(self.reset_positions_requested.emit)
-        layout.addWidget(reset_btn)
+        # NO RESET BUTTON - removed completely to avoid crashes
         
         # Element properties
         self.element_group = self._create_element_properties_group()
@@ -144,14 +140,7 @@ class TemplateControls(QWidget):
         elif element_type == 'pip':
             self._add_pip_properties(element_data)
         
-        # Enable/disable checkbox (always show this for all elements)
-        enabled_checkbox = QCheckBox("Visible")
-        enabled_checkbox.setChecked(element_data.get('enabled', True))
-        enabled_checkbox.toggled.connect(
-            lambda checked: self.element_property_changed.emit(element_id, 'enabled', checked)
-        )
-        self.properties_layout.addRow("", enabled_checkbox)  # No label, just the checkbox
-        
+        # NO DUPLICATE VISIBLE CHECKBOX - only one is needed
         self.no_selection_label.hide()
         self.properties_widget.show()
     
@@ -216,11 +205,14 @@ class TemplateControls(QWidget):
         # Font size
         size_spin = QSpinBox()
         size_spin.setRange(8, 200)
-        size_spin.setValue(element_data.get('size', 24))
+        size_spin.setValue(element_data.get('font_size', 24))  # Use font_size instead of size
         size_spin.valueChanged.connect(
-            lambda value: self.element_property_changed.emit(self.current_element, 'size', value)
+            lambda value: self.element_property_changed.emit(self.current_element, 'font_size', value)  # Use font_size
         )
         self.properties_layout.addRow("Font Size:", size_spin)
+        
+        # Store reference to font size spin box for updates
+        self.font_size_spin = size_spin
         
         # Color
         color_btn = QPushButton("Choose Color")
@@ -229,34 +221,33 @@ class TemplateControls(QWidget):
         color_btn.clicked.connect(lambda: self._choose_color(color_btn))
         self.properties_layout.addRow("Color:", color_btn)
         
-        # Simplified Position (Top/Middle/Bottom)
+        # Simplified Position with LOWERCASE presets (top/center/bottom)
         position_combo = QComboBox()
-        position_combo.addItems(["Top", "Middle", "Bottom"])
-        
-        # Determine current position based on Y coordinate - handle rect format safely
-        rect = element_data.get('rect')
-        current_position = "Middle"  # default
-        if rect:
-            # Handle different rect formats safely
-            y_pos = 300  # default middle position
-            if hasattr(rect, 'y'):  # QRect object
-                y_pos = rect.y()
-            elif isinstance(rect, dict):
-                y_pos = rect.get('y', 300)
-            elif isinstance(rect, list) and len(rect) >= 2:
-                y_pos = rect[1]  # Y is second element
-            
-            # Rough approximation based on content dimensions
-            if y_pos < 200:
-                current_position = "Top"
-            elif y_pos > 400:
-                current_position = "Bottom"
-        
+        position_combo.addItems(["top", "center", "bottom"])
+
+        # Get current position from element or use default
+        current_position = element_data.get('position_preset', 'center')
+        # If uppercase, convert to lowercase
+        if current_position == "Top":
+            current_position = "top"
+        elif current_position == "Middle":
+            current_position = "center"
+        elif current_position == "Bottom":
+            current_position = "bottom"
+
         position_combo.setCurrentText(current_position)
         position_combo.currentTextChanged.connect(
             lambda text: self.element_property_changed.emit(self.current_element, 'position_preset', text)
         )
         self.properties_layout.addRow("Position:", position_combo)
+
+        # Add visibility checkbox
+        visible_checkbox = QCheckBox("Visible")
+        visible_checkbox.setChecked(element_data.get('visible', True))
+        visible_checkbox.toggled.connect(
+            lambda checked: self.element_property_changed.emit(self.current_element, 'visible', checked)
+        )
+        self.properties_layout.addRow("", visible_checkbox)
     
     def _add_pip_properties(self, element_data: dict):
         """Add simplified PiP-specific properties - always centered with 16:9 aspect ratio."""
@@ -287,6 +278,14 @@ class TemplateControls(QWidget):
         corner_widget = QWidget()
         corner_widget.setLayout(corner_layout)
         self.properties_layout.addRow("Corner Radius:", corner_widget)
+        
+        # Add visibility checkbox for PiP elements
+        visible_checkbox = QCheckBox("Visible")
+        visible_checkbox.setChecked(element_data.get('visible', True))
+        visible_checkbox.toggled.connect(
+            lambda checked: self.element_property_changed.emit(self.current_element, 'visible', checked)
+        )
+        self.properties_layout.addRow("", visible_checkbox)
         
         # Store references for updates
         self.corner_slider = corner_slider
@@ -364,7 +363,7 @@ class TemplateControls(QWidget):
             print(f"   Properties: visible={element_data.get('visible', True)}, enabled={element_data.get('enabled', True)}")
             
             if element_data.get('type') == 'text':
-                print(f"   Text properties: content='{element_data.get('content', '')}', size={element_data.get('size', 24)}")
+                print(f"   Text properties: content='{element_data.get('content', '')}', font_size={element_data.get('font_size', 24)}")
             elif element_data.get('type') == 'pip':
                 print(f"   PiP properties: corner_radius={element_data.get('corner_radius', 0)}")
                 
@@ -376,3 +375,12 @@ class TemplateControls(QWidget):
         """Update properties for the currently selected element."""
         if self.current_element:
             self._update_element_properties(self.current_element, element_data)
+    
+    def update_font_size_display(self, font_size: int):
+        """Update the font size display in the controls."""
+        if hasattr(self, 'font_size_spin'):
+            # Temporarily disconnect to avoid triggering change event
+            self.font_size_spin.blockSignals(True)
+            self.font_size_spin.setValue(font_size)
+            self.font_size_spin.blockSignals(False)
+            print(f"📝 Updated font size display to {font_size}")

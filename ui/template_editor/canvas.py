@@ -4,6 +4,7 @@ Interactive canvas for template editing with drag and element manipulation.
 import copy
 from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import Qt, pyqtSignal, QRect, QSize, QPointF, QPoint
+from typing import Optional
 from PyQt6.QtGui import QColor, QPainter, QPen, QFont, QBrush, QWheelEvent, QMouseEvent
 
 from .utils import (
@@ -210,9 +211,9 @@ class TemplateCanvas(QWidget):
         
         elements = {}
         
-        # PiP: Always centered, standard width with margin, 16:9 aspect ratio
+        # PiP: Always centered, BIGGER (75% of frame width), 16:9 aspect ratio
         margin = 20  # Tiny margin
-        pip_width = frame_rect.width() - (2 * margin)  # Full width minus margins
+        pip_width = int(frame_rect.width() * 0.75)  # 75% of frame width - MUCH BIGGER
         pip_height = int(pip_width * 9 / 16)  # 16:9 aspect ratio (height = width * 9/16)
         pip_x = frame_rect.center().x() - pip_width // 2
         pip_y = frame_rect.center().y() - pip_height // 2
@@ -226,7 +227,9 @@ class TemplateCanvas(QWidget):
             'color': QColor(100, 150, 200, 128),
             'border_color': QColor(255, 255, 255),
             'border_width': 2,
-            'locked': True  # Cannot be moved, resized, or repositioned
+            'locked': True,  # Cannot be moved, resized, or repositioned
+            'position_preset': 'center',  # Always center
+            'visible': True  # Always visible
         }
         
         # Set REAL font sizes (what user will see in the input - these are the actual sizes for 1080x1920)
@@ -587,9 +590,16 @@ class TemplateCanvas(QWidget):
             y += self.grid_size
     
     def _draw_elements(self, painter):
-        """Draw all template elements."""
+        """Draw all template elements, respecting visibility property."""
         for element_id, element in self.elements.items():
-            # Draw all elements, but show disabled ones differently
+            # Check if element should be visible
+            visible = element.get('visible', True)
+            
+            # Skip completely invisible elements (unless selected)
+            if not visible and self.selected_element != element_id:
+                continue
+                
+            # Draw elements based on type
             if element['type'] == 'pip':
                 self._draw_pip_element(painter, element_id, element)
             elif element['type'] == 'text':
@@ -612,14 +622,19 @@ class TemplateCanvas(QWidget):
         
         corner_radius = element.get('corner_radius', 0)
         enabled = element.get('enabled', True)
+        is_visible = element.get('visible', True)
         
-        # Apply opacity for disabled elements
-        if not enabled:
+        # Apply opacity for disabled elements OR invisible elements
+        if not enabled or not is_visible:
             painter.setOpacity(0.3)
         
         # Use plugin highlight color if available, otherwise default colors
-        default_color = QColor(100, 150, 200, 128)
-        border_color = QColor(255, 255, 255)
+        if is_visible:
+            default_color = QColor(100, 150, 200, 128)
+            border_color = QColor(255, 255, 255)
+        else:
+            default_color = QColor(50, 50, 50, 128)  # Darker when invisible
+            border_color = QColor(100, 100, 100)     # Darker border when invisible
         
         # Background with optional rounded corners
         painter.setBrush(QBrush(default_color))
@@ -662,68 +677,48 @@ class TemplateCanvas(QWidget):
             self._draw_locked_selection(painter, rect)
     
     def _draw_text_element(self, painter, element_id, element):
-        """Draw text overlay element."""
+        """Draw SIMPLIFIED text element - NO background, NO selection handles."""
         rect = element['rect']
         
-        # Ensure rect is a QRect object (convert from dict or list if needed)
+        # Ensure rect is a QRect object
         if isinstance(rect, dict):
-            # Convert from dict format: {'x': X, 'y': Y, 'width': W, 'height': H}
             rect = QRect(int(rect['x']), int(rect['y']), int(rect['width']), int(rect['height']))
         elif isinstance(rect, list) and len(rect) == 4:
-            # Convert from list format: [x, y, width, height]
             rect = QRect(int(rect[0]), int(rect[1]), int(rect[2]), int(rect[3]))
         elif not isinstance(rect, QRect):
-            # Fallback to default rect
             rect = QRect(100, 100, 200, 50)
         
-        enabled = element.get('enabled', True)
+        # Get font size - use simplified property name
+        font_size = element.get('font_size', 24)
         
-        # Apply opacity for disabled elements
-        if not enabled:
-            painter.setOpacity(0.3)
+        # Calculate display scale: scale font size for the content frame
+        # For 9:16 content, the frame width represents 1080px
+        content_frame_width = self.content_frame.width()
+        scale_factor = content_frame_width / 1080.0  # Scale based on 1080p width
+        display_font_size = max(8, int(font_size * scale_factor))  # Minimum 8px
         
-        # Background
-        painter.setBrush(QBrush(QColor(0, 0, 0, 100)))
-        painter.setPen(QPen(QColor(255, 255, 255, 100), 1))
-        painter.drawRect(rect)
-        
-        # Text
-        color = element.get('color', QColor(255, 255, 255))
-        # Ensure color is a QColor object (convert from list if needed)
-        if isinstance(color, list) and len(color) == 4:
-            color = QColor(int(color[0]), int(color[1]), int(color[2]), int(color[3]))
-        
-        # Get the real font size and scale it for display
-        real_size = element.get('size', 24)  # This is the real size (what user entered)
-        
-        # Calculate display scale: current frame width vs real width (1080 for portrait)
-        from .utils.dimensions import get_content_dimensions
-        dims = get_content_dimensions(self.content_type)
-        real_width = 1080 if dims['aspect_ratio'] < 1.0 else 1920
-        display_scale = self.content_frame.width() / real_width
-        display_size = max(6, int(real_size * display_scale))  # Scale down for display
-        
-        style = element.get('style', 'normal')
         content = element.get('content', 'Text')
         
-        painter.setPen(color)
-        font = QFont("Arial", display_size)  # Use scaled size for display
-        if style == 'bold':
-            font.setWeight(QFont.Weight.Bold)
+        # Set text color based on visibility - DARKER if invisible but still visible for clicking
+        is_visible = element.get('visible', True)
+        if is_visible:
+            text_color = QColor(255, 255, 255)  # White text when visible
+        else:
+            text_color = QColor(80, 80, 80)     # Dark gray when invisible but still clickable
+        
+        # Set up font
+        painter.setPen(text_color)
+        font = QFont("Arial", display_font_size)
         painter.setFont(font)
+        
+        # Draw ONLY the text - no background, no selection handles
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, content)
         
-        # Show disabled indicator
-        if not enabled:
-            painter.setPen(QColor(255, 100, 100))
-            painter.drawText(rect.adjusted(5, 5, -5, -5), Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight, "OFF")
-        
-        # Reset opacity
-        painter.setOpacity(1.0)
-        
-        # Selection handles
+        # Show selection indicator with just a subtle outline (NO handles)
         if element_id == self.selected_element:
-            self._draw_selection_handles(painter, rect)
+            painter.setPen(QPen(QColor(0, 120, 255, 100), 2))  # Subtle blue outline
+            painter.setBrush(QBrush())  # No fill
+            painter.drawRect(rect)
     
     def _draw_selection_handles(self, painter, rect):
         """Draw selection handles around an element."""
@@ -794,14 +789,10 @@ class TemplateCanvas(QWidget):
         """Position elements relative to content frame."""
         frame = self.content_frame
         
-        # Position PiP (always centered with 16:9 aspect ratio)
+        # Position PiP (always centered with 16:9 aspect ratio) - BIGGER SIZE
         if 'pip' in self.elements:
-            # Calculate 16:9 PiP size that fits nicely in the frame
-            max_width = frame.width() // 3  # Take up 1/3 of frame width max
-            max_height = frame.height() // 3  # Take up 1/3 of frame height max
-            
-            # Use 16:9 aspect ratio
-            pip_width = min(max_width, int(max_height * 16 / 9))
+            # Calculate 16:9 PiP size - MUCH BIGGER (75% of frame width)
+            pip_width = int(frame.width() * 0.75)
             pip_height = int(pip_width * 9 / 16)
             
             # Center in the frame
@@ -809,6 +800,7 @@ class TemplateCanvas(QWidget):
             center_y = frame.y() + (frame.height() - pip_height) // 2
             
             self.elements['pip']['rect'] = QRect(center_x, center_y, pip_width, pip_height)
+            self.elements['pip']['position_preset'] = 'center'  # Always center
         
         # Position text elements
         positions = {
@@ -857,35 +849,20 @@ class TemplateCanvas(QWidget):
         super().wheelEvent(event)
     
     def mousePressEvent(self, event: QMouseEvent):
-        """Handle mouse press events."""
+        """Handle mouse press events - SIMPLIFIED: only selection, no dragging or resizing."""
         if event.button() == Qt.MouseButton.LeftButton:
             # Get mouse position
             canvas_point = QPoint(int(event.position().x()), int(event.position().y()))
             
-            # Check for element selection/interaction
+            # Check for element selection ONLY - no interaction
             selected = self._find_element_at_point(canvas_point)
             
             if selected:
-                element_id, interaction_type = selected
+                element_id, _ = selected
                 self.selected_element = element_id
                 
-                # Check if this is a PiP element (which should be locked)
-                element = self.elements[element_id]
-                is_pip = element.get('type') == 'pip'
-                
-                if is_pip:
-                    # PiP elements can only be selected, not moved or resized
-                    self.element_selected.emit(element_id)
-                elif interaction_type == "resize":
-                    self.resizing_element = element_id
-                    element_rect = self._get_qrect_from_element(self.elements[element_id])
-                    self.resize_handle = self._get_resize_handle(canvas_point, element_rect)
-                elif interaction_type == "move":
-                    self.dragging_element = element_id
-                    self.last_mouse_pos = canvas_point
-                
-                if not is_pip:
-                    self.element_selected.emit(element_id)
+                # Just emit selection signal, no dragging or resizing
+                self.element_selected.emit(element_id)
             else:
                 self.selected_element = None
                 self.canvas_clicked.emit(QPointF(event.position().x(), event.position().y()))
@@ -893,69 +870,9 @@ class TemplateCanvas(QWidget):
             self.update()
     
     def mouseMoveEvent(self, event: QMouseEvent):
-        """Handle mouse move events."""
-        if self.dragging_element:
-            # Move element
-            canvas_point = QPoint(int(event.position().x()), int(event.position().y()))
-            # Convert to original coordinate space
-            if self.last_mouse_pos:
-                delta = canvas_point - self.last_mouse_pos
-                element = self.elements[self.dragging_element]
-                
-                # Use helper method to get QRect from element
-                old_rect = self._get_qrect_from_element(element)
-                
-                new_rect = QRect(old_rect.x() + delta.x(), old_rect.y() + delta.y(),
-                               old_rect.width(), old_rect.height())
-                
-                # Apply constraints if enabled
-                if self.constrain_to_frame:
-                    if new_rect.left() < self.content_frame.left():
-                        new_rect.moveLeft(self.content_frame.left())
-                    if new_rect.top() < self.content_frame.top():
-                        new_rect.moveTop(self.content_frame.top())
-                    if new_rect.right() > self.content_frame.right():
-                        new_rect.moveRight(self.content_frame.right())
-                    if new_rect.bottom() > self.content_frame.bottom():
-                        new_rect.moveBottom(self.content_frame.bottom())
-                
-                element['rect'] = new_rect
-                self.element_moved.emit(self.dragging_element, new_rect)
-            
-            # Update last mouse position in original coordinate space
-            self.last_mouse_pos = canvas_point
-            self.update()
-        
-        elif self.resizing_element:
-            # Resize element
-            canvas_point = QPoint(int(event.position().x()), int(event.position().y()))
-            
-            element = self.elements[self.resizing_element]
-            # Use helper method to get QRect from element
-            old_rect = self._get_qrect_from_element(element)
-            
-            new_rect = self._calculate_resize(old_rect, canvas_point, self.resize_handle)
-            
-            # Apply constraints if enabled
-            if self.constrain_to_frame:
-                if new_rect.left() < self.content_frame.left():
-                    new_rect.moveLeft(self.content_frame.left())
-                if new_rect.top() < self.content_frame.top():
-                    new_rect.moveTop(self.content_frame.top())
-                if new_rect.right() > self.content_frame.right():
-                    new_rect.moveRight(self.content_frame.right())
-                if new_rect.bottom() > self.content_frame.bottom():
-                    new_rect.moveBottom(self.content_frame.bottom())
-            
-            # Ensure minimum size
-            if new_rect.width() < 20:
-                new_rect.setWidth(20)
-            if new_rect.height() < 20:
-                new_rect.setHeight(20)
-            
-            element['rect'] = new_rect
-            self.element_resized.emit(self.resizing_element, new_rect)
-            self.update()
+        """Handle mouse move events - SIMPLIFIED: no dragging/resizing."""
+        # No mouse movement handling - simplified interface
+        pass
     
     def mouseReleaseEvent(self, event: QMouseEvent):
         """Handle mouse release events."""
@@ -982,7 +899,7 @@ class TemplateCanvas(QWidget):
             # Fallback to default rect
             return QRect(50, 50, 100, 50)
 
-    def _find_element_at_point(self, point: QPoint) -> tuple[str, str] | None:
+    def _find_element_at_point(self, point: QPoint) -> Optional[tuple[str, str]]:
         """Find element at point and determine interaction type."""
         # Check resize handles first (if an element is selected)
         if self.selected_element and self.selected_element in self.elements:
@@ -1361,16 +1278,15 @@ class TemplateCanvas(QWidget):
         
         self.elements = {}  # Start completely fresh
         
-        # Create PiP with CONSISTENT position for THIS frame (slight offset per frame)
-        pip_size = 100  # Fixed size
-        pip_offset_x = (self.current_frame * 15) % 50  # Small consistent offset per frame
-        pip_offset_y = (self.current_frame * 20) % 40
-        pip_x = frame_bounds.x() + margin + pip_offset_x
-        pip_y = frame_bounds.y() + margin + pip_offset_y
+        # Create PiP with BIGGER size and CENTER it (no per-frame offset)
+        pip_width = int(frame_bounds.width() * 0.75)  # 75% of frame width - MUCH BIGGER
+        pip_height = int(pip_width * 9 / 16)  # 16:9 aspect ratio
+        pip_x = frame_bounds.x() + (frame_bounds.width() - pip_width) // 2  # Center horizontally
+        pip_y = frame_bounds.y() + (frame_bounds.height() - pip_height) // 2  # Center vertically
         
         self.elements['pip'] = {
             'type': 'pip',
-            'rect': QRect(pip_x, pip_y, pip_size, pip_size),
+            'rect': QRect(pip_x, pip_y, pip_width, pip_height),
             'enabled': True,
             'use_plugin_aspect_ratio': False,
             'plugin_aspect_ratio': 1.75,
@@ -1379,7 +1295,9 @@ class TemplateCanvas(QWidget):
             'shape': 'rectangle',
             'color': QColor(100, 150, 200, 128),
             'border_color': QColor(255, 255, 255),
-            'border_width': 2
+            'border_width': 2,
+            'position_preset': 'center',  # Always center
+            'visible': True  # Always visible
         }
         
         # Create title with CONSISTENT position for THIS frame
@@ -1388,16 +1306,18 @@ class TemplateCanvas(QWidget):
         title_offset_x = (self.current_frame * 10) % 30
         title_offset_y = (self.current_frame * 12) % 25
         title_x = frame_bounds.x() + margin + title_offset_x
-        title_y = frame_bounds.y() + pip_size + margin * 2 + title_offset_y
+        title_y = frame_bounds.y() + pip_height + margin * 2 + title_offset_y
         
         self.elements['title'] = {
             'type': 'text',
             'rect': QRect(title_x, title_y, title_width, title_height),
             'content': f'{self.content_type.title()} Title (Frame {self.current_frame + 1})',
-            'size': 24,
+            'font_size': 24,  # Updated property name
             'color': QColor(255, 255, 255),
             'style': 'normal',
-            'enabled': True
+            'enabled': True,
+            'position_preset': 'top',
+            'visible': True
         }
         
         # Create subtitle with CONSISTENT position for THIS frame
@@ -1412,10 +1332,12 @@ class TemplateCanvas(QWidget):
             'type': 'text',
             'rect': QRect(subtitle_x, subtitle_y, subtitle_width, subtitle_height),
             'content': f'Subtitle for Frame {self.current_frame + 1}',
-            'size': 18,
+            'font_size': 18,  # Updated property name
             'color': QColor(255, 255, 255),
             'style': 'normal',
-            'enabled': True
+            'enabled': True,
+            'position_preset': 'bottom',
+            'visible': True
         }
         
         # Set frame description for this frame if not already set
@@ -1433,7 +1355,7 @@ class TemplateCanvas(QWidget):
             self.frame_description = frame_data.get('frame_description')
         
         print(f"📐 Created CONSISTENT positions for frame {self.current_frame}:")
-        print(f"   PiP: {pip_x},{pip_y} ({pip_size}x{pip_size})")
+        print(f"   PiP: {pip_x},{pip_y} ({pip_width}x{pip_height})")
         print(f"   Title: {title_x},{title_y} ({title_width}x{title_height})")
         print(f"   Subtitle: {subtitle_x},{subtitle_y} ({subtitle_width}x{subtitle_height})")
         
@@ -1732,97 +1654,53 @@ class TemplateCanvas(QWidget):
     
     
     def load_frame_elements(self, elements_data: dict):
-        """Load elements data into the current frame with COMPLETE property restoration."""
-        print(f"🎨 Canvas loading {len(elements_data)} elements with full independence")
+        """Load elements data with simplified properties only."""
+        print(f"🎨 Canvas loading {len(elements_data)} elements with simplified system")
         
         self.elements = {}
         
-        # Restore Qt objects from serialized data with COMPLETE properties
+        # Load elements with only essential properties
         for element_id, element_data in elements_data.items():
-            element_copy = copy.deepcopy(element_data)
-            element_copy = restore_qt_objects(element_copy)
+            # Create element with only essential properties
+            element = {
+                'id': element_id,
+                'type': element_data.get('type', 'text'),
+                'content': element_data.get('content', ''),
+                'font_size': element_data.get('font_size', 12),
+                'position_preset': element_data.get('position_preset', 'center'),
+                'visible': element_data.get('visible', True),
+                'rect': QRect(100, 100, 200, 100)  # Default rect, will be updated by preset
+            }
             
-            # Ensure ALL properties are present for frame independence
-            if 'visible' not in element_copy:
-                element_copy['visible'] = True
-            if 'enabled' not in element_copy:
-                element_copy['enabled'] = True
-            if 'rect' not in element_copy:
-                element_copy['rect'] = {'x': 100, 'y': 100, 'width': 200, 'height': 50}
-            
-            # For text elements - ensure ALL text properties
-            if element_copy.get('type') == 'text':
-                if 'content' not in element_copy:
-                    element_copy['content'] = 'Sample Text'
-                if 'size' not in element_copy:
-                    element_copy['size'] = 24
-                if 'color' not in element_copy:
-                    from PyQt6.QtGui import QColor
-                    element_copy['color'] = QColor(255, 255, 255)
-                if 'position_preset' not in element_copy:
-                    element_copy['position_preset'] = 'Middle'
-                    
-                print(f"   📝 Text Element {element_id}: '{element_copy['content']}', visible={element_copy['visible']}")
-            
-            # For PiP elements - ensure ALL PiP properties
-            elif element_copy.get('type') == 'pip':
-                if 'corner_radius' not in element_copy:
-                    element_copy['corner_radius'] = 0
-                    
-                print(f"   🎬 PiP Element {element_id}: visible={element_copy['visible']}, corner_radius={element_copy['corner_radius']}")
-            
-            self.elements[element_id] = element_copy
+            self.elements[element_id] = element
+            print(f"   📝 Loaded Element {element_id}: '{element['content']}', preset={element['position_preset']}")
         
-        print(f"✅ Canvas loaded {len(self.elements)} elements with complete frame independence")
+        # Apply all position presets after loading
+        self._apply_all_position_presets()
+        
+        # CRITICAL: Ensure PiP is always centered and properly sized
+        self._ensure_pip_centered()
+        
+        print(f"✅ Canvas loaded {len(self.elements)} elements with simplified system")
         self.update()
     
     def get_elements_data(self) -> dict:
-        """Get current frame elements data with COMPLETE properties for frame independence."""
+        """Get current frame elements data with only essential properties."""
         elements_data = {}
         
         for element_id, element in self.elements.items():
-            # Deep copy to avoid reference issues
-            element_copy = copy.deepcopy(element)
+            # Only save essential properties
+            element_data = {
+                'type': element.get('type', 'text'),
+                'content': element.get('content', ''),
+                'font_size': element.get('font_size', 12),
+                'position_preset': element.get('position_preset', 'center'),
+                'visible': element.get('visible', True)
+            }
             
-            # Ensure ALL critical properties are included
-            if 'visible' not in element_copy:
-                element_copy['visible'] = True
-            if 'enabled' not in element_copy:
-                element_copy['enabled'] = True
-            if 'type' not in element_copy:
-                element_copy['type'] = 'unknown'
-            
-            # For text elements - include ALL text properties
-            if element_copy.get('type') == 'text':
-                if 'content' not in element_copy:
-                    element_copy['content'] = 'Sample Text'
-                if 'size' not in element_copy:
-                    element_copy['size'] = 24
-                if 'color' not in element_copy:
-                    from PyQt6.QtGui import QColor
-                    element_copy['color'] = QColor(255, 255, 255)
-                if 'position_preset' not in element_copy:
-                    element_copy['position_preset'] = 'Middle'
-            
-            # For PiP elements - include ALL PiP properties
-            elif element_copy.get('type') == 'pip':
-                if 'corner_radius' not in element_copy:
-                    element_copy['corner_radius'] = 0
-            
-            # Ensure rect is properly serializable
-            if 'rect' in element_copy and hasattr(element_copy['rect'], 'x'):
-                # Convert QRect to dict for serialization
-                rect = element_copy['rect']
-                element_copy['rect'] = {
-                    'x': rect.x(),
-                    'y': rect.y(),
-                    'width': rect.width(),
-                    'height': rect.height()
-                }
-            
-            elements_data[element_id] = element_copy
+            elements_data[element_id] = element_data
         
-        print(f"📦 Canvas providing {len(elements_data)} elements with complete properties")
+        print(f"📦 Canvas providing {len(elements_data)} elements with simplified properties")
         return elements_data
     
     def get_frame_description(self) -> str:
@@ -1834,7 +1712,7 @@ class TemplateCanvas(QWidget):
         self.frame_description = description
 
     def update_element_property(self, element_id: str, property_name: str, value):
-        """Update a property of an element."""
+        """Update a property of an element with simplified system."""
         if element_id not in self.elements:
             return
         
@@ -1842,60 +1720,69 @@ class TemplateCanvas(QWidget):
         
         if property_name == 'content':
             element['content'] = value
-        elif property_name == 'size':
-            element['size'] = value
-        elif property_name == 'color':
-            element['color'] = value
-        elif property_name == 'enabled':
-            element['enabled'] = value
-        elif property_name == 'corner_radius':
-            element['corner_radius'] = value
+        elif property_name == 'font_size':
+            element['font_size'] = value
+        elif property_name == 'visible':
+            element['visible'] = value
         elif property_name == 'position_preset':
-            # Handle simplified position preset
+            # Apply position preset immediately
             self._apply_position_preset(element_id, value)
-        elif property_name.startswith('rect_'):
-            # Handle rect property updates
-            rect_prop = property_name.replace('rect_', '')
-            rect = element.get('rect', QRect(100, 100, 200, 100))
-            if rect_prop == 'x':
-                rect.setX(value)
-            elif rect_prop == 'y':
-                rect.setY(value)
-            elif rect_prop == 'width':
-                rect.setWidth(value)
-            elif rect_prop == 'height':
-                rect.setHeight(value)
-            element['rect'] = rect
         
         # Update the visual representation
         self.update()
     
+    def _apply_all_position_presets(self):
+        """Apply position presets to all elements."""
+        for element_id, element in self.elements.items():
+            preset = element.get('position_preset', 'center')
+            self._apply_position_preset(element_id, preset)
+    
     def _apply_position_preset(self, element_id: str, preset: str):
-        """Apply a position preset to an element."""
+        """Apply position preset relative to the CONTENT FRAME (9:16 window), not canvas."""
         if element_id not in self.elements:
             return
         
         element = self.elements[element_id]
-        rect = element.get('rect', QRect(100, 100, 200, 100))
         
-        # Get canvas dimensions
-        canvas_width = self.width()
-        canvas_height = self.height()
+        # Use content frame dimensions (the 9:16 window)
+        frame = self.content_frame
+        frame_width = frame.width()
+        frame_height = frame.height()
+        frame_x = frame.x()
+        frame_y = frame.y()
         
-        # Calculate position based on preset
-        if preset == "Top":
-            new_y = 50
-        elif preset == "Bottom":
-            new_y = canvas_height - rect.height() - 50
-        else:  # Middle
-            new_y = (canvas_height - rect.height()) // 2
+        # Calculate text dimensions based on content and font size
+        content = element.get('content', 'Text')
+        font_size = element.get('font_size', 24)
         
-        # Center horizontally
-        new_x = (canvas_width - rect.width()) // 2
+        # Scale font size for display
+        scale_factor = frame_width / 1080.0
+        display_font_size = max(8, int(font_size * scale_factor))
         
-        rect.setX(new_x)
-        rect.setY(new_y)
-        element['rect'] = rect
+        # Calculate proper text dimensions - much larger to avoid cropping
+        text_width = max(frame_width - 40, len(content) * display_font_size * 0.8)  # Much wider
+        text_height = max(display_font_size * 3, 80)  # Much taller for larger fonts
+        
+        # Make sure text fits within frame
+        if text_width > frame_width - 20:
+            text_width = frame_width - 20
+        
+        # Position relative to content frame
+        if preset.lower() == "top":
+            x = frame_x + (frame_width - text_width) / 2  # Center horizontally in frame
+            y = frame_y + 30  # Top margin within frame
+        elif preset.lower() == "bottom":
+            x = frame_x + (frame_width - text_width) / 2  # Center horizontally in frame
+            y = frame_y + frame_height - text_height - 30  # Bottom margin within frame
+        else:  # center
+            x = frame_x + (frame_width - text_width) / 2  # Center horizontally in frame
+            y = frame_y + (frame_height - text_height) / 2  # Center vertically in frame
+        
+        # Update element rect
+        element['rect'] = QRect(int(x), int(y), int(text_width), int(text_height))
+        element['position_preset'] = preset.lower()
+        
+        print(f"Applied {preset} preset to {element_id} in content frame: ({int(x)}, {int(y)}) size: ({int(text_width)}, {int(text_height)})")
 
     def get_element_data(self, element_id: str) -> dict:
         """Get element data for the specified element."""
@@ -1921,3 +1808,24 @@ class TemplateCanvas(QWidget):
         """Get QRect from element, handling various rect formats."""
         rect_data = element.get('rect')
         return self._ensure_qrect(rect_data)
+    
+    def _ensure_pip_centered(self):
+        """Ensure PiP is always centered and properly sized - MUCH BIGGER."""
+        if 'pip' not in self.elements:
+            return
+        
+        frame = self.content_frame
+        
+        # PiP should be MUCH BIGGER - 75% of frame width
+        pip_width = int(frame.width() * 0.75)
+        pip_height = int(pip_width * 9 / 16)  # 16:9 aspect ratio
+        
+        # Center in the frame
+        center_x = frame.x() + (frame.width() - pip_width) // 2
+        center_y = frame.y() + (frame.height() - pip_height) // 2
+        
+        # Update PiP position and size
+        self.elements['pip']['rect'] = QRect(center_x, center_y, pip_width, pip_height)
+        self.elements['pip']['position_preset'] = 'center'  # Always center
+        
+        print(f"PiP centered: ({center_x}, {center_y}) size: ({pip_width}, {pip_height})")

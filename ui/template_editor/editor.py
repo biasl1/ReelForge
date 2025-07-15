@@ -87,7 +87,6 @@ class TemplateEditor(QWidget):
         self.controls.event_changed.connect(self.load_event)
         # Note: Frame navigation is now handled by frame_timeline, not controls
         self.controls.constraint_mode_changed.connect(self.canvas.set_constraint_mode)
-        self.controls.reset_positions_requested.connect(self._handle_reset_positions)
         self.controls.element_property_changed.connect(self._handle_element_property_change)
         
         # Canvas -> Controls
@@ -375,18 +374,6 @@ class TemplateEditor(QWidget):
             frame_data = self._get_frame_data(self.current_event_id, frame_index)
             frame_data['frame_description'] = description
             self._set_frame_data(self.current_event_id, frame_index, frame_data)
-    
-    def _handle_reset_positions(self):
-        """Handle reset positions request by passing current event's content type."""
-        if self.current_event_data:
-            content_type = self.current_event_data.content_type
-            print(f"🔄 Resetting positions for current event content type: {content_type}")
-            self.canvas.reset_positions(content_type)
-            
-            # After reset, save the new default elements to current frame
-            self._save_current_frame()
-        else:
-            print("❌ No current event - cannot reset positions")
 
     # === COMPATIBILITY METHODS ===
     
